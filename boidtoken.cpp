@@ -3,10 +3,10 @@
  *  @copyright defined in eos/LICENSE.txt
 */
 
-#include "ednatoken.hpp"
+#include "boidtoken.hpp"
 #include <math.h>
 
-void ednatoken::create(account_name issuer, asset maximum_supply)
+void boidtoken::create(account_name issuer, asset maximum_supply)
 {
     require_auth(_self);
 
@@ -26,7 +26,7 @@ void ednatoken::create(account_name issuer, asset maximum_supply)
     });
 }
 
-void ednatoken::issue(account_name to, asset quantity, string memo)
+void boidtoken::issue(account_name to, asset quantity, string memo)
 {
     auto sym = quantity.symbol;
     eosio_assert(sym.is_valid(), "invalid symbol name");
@@ -57,7 +57,7 @@ void ednatoken::issue(account_name to, asset quantity, string memo)
     }
 }
 
-void ednatoken::transfer(account_name from, account_name to, asset quantity, string memo)
+void boidtoken::transfer(account_name from, account_name to, asset quantity, string memo)
 {
     eosio_assert(from != to, "cannot transfer to self");
     require_auth(from);
@@ -79,7 +79,7 @@ void ednatoken::transfer(account_name from, account_name to, asset quantity, str
 }
 
 
-void ednatoken::setoverflow(account_name _overflow)
+void boidtoken::setoverflow(account_name _overflow)
 {
     require_auth(_self);
     config_table c_t(_self, _self);
@@ -97,7 +97,7 @@ void ednatoken::setoverflow(account_name _overflow)
 }
 
 
-void ednatoken::running(uint8_t on_switch){
+void boidtoken::running(uint8_t on_switch){
     require_auth (_self);
     config_table c_t (_self, _self);
     auto c_itr = c_t.find(0);
@@ -113,7 +113,7 @@ void ednatoken::running(uint8_t on_switch){
 }
 
 
-void ednatoken::stake(account_name _stake_account, uint8_t _stake_period, asset _staked)
+void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset _staked)
 {
     require_auth(_stake_account);
     config_table c_t (_self, _self);
@@ -140,50 +140,41 @@ void ednatoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
         s.stake_period = _stake_period;
         s.staked = _staked;
         s.escrow = setme;
-        if(_stake_period == WEEKLY){
-          s.stake_due = now() + WEEK_WAIT;
+        if(_stake_period == DAILY){
+          s.stake_due = now() + DAY_WAIT;
+          s.stake_date = now()+ DAY_WAIT;
+        }
+        else if(_stake_period == WEEKLY){
+          s.stake_due = now() + DAY_WAIT;
           s.stake_date = now()+ WEEK_WAIT;
-        }
-        else if(_stake_period == MONTHLY){
-          s.stake_due = now() + WEEK_WAIT;
-          s.stake_date = now()+ MONTH_WAIT;
-        }
-        else if(_stake_period == QUARTERLY){
-          s.stake_due = now() + WEEK_WAIT;
-          s.stake_date = now()+ QUARTER_WAIT;
         }
     });
     c_t.modify(c_itr, _self, [&](auto &c) {
         c.active_accounts += 1;
         c.total_staked.amount += _staked.amount;
-        if (_stake_period == WEEKLY) {
+        if (_stake_period == DAILY) {
+          c.staked_daily.amount += _staked.amount;
+        }
+        else if (_stake_period == WEEKLY) {
           c.staked_weekly.amount += _staked.amount;
-        }
-        else if (_stake_period == MONTHLY) {
-          c.staked_monthly.amount += _staked.amount;
-        }
-        else if (_stake_period == QUARTERLY) {
-          c.staked_quarterly.amount += _staked.amount;
         }
     });
 }
 
 
-void ednatoken::claim(account_name _stake_account){
+//TODO associate payout with boid power
+void boidtoken::claim(account_name _stake_account){
 
     uint64_t total_shares;
     asset total_payout;
     asset pay_per_share;
     asset my_shares;
     asset payout;
-    asset add_weekly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};                // Variables used to keep the config table in sync
-    asset add_monthly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-    asset add_quarterly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-    asset add_escrow_monthly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-    asset rem_escrow_monthly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-    asset add_escrow_quarterly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-    asset rem_escrow_quarterly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-    asset rem_unclaimed = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
+    asset add_daily = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};                // Variables used to keep the config table in sync
+    asset add_weekly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
+    asset add_escrow_weekly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
+    asset rem_escrow_weekly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
+    asset rem_unclaimed = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
 
     config_table c_t(_self, _self);
     auto c_itr = c_t.find(0);
@@ -198,82 +189,55 @@ void ednatoken::claim(account_name _stake_account){
     s_t.modify(itr, 0, [&](auto &s)
     {
         eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
-            ///***************          WEEKLY         ****************************//
-            if (itr->stake_period == WEEKLY)
+            ///***************          DAILY         ****************************//
+            if (itr->stake_period == DAILY)
             {
-                my_shares = ((WEEK_MULTIPLIERX100 * itr->staked)/100);                // calc payout
-                payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "EDNA")};
+                my_shares = ((DAY_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+                payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOIDTEST")};
                 //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
                 s.staked += payout;                                             // increases existing stake
                 add_weekly += payout;                                           // add to the config table weekly staked
                 rem_unclaimed += payout;                                        // decrement payout from pool
-                s.stake_due = now() + WEEK_WAIT;                                // advance the claim due 1 week
-                s.stake_date = now() + WEEK_WAIT;                               // advance the payout due 1 week
+                s.stake_due = now() + DAY_WAIT;                                // advance the claim due 1 day
+                s.stake_date = now() + DAY_WAIT;                               // advance the payout due 1 day 
             }
-            ///***************          MONTHLY         ****************************//
-            else if (itr->stake_period == MONTHLY)
+            ///***************          WEEKLY         ****************************//
+            else if (itr->stake_period == WEEKLY)
             {
-              my_shares = ((MONTH_MULTIPLIERX100 * itr->staked)/100);                // calc payout
-              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "EDNA")};
+              my_shares = ((WEEK_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOIDTEST")};
               //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
               if (itr->stake_date  <= now()) {                                  //if the stake_date has expired...payout this weeks funds + add_escrow advance both dates
                 rem_unclaimed += payout;                                        // decrement payout from pool
                 s.staked += payout;                                             // increases existing stake
                 s.staked += s.escrow;                                           // increases the stake by escrow amount
                 rem_escrow_monthly += s.escrow;                                 // config table book keeping
-                add_monthly += s.escrow;                                        // config table book keeping
-                add_monthly += payout;                                          // config table book keeping
+                add_weekly += s.escrow;                                        // config table book keeping
+                add_weekly += payout;                                          // config table book keeping
                 s.escrow -= s.escrow;                                           // zero the escrow
-                s.stake_due = now() + WEEK_WAIT;                                // advance the claim due 1 week
-                s.stake_date = now() + MONTH_WAIT;                              // advance the payout due 1 week
+                s.stake_due = now() + DAY_WAIT;                                // advance the claim due 1 week
+                s.stake_date = now() + WEEK_WAIT;                              // advance the payout due 1 week
               }
               else if (itr->stake_due  <= now()){                               // add to escrow
                 s.escrow += payout;
-                add_escrow_monthly += payout;                                   // decrement payout from pool
+                add_escrow_weekly += payout;                                   // decrement payout from pool
                 rem_unclaimed += payout;                                        // decrement payout from pool
-                s.stake_due = now() + WEEK_WAIT;
-              };
-            }
-            ///***************          QUARTERLY         ****************************//
-            else if (itr->stake_period == QUARTERLY)
-            {
-              my_shares = ((QUARTER_MULTIPLIERX100 * itr->staked)/100);         // calc payout
-              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "EDNA")};
-              //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
-              if (itr->stake_date  <= now()) {                                  //if the stake_date has expired...payout this weeks funds + add_escrow advance both dates
-                rem_unclaimed += payout;                                        // decrement payout from pool
-                s.staked += payout;                                             // increases existing stake
-                s.staked += s.escrow;                                           // increases the stake by escrow amount
-                rem_escrow_quarterly += s.escrow;                               // config table book keeping
-                add_quarterly += payout;                                        // config table book keeping
-                add_quarterly += s.escrow;                                      // config table book keeping
-                s.escrow -= s.escrow;                                           // zero the escrow
-                s.stake_due = now() + WEEK_WAIT;
-                s.stake_date = now() + QUARTER_WAIT;
-              }
-              else if (itr->stake_due  <= now()){                               // add to escrow
-                s.escrow += payout;
-                add_escrow_quarterly += payout;
-                rem_unclaimed += payout;
-                s.stake_due = now() + WEEK_WAIT;
+                s.stake_due = now() + DAY_WAIT;
               };
             }
         });
         c_t.modify(c_itr, _self, [&](auto &c) {
+        c.staked_daily.amount += add_daily.amount;
         c.staked_weekly.amount += add_weekly.amount;
-        c.staked_monthly.amount += add_monthly.amount;
-        c.staked_quarterly.amount += add_quarterly.amount;
-        c.total_staked.amount += (add_weekly.amount + add_monthly.amount + add_quarterly.amount);
-        c.total_escrowed_monthly.amount += add_escrow_monthly.amount;
-        c.total_escrowed_monthly.amount -= rem_escrow_monthly.amount;
-        c.total_escrowed_quarterly.amount += add_escrow_quarterly.amount;
-        c.total_escrowed_quarterly.amount -= rem_escrow_quarterly.amount;
+        c.total_staked.amount += (add_daily.amount + add_weekly.amount);
+        c.total_escrowed_weekly.amount += add_escrow_weekly.amount;
+        c.total_escrowed_weekly.amount -= rem_escrow_weekly.amount;
         c.unclaimed_tokens.amount -= rem_unclaimed.amount;
       });
 }
 
 
-void ednatoken::unstake(account_name _stake_account)
+void boidtoken::unstake(account_name _stake_account)
 {
     stake_table s_t(_self, _self);
     auto itr = s_t.find(_stake_account);
@@ -289,23 +253,19 @@ void ednatoken::unstake(account_name _stake_account)
     c_t.modify(c_itr, _self, [&](auto &c) {                                     // bookkeeping on the config table to keep the staked & esrowed amounts correct
     c.active_accounts -= 1;
     c.total_staked.amount -= itr->staked.amount;
-    if (itr->stake_period == WEEKLY) {
+    if (itr->stake_period == DAILY) {
+      c.staked_daily.amount -= itr->staked.amount;
+    }
+    else if ((itr->stake_period == WEEKLY)) {
       c.staked_weekly.amount -= itr->staked.amount;
-    }
-    else if ((itr->stake_period == MONTHLY)) {
-      c.staked_monthly.amount -= itr->staked.amount;
-      c.total_escrowed_monthly.amount -= itr->escrow.amount;
-    }
-    else if ((itr->stake_period == QUARTERLY)) {
-      c.staked_quarterly.amount -= itr->staked.amount;
-      c.total_escrowed_quarterly.amount -=  itr->escrow.amount;
+      c.total_escrowed_weekly.amount -= itr->escrow.amount;
     }
   });
   s_t.erase(itr);
 }
 
 
-void ednatoken::checkrun()
+void boidtoken::checkrun()
 {
     require_auth(_self);
     config_table c_t(_self, _self);
@@ -313,20 +273,18 @@ void ednatoken::checkrun()
 
     uint64_t total_shares = 0;
     auto supply = 1000000000;
-    auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_monthly.amount + c_itr->total_escrowed_quarterly.amount);
-    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "EDNA")};
-    total_shares = (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
-    total_shares += (MONTH_MULTIPLIERX100 * c_itr->staked_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->staked_quarterly.amount);
-    total_shares += (MONTH_MULTIPLIERX100 * c_itr->total_escrowed_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->total_escrowed_quarterly.amount);
+    auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_weekly.amount);
+    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOIDTEST")};
+    total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
+    total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
+    total_shares += (WEEK_MULTIPLIERX100 * c_itr->total_escrowed_weekly.amount);
     total_shares /= 100;
     uint64_t perc_stakedx100 = (total_stake  * 1000000 / supply * 1000000);
     uint64_t weekly_base = (BASE_WEEKLY * 1000000);
-    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "EDNA")}; // TESTING ONLY change symbol to go-live
-    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "EDNA")}; // TESTING ONLY change symbol to go-live
+    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "BOIDTEST")}; // TESTING ONLY change symbol to go-live
+    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOIDTEST")}; // TESTING ONLY change symbol to go-live
     auto my_pps = (total_payout.amount*10000/total_shares*10000);
-    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "EDNA")}; // TESTING ONLY change symbol to go-live
+    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOIDTEST")}; // TESTING ONLY change symbol to go-live
 
     if (total_payout.amount == 0 || total_stake == 0)
     {
@@ -342,7 +300,7 @@ void ednatoken::checkrun()
 }
 
 
-void ednatoken::addbonus(account_name _sender, asset _bonus)
+void boidtoken::addbonus(account_name _sender, asset _bonus)
 {
     require_auth(_sender);
     config_table c_t(_self, _self);
@@ -363,7 +321,7 @@ void ednatoken::addbonus(account_name _sender, asset _bonus)
 }
 
 
-void ednatoken::rembonus()
+void boidtoken::rembonus()
 {
   require_auth(_self);
   config_table c_t(_self, _self);
@@ -376,9 +334,9 @@ void ednatoken::rembonus()
 }
 
 
-void ednatoken::runpayout()
+void boidtoken::runpayout()
 {
-    ednatoken::running(0);                                                      //lock the staking and addbonus functions
+    boidtoken::running(0);                                                      //lock the staking and addbonus functions
     require_auth(_self);
     config_table c_t(_self, _self);
     auto c_itr = c_t.find(0);
@@ -393,19 +351,17 @@ void ednatoken::runpayout()
     uint64_t total_shares = 0;
     auto supply = 1000000000;
     auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_monthly.amount + c_itr->total_escrowed_quarterly.amount);
-    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "EDNA")};
-    total_shares = (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
-    total_shares += (MONTH_MULTIPLIERX100 * c_itr->staked_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->staked_quarterly.amount);
-    total_shares += (MONTH_MULTIPLIERX100 * c_itr->total_escrowed_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->total_escrowed_quarterly.amount);
+    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOIDTEST")};
+    total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
+    total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
+    total_shares += (WEEK_MULTIPLIERX100 * c_itr->total_escrowed_weekly.amount);
     total_shares /= 100;
     uint64_t perc_stakedx100 = (total_stake  * 1000000 / supply * 1000000);
     uint64_t weekly_base = (BASE_WEEKLY * 1000000);
-    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "EDNA")};
-    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "EDNA")};
+    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "BOIDTEST")};
+    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOIDTEST")};
     auto my_pps = (total_payout.amount*10000/total_shares*10000);
-    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "EDNA")};
+    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOIDTEST")};
     asset print_bonus = c_itr->bonus;
     auto unclaimed_tokens = total_payout;                                       // bonus set to zero below
     sub_balance(_self, unclaimed_tokens);                                       // remove the tokens from the account to the unclaimed pile
@@ -431,25 +387,23 @@ void ednatoken::runpayout()
       print("TEST RUN: " , "Total Staked & Escrowed: " , print_staked, " | " , "Total Payout: ", total_payout , " | ",
       "Bonus: ", c_itr->bonus , " | " , "Total Shares: " , total_shares/10000, " | " , "Pay/Share: "   , pay_per_share, "\n" );
     }
-    ednatoken::running(1);                                                      // unlock staking and add bonus
+    boidtoken::running(1);                                                      // unlock staking and add bonus
 }
 
 
-void ednatoken::initstats(){
+void boidtoken::initstats(){
   require_auth (_self);
-  asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
-  asset cleartokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "EDNA")};
+  asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
+  asset cleartokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
   config_table c_t (_self, _self);
   auto c_itr = c_t.find(0);
   c_t.modify(c_itr, _self, [&](auto &c) {
     returntokens = c.bonus + c.unclaimed_tokens;
     c.bonus = cleartokens;
+    c.staked_daily = cleartokens;
     c.staked_weekly = cleartokens;
-    c.staked_monthly = cleartokens;
-    c.staked_quarterly = cleartokens;
     c.total_staked = cleartokens;
-    c.total_escrowed_monthly = cleartokens;
-    c.total_escrowed_quarterly = cleartokens;
+    c.total_escrowed_weekly = cleartokens;
     c.active_accounts = 0;
     c.total_shares = 0;
     c.base_payout = cleartokens;
@@ -464,7 +418,7 @@ void ednatoken::initstats(){
 }
 
 
-void ednatoken::sub_balance(account_name owner, asset value)
+void boidtoken::sub_balance(account_name owner, asset value)
 {
     accounts from_acnts(_self, owner);
     const auto &from = from_acnts.get(value.symbol.name(), "no balance object found");
@@ -482,7 +436,7 @@ void ednatoken::sub_balance(account_name owner, asset value)
 /*
 *   Add ballance can be sent here by anyone
 */
-void ednatoken::add_balance(account_name owner, asset value, account_name ram_payer)
+void boidtoken::add_balance(account_name owner, asset value, account_name ram_payer)
 {
     accounts to_acnts(_self, owner);
     auto to = to_acnts.find(value.symbol.name());
