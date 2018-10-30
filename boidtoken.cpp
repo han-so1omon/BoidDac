@@ -6,6 +6,11 @@
 #include "boidtoken.hpp"
 #include <math.h>
 
+/* Add specific token to token-staking stats table.
+ *  - Set token symbol in table
+ *  - Set token max supply in table
+ *  - Set authorized token issuer in table
+ */
 void boidtoken::create(account_name issuer, asset maximum_supply)
 {
     require_auth(_self);
@@ -26,6 +31,12 @@ void boidtoken::create(account_name issuer, asset maximum_supply)
     });
 }
 
+/* Issuer issues tokens to a specified account
+ *  - Specified token must be in stats table
+ *  - Specified quantity must be less than max supply of token to be issued
+ *    -- Max supply from contract-local stats table
+ *    -- Max supply not necessarily total token supply over entire economy
+ */
 void boidtoken::issue(account_name to, asset quantity, string memo)
 {
     auto sym = quantity.symbol;
@@ -57,6 +68,10 @@ void boidtoken::issue(account_name to, asset quantity, string memo)
     }
 }
 
+/* Transfer tokens from one account to another
+ *  - Token type must be same as type to-be-staked via this contract
+ *  - Both accounts of transfer must be valid
+ */
 void boidtoken::transfer(account_name from, account_name to, asset quantity, string memo)
 {
     eosio_assert(from != to, "cannot transfer to self");
@@ -78,7 +93,9 @@ void boidtoken::transfer(account_name from, account_name to, asset quantity, str
     add_balance(to, quantity, from);
 }
 
-
+/* Specify overflow account for holding overflow.
+ * Overflow is defined as unclaimed or excess tokens.
+ */
 void boidtoken::setoverflow(account_name _overflow)
 {
     require_auth(_self);
@@ -96,7 +113,8 @@ void boidtoken::setoverflow(account_name _overflow)
     }
 }
 
-
+/* Specify contract run state to contract config table.
+ */
 void boidtoken::running(uint8_t on_switch){
     require_auth (_self);
     config_table c_t (_self, _self);
@@ -112,7 +130,14 @@ void boidtoken::running(uint8_t on_switch){
     }
 }
 
-
+/* Stake tokens with a specified account
+ *  - Add account to stake table or add amount staked to existing account
+ *  - Specify staking period
+ *    -- Stake period must be valid staking period offered by this contract
+ *    -- Daily or weekly
+ *  - Specify amount staked 
+ *    -- Token type must be same as type to-be-staked via this contract
+ */
 void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset _staked)
 {
     require_auth(_stake_account);
@@ -163,6 +188,8 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
 
 
 //TODO associate payout with boid power
+/* Claim token-staking bonus for specified account
+ */
 void boidtoken::claim(account_name _stake_account){
 
     uint64_t total_shares;
@@ -190,9 +217,15 @@ void boidtoken::claim(account_name _stake_account){
     {
         eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
             ///***************          DAILY         ****************************//
+        float boidpower = get_boidPower(s.stake_account,s.staked.symbol);
             if (itr->stake_period == DAILY)
             {
-                my_shares = ((DAY_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+                if (itr->staked / boidpower >= STAKE_REWARD_RATIO) {
+                  my_shares = (itr->staked*((DAY_MULTIPLIERX100/100)
+                                            + ((STAKE_REWARD_MULTIPLER*(boidpower/STAKE_BOIDPOWER_DIVISOR))*itr->staked)));
+                else {
+                  my_shares = ((DAY_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+                }
                 payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOIDTEST")};
                 //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
                 s.staked += payout;                                             // increases existing stake
@@ -204,14 +237,15 @@ void boidtoken::claim(account_name _stake_account){
             ///***************          WEEKLY         ****************************//
             else if (itr->stake_period == WEEKLY)
             {
-              my_shares = ((WEEK_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+              my_shares = (itr->staked*((WEEK_MULTIPLIERX100/100)
+                                        + ((STAKE_REWARD_MULTIPLER*(boidpower/STAKE_BOIDPOWER_DIVISOR))*itr->staked)));
               payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOIDTEST")};
               //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
               if (itr->stake_date  <= now()) {                                  //if the stake_date has expired...payout this weeks funds + add_escrow advance both dates
                 rem_unclaimed += payout;                                        // decrement payout from pool
                 s.staked += payout;                                             // increases existing stake
                 s.staked += s.escrow;                                           // increases the stake by escrow amount
-                rem_escrow_monthly += s.escrow;                                 // config table book keeping
+                rem_escrow_weekly += s.escrow;                                 // config table book keeping
                 add_weekly += s.escrow;                                        // config table book keeping
                 add_weekly += payout;                                          // config table book keeping
                 s.escrow -= s.escrow;                                           // zero the escrow
@@ -236,7 +270,10 @@ void boidtoken::claim(account_name _stake_account){
       });
 }
 
-
+/* Unstake tokens from specified account
+ *  - Return stored escrow to contract account
+ *  - Deduct staked amount from contract config table
+ */
 void boidtoken::unstake(account_name _stake_account)
 {
     stake_table s_t(_self, _self);
@@ -264,7 +301,8 @@ void boidtoken::unstake(account_name _stake_account)
   s_t.erase(itr);
 }
 
-
+/*  
+ */
 void boidtoken::checkrun()
 {
     require_auth(_self);
@@ -299,7 +337,8 @@ void boidtoken::checkrun()
     }
 }
 
-
+/* Add bonus to config table
+ */
 void boidtoken::addbonus(account_name _sender, asset _bonus)
 {
     require_auth(_sender);
@@ -320,7 +359,8 @@ void boidtoken::addbonus(account_name _sender, asset _bonus)
     sub_balance(_sender, _bonus);
 }
 
-
+/* Transfer unclaimed bonus to overflow account
+ */
 void boidtoken::rembonus()
 {
   require_auth(_self);
@@ -333,7 +373,8 @@ void boidtoken::rembonus()
   });
 }
 
-
+/* Payout daily + weekly staked token bonuses
+ */
 void boidtoken::runpayout()
 {
     boidtoken::running(0);                                                      //lock the staking and addbonus functions
@@ -350,7 +391,7 @@ void boidtoken::runpayout()
 
     uint64_t total_shares = 0;
     auto supply = 1000000000;
-    auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_monthly.amount + c_itr->total_escrowed_quarterly.amount);
+    auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_weekly.amount);
     asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOIDTEST")};
     total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
     total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
@@ -390,7 +431,8 @@ void boidtoken::runpayout()
     boidtoken::running(1);                                                      // unlock staking and add bonus
 }
 
-
+/* Initialize config table
+ */
 void boidtoken::initstats(){
   require_auth (_self);
   asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
@@ -417,7 +459,29 @@ void boidtoken::initstats(){
   }
 }
 
+#ifdef DEBUG
+// Debugging methods
+void boidtoken::debugstake(account_name _stake_account,
+                uint8_t _stake_period,
+                uint8_t _total_stake_period,
+                asset _staked,
+                float boidpower) {
 
+}
+
+void boidtoken::runcheck() {
+  bool all_checks_run = false;
+
+  while (!all_checks_run) {
+    //TODO howto create fake account names
+  }
+}
+#endif
+
+
+
+/* Subtract value from specified account
+ */
 void boidtoken::sub_balance(account_name owner, asset value)
 {
     accounts from_acnts(_self, owner);
@@ -433,9 +497,9 @@ void boidtoken::sub_balance(account_name owner, asset value)
         });
     }
 }
-/*
-*   Add ballance can be sent here by anyone
-*/
+
+/* Add value to specified account
+ */
 void boidtoken::add_balance(account_name owner, asset value, account_name ram_payer)
 {
     accounts to_acnts(_self, owner);
@@ -453,3 +517,9 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
         });
     }
 }
+
+//TODO
+/*
+void boidtoken::sub_stake(account_name owner, asset value);
+void boidtoken::add_stake(account_name owner, asset value);
+*/

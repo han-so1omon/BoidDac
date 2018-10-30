@@ -7,6 +7,9 @@
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
 #include <string>
+#include <cmath>
+
+#define DEBUG 1
 
 using namespace eosio;
 using std::string;
@@ -57,9 +60,22 @@ class boidtoken : public contract
     // @abi action
     void initstats();
 
+#ifdef DEBUG
+    // Debugging methods
+    // @abi action
+    void debugstake(account_name _stake_account,
+                    uint8_t _stake_period,
+                    uint8_t _total_stake_period,
+                    asset _staked,
+                    float boidpower);
+    void runcheck();
+#endif
+
     inline asset get_supply(symbol_name sym) const;
 
     inline asset get_balance(account_name owner, symbol_name sym) const;
+
+    inline asset get_boidpower(account_name owner, symbol_name sym) const;
 
   private:
 
@@ -77,12 +93,13 @@ class boidtoken : public contract
     const uint8_t   DAILY = 1;
     const uint8_t   WEEKLY = 2;
 
-//    const uint32_t  WEEK_WAIT =    (60 * 3);   // TESTING Speed Only
+    const uint32_t  DAY_WAIT =    (5);   // TESTING Speed Only
+    const uint32_t  WEEK_WAIT =    (35);   // TESTING Speed Only
 //    const uint32_t  MONTH_WAIT =   (60 * 12);  // TESTING Speed Only
 //    const uint32_t  QUARTER_WAIT = (60 * 36);  // TESTING Speed Only
 
-    const uint32_t   DAY_WAIT =    (60 * 60 * 24 * 1);
-    const uint32_t   WEEK_WAIT =    (60 * 60 * 24 * 7);
+//    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
+//    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
 
 
     // @abi table configs i64
@@ -119,11 +136,11 @@ class boidtoken : public contract
     struct account
     {
         asset balance;
-        asset boidpower; // TODO update boidpower daily
+        float boidpower; // TODO update boidpower daily
         
         uint64_t primary_key() const { return balance.symbol.name(); }
 
-        EOSLIB_SERIALIZE (account, (balance));
+        EOSLIB_SERIALIZE (account, (balance)(boidpower));
     };
 
     // @abi table stakes i64
@@ -160,6 +177,7 @@ class boidtoken : public contract
     void sub_balance(account_name owner, asset value);
     void add_balance(account_name owner, asset value, account_name ram_payer);
 
+    //TODO
     void sub_stake(account_name owner, asset value);
     void add_stake(account_name owner, asset value);
 
@@ -189,7 +207,7 @@ asset boidtoken::get_balance(account_name owner, symbol_name sym) const
     return ac.balance;
 }
 
-asset boidtoken::get_boidpower(account_name owner, symbol_name sym) const
+float boidtoken::get_boidpower(account_name owner, symbol_name sym) const
 {
     accounts accountstable(_self, owner);
     const auto &ac = accountstable.get(sym);
