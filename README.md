@@ -30,4 +30,24 @@ initial purchase price should be low
 Token selling preferred bc higher immediate token liquidity
 ...
 
-#...
+## Testing
+1) Set environment variables and aliases
+TODO explanations of env vars and aliases
+  - EOS_LOCAL_TEST_DATA : 
+  - EOS_LOCAL_TEST_WALLETS : 
+  - EOS_BUILD : 
+  - BOID : 
+  - errol_test_pword : 
+  - dude_test_pword : 
+  - errol_test_key :
+  - errol_test_pubkey :
+  - dude_test_key :
+  - dude_test_pubkey :
+  - eosio_key :
+  - eosio_pubkey :
+
+2) run 
+
+## Building
+make : Full version
+make test : Include testboidpower contract

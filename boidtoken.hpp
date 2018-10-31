@@ -7,12 +7,14 @@
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
 #include <string>
+#include <map>
+#include <set>
 #include <cmath>
-
-#define DEBUG 1
 
 using namespace eosio;
 using std::string;
+using std::map;
+using std::set;
 using eosio::const_mem_fun;
 
 class boidtoken : public contract
@@ -60,22 +62,11 @@ class boidtoken : public contract
     // @abi action
     void initstats();
 
-#ifdef DEBUG
-    // Debugging methods
-    // @abi action
-    void debugstake(account_name _stake_account,
-                    uint8_t _stake_period,
-                    uint8_t _total_stake_period,
-                    asset _staked,
-                    float boidpower);
-    void runcheck();
-#endif
-
     inline asset get_supply(symbol_name sym) const;
 
     inline asset get_balance(account_name owner, symbol_name sym) const;
 
-    inline asset get_boidpower(account_name owner, symbol_name sym) const;
+    inline uint32_t get_boidpower(account_name owner, symbol_name sym) const;
 
   private:
 
@@ -83,7 +74,7 @@ class boidtoken : public contract
     // 1) Require boidstake/boidpower >= 10 to qualify for staking rewards
     const uint16_t  STAKE_REWARD_RATIO = 10;
     // 2) Reward per coin = 0.0001*max(boidpower/1000,1)
-    const float     STAKE_REWARD_MULTIPLIER = 1e-4;
+    const uint32_t  STAKE_REWARD_DIVISOR = 10000;
     const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
     const uint16_t  DAY_MULTIPLIERX100 = 10;
@@ -101,6 +92,7 @@ class boidtoken : public contract
 //    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
 //    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
 
+    set<account_name> _accts;
 
     // @abi table configs i64
     struct config {
@@ -136,7 +128,7 @@ class boidtoken : public contract
     struct account
     {
         asset balance;
-        float boidpower; // TODO update boidpower daily
+        uint32_t boidpower; // TODO update boidpower daily
         
         uint64_t primary_key() const { return balance.symbol.name(); }
 
@@ -174,6 +166,9 @@ class boidtoken : public contract
     typedef eosio::multi_index<N(accounts), account> accounts;
     typedef eosio::multi_index<N(stat), currencystat> stats;
 
+    void request_boidpower_update(account_name owner);
+    void update_boidpower(account_name bp, map<account_name, uint32_t> bp_table);
+
     void sub_balance(account_name owner, asset value);
     void add_balance(account_name owner, asset value, account_name ram_payer);
 
@@ -207,7 +202,7 @@ asset boidtoken::get_balance(account_name owner, symbol_name sym) const
     return ac.balance;
 }
 
-float boidtoken::get_boidpower(account_name owner, symbol_name sym) const
+uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
 {
     accounts accountstable(_self, owner);
     const auto &ac = accountstable.get(sym);

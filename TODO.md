@@ -3,3 +3,6 @@
 
 ## Test token-staking reward payouts
 - Modify payout reward time so that it can be tested in a matter of seconds
+
+## Create automated testing procedure
+- Use inline actions
