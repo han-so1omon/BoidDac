@@ -135,11 +135,20 @@ cleos_local_test push action eosio.token issue \
 
 writeHeader
 appendData
+
 # 7) Set up boid staking contract to boid.stake
+echo "Setting up boid staking authorities"
+cleos_local_test set contract boid.stake ${CONTRACT_DIR}/build/contracts/boidtoken -p boid.stake
+sleep 0.1
 
 # 8) Set up boid power contract to boid.power
+echo "Setting up boid power authorities"
+cleos_local_test set contract boid.power ${CONTRACT_DIR}/build/contracts/testboidpower -p boid.power
+sleep 0.1
 
 # 9) Run staking tests with test1 and test2
+#TODO At this point maybe call a specified auxiliary script to run test conditions.
+#     This will minimize commenting-in/out of new/old test-cases.
 
 # 10) End test
 echo "Killing nodeos"

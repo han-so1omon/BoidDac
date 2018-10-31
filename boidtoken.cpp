@@ -473,16 +473,16 @@ void boidtoken::request_boidpower_update(account_name owner) {
   stake_table s_t(_self, _self);
   action(
       permission_level{get_self(),"active"_n},
-      get_self(),
-      "update_stake_boidpower"_n,
+      "boid.power"_n,
+      "send_boidpower_update"_n,
       std::make_tuple(owner,_accts)
-    ).send();
+  ).send();
 }
 
 void boidtoken::update_boidpower(account_name bp, map<account_name, uint32_t> bp_table) {
-  require_auth(name("boid.power"));
-  accounts accts(_self, owner);
-  for (auto& itr=bp_table.begin(); itr != bp_table.end(); bp_table++) {
+  require_auth("boid.power"_n);
+  accounts accts(_self, bp);
+  for (auto itr=bp_table.begin(); itr != bp_table.end(); itr++) {
     auto acct = itr->first;
     auto boidpower = itr->second;
     auto el = accts.find(acct);

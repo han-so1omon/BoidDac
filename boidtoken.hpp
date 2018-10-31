@@ -62,6 +62,12 @@ class boidtoken : public contract
     // @abi action
     void initstats();
 
+    // @abi action
+    void request_boidpower_update(account_name owner);
+
+    // @abi action
+    void update_boidpower(account_name bp, map<account_name, uint32_t> bp_table);
+
     inline asset get_supply(symbol_name sym) const;
 
     inline asset get_balance(account_name owner, symbol_name sym) const;
@@ -166,9 +172,6 @@ class boidtoken : public contract
     typedef eosio::multi_index<N(accounts), account> accounts;
     typedef eosio::multi_index<N(stat), currencystat> stats;
 
-    void request_boidpower_update(account_name owner);
-    void update_boidpower(account_name bp, map<account_name, uint32_t> bp_table);
-
     void sub_balance(account_name owner, asset value);
     void add_balance(account_name owner, asset value, account_name ram_payer);
 
@@ -209,4 +212,4 @@ uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
     return ac.boidpower;
 }
 
-EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats))
+EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(request_boidpower_update)(update_boidpower))

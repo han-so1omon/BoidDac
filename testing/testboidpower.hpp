@@ -8,11 +8,13 @@
 #include <eosiolib/eosio.hpp>
 #include <string>
 #include <map>
+#include <set>
 #include <cmath>
 
 using namespace eosio;
 using std::string;
 using std::map;
+using std::set;
 using eosio::const_mem_fun;
 
 //TODO store boidpower and send out int32-rounded boidpower
@@ -24,18 +26,22 @@ class testboidpower : public contract
     // @abi action
     void create(account_name issuer, asset maximum_supply);
 
+    // @abi action
     void insert(account_name user, uint32_t boidpower);
+
+    // @abi action
+    void send_boidpower_update(account_name requester, set<account_name> req_accts);
 
   private:
     // @abi table accounts i64
     struct account
     {
-      account_name key
+      account_name key;
       uint32_t boidpower; // TODO update boidpower daily
         
-      uint64_t primary_key() const { return key.value; }
+      uint64_t primary_key() const { return key; }
     };
     typedef eosio::multi_index<N(accounts), account> accounts;
 };
 
-EOSIO_ABI( testboidpower,(create)(insert))
+EOSIO_ABI( testboidpower,(create)(insert)(send_boidpower_update))
