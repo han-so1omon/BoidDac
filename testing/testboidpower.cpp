@@ -27,7 +27,6 @@ void testboidpower::insert(account_name user, uint32_t boidpower) {
   }
 }
 
-//TODO add in send/receive boidpower requests
 //     see https://developers.eos.io/eosio-home/docs/sending-an-inline-transaction-to-external-contract
 void testboidpower::send_boidpower_update(account_name requester, set<account_name> req_accts) {
   require_auth("boid.stake"_n);

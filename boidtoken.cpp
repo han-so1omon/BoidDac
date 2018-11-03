@@ -532,6 +532,26 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
     }
 }
 
+uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
+{
+  require_auth(owner);
+  accounts accountstable(_self, owner);
+  const auto &ac = accountstable.get(sym);
+  print("%u BOIDPOWER\n",ac.boidpower);
+  return ac.boidpower;
+}
+
+uint32_t boidtoken::get_staketype(account_name owner, symbol_name sym) const {
+  require_auth(owner);
+
+  stake_table s_t(_self, _self);
+  auto itr = s_t.find(owner);
+  if (itr != s_t.end()) {
+    print("%u\n",itr->stake_period);
+  }
+  return 0;
+}
+
 //TODO
 /*
 void boidtoken::sub_stake(account_name owner, asset value);

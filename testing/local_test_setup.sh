@@ -57,14 +57,19 @@ currTime='date +%s%N'
 ########### Functions
 writeHeader() {
   printf "Writing data to $DATAFILE\n"
-  printf "time,\tacct1:EOS,\tacct1:BOID,\tacct2:EOS,\tacct2:BOID\n" > ${DATAFILE}
+  printf \
+    "time,\tacct1:EOS,\tacct1:BOID,\tacct1:BPOW,\tacct1:type,\tacct2:EOS,\tacct2:BOID\t,acct2:BPOW,\tacct2:type\n"\
+    > ${DATAFILE}
 }
 
 appendData(){
   printf "Appending data to $DATAFILE\n"
   dt="$(($(date +%s%N)-$start))"
   setNextCurrencyBalances
-  printf "$dt,\t$acct1_eos,\t$acct1_boid,\t$acct2_eos,\t$acct2_boid\n" >> ${DATAFILE}
+  setNextBoidpower
+  printf \
+    "$dt,\t$acct1_eos,\t$acct1_boid,\t$acct1_bpow,\t$acct1_type,\t$acct2_eos,\t$acct2_boid,\t$acct2_bpow,\t$acct2_type\n" \
+    >> ${DATAFILE}
 }
 
 setNextCurrencyBalances(){
@@ -76,6 +81,20 @@ setNextCurrencyBalances(){
     | tr -d '[:alpha:]')"
   acct2_boid="$(cleos_local_test get currency balance eosio.token acct2 BOID \
     | tr -d '[:alpha:]')"
+}
+
+setNextBoidpower(){
+  acct1_bpow="$(cleos_local_test push action boid.stake get_boidpower \
+    '[ "acct1" ]' -p acct1)"
+  acct2_bpow="$(cleos_local_test push action boid.stake get_boidpower \
+    '[ "acct2" ]' -p acct2)"
+}
+
+setStakeType(){
+  acct1_type="$(cleos_local_test push action boid.stake get_staketype \
+    '[ "acct1" ]' -p acct1)"
+  acct2_type="$(cleos_local_test push action boid.stake get_staketype \
+    '[ "acct2" ]' -p acct2)"
 }
 
 ########### Boid staking setup and test
@@ -133,9 +152,6 @@ cleos_local_test push action eosio.token issue \
 cleos_local_test push action eosio.token issue \
   '[ "acct2", "2000.0000 BOID", "memo" ]' -p boid
 
-writeHeader
-appendData
-
 # 7) Set up boid staking contract to boid.stake
 echo "Setting up boid staking authorities"
 cleos_local_test set contract boid.stake ${CONTRACT_DIR}/build/contracts/boidtoken -p boid.stake
@@ -149,6 +165,57 @@ sleep 0.1
 # 9) Run staking tests with test1 and test2
 #TODO At this point maybe call a specified auxiliary script to run test conditions.
 #     This will minimize commenting-in/out of new/old test-cases.
+
+# Set up boid power
+cleos_local_test push action boid.power create \
+  '[ "boid.power", "100000.0000 BPOW" ]' -p boid.power@active
+
+cleos_local_test push action boid.power insert \
+  '[ "acct1", "10" ]' -p acct1
+
+cleos_local_test push action boid.power insert \
+  '[ "acct2", "10000" ]' -p acct2
+
+# Set up boid token-staking
+# Stake: [ account, {1:daily | 2:weekly}, amount]
+cleos_local_test  push action boid.stake create \
+  '[ "boid.token", "1000000000.0000 BOID" ]' -p boid.token@active
+
+cleos_local_test  push action boid.stake initstats \
+  '[ ]' -p boid.stake
+
+cleos_local_test  push action boid.stake runpayout \
+  '[ ]' -p boid.stake
+
+cleos_local_test push action boid.stake stake \
+  '[ "acct1", "1", "1000.0000 BOID" ]' -p acct1
+
+cleos_local_test push action boid.stake stake \
+  '[ "acct2", "2", "2000.0000 BOID" ]' -p acct2
+
+# Collect initial data
+setStakeType
+writeHeader
+appendData
+
+counter=0
+while [ $counter -lt 10 ]
+do
+sleep(1)
+  cleos_local_test  push action boid.stake runpayout \
+    '[ ]' -p boid.stake
+
+  cleos_local_test push action boid.stake claim \
+    '[ "acct1" ]' -p acct1
+
+  cleos_local_test push action boid.stake claim \
+    '[ "acct2" ]' -p acct2
+
+  appendData
+
+  counter=$(( $counter + 1))
+done
+
 
 # 10) End test
 echo "Killing nodeos"

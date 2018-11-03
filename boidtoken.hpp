@@ -68,11 +68,16 @@ class boidtoken : public contract
     // @abi action
     void update_boidpower(account_name bp, map<account_name, uint32_t> bp_table);
 
+    // @abi action
+    uint32_t get_boidpower(account_name owner, symbol_name sym) const;
+
+    // Debugging action
+    // @abi action
+    uint32_t get_staketype(account_name owner, symbol_name sym) const;
+
     inline asset get_supply(symbol_name sym) const;
 
     inline asset get_balance(account_name owner, symbol_name sym) const;
-
-    inline uint32_t get_boidpower(account_name owner, symbol_name sym) const;
 
   private:
 
@@ -203,13 +208,6 @@ asset boidtoken::get_balance(account_name owner, symbol_name sym) const
     accounts accountstable(_self, owner);
     const auto &ac = accountstable.get(sym);
     return ac.balance;
-}
-
-uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
-{
-    accounts accountstable(_self, owner);
-    const auto &ac = accountstable.get(sym);
-    return ac.boidpower;
 }
 
 EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(request_boidpower_update)(update_boidpower))
