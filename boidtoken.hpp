@@ -82,23 +82,27 @@ class boidtoken : public contract
   private:
 
     // Reward qualifications options
-    // 1) Require boidstake/boidpower >= 10 to qualify for staking rewards
+    // 1) Require boidpower/boidstake >= 10 to qualify for staking rewards
     const uint16_t  STAKE_REWARD_RATIO = 10;
     // 2) Reward per coin = 0.0001*max(boidpower/1000,1)
     const uint32_t  STAKE_REWARD_DIVISOR = 10000;
     const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
-    const uint16_t  DAY_MULTIPLIERX100 = 10;
+    const uint16_t  DAY_MULTIPLIERX100 = 30;
     const uint16_t  WEEK_MULTIPLIERX100 = 100;
-    const int64_t   BASE_WEEKLY = 20000000000;
+    const uint16_t  MONTH_MULTIPLIERX100 = 150;
+    const uint16_t  QUARTER_MULTIPLIERX100 = 200;
+    const int64_t   BASE_DAILY = 200000000;
 
     const uint8_t   DAILY = 1;
     const uint8_t   WEEKLY = 2;
+    const uint8_t   MONTHLY = 3;
+    const uint8_t   QUARTERLY = 4;
 
-    const uint32_t  DAY_WAIT =    (5);   // TESTING Speed Only
-    const uint32_t  WEEK_WAIT =    (35);   // TESTING Speed Only
-//    const uint32_t  MONTH_WAIT =   (60 * 12);  // TESTING Speed Only
-//    const uint32_t  QUARTER_WAIT = (60 * 36);  // TESTING Speed Only
+    const uint32_t  DAY_WAIT =     (1);   // TESTING Speed Only
+    const uint32_t  WEEK_WAIT =    (1 * 7);   // TESTING Speed Only
+    const uint32_t  MONTH_WAIT =   (1 * 7 * 30);  // TESTING Speed Only
+    const uint32_t  QUARTER_WAIT = (1 * 7 * 30 * 4);  // TESTING Speed Only
 
 //    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
 //    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
@@ -113,8 +117,11 @@ class boidtoken : public contract
         uint32_t        active_accounts;
         asset           staked_daily;
         asset           staked_weekly;
+        asset           staked_monthly;
+        asset           staked_quarterly;
         asset           total_staked;
-        asset           total_escrowed_weekly;
+        asset           total_escrowed_monthly;
+        asset           total_escrowed_quarterly;
         uint64_t        total_shares;
         asset           base_payout;
         asset           bonus;
@@ -128,8 +135,10 @@ class boidtoken : public contract
 
         uint64_t    primary_key() const { return config_id; }
 
-        EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)(staked_daily)(staked_weekly)(total_staked)
-        (total_escrowed_weekly)(total_shares)(base_payout)(bonus)(total_payout)(interest_share)(unclaimed_tokens)
+        EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)
+        (staked_daily)(staked_weekly)(staked_monthly)(staked_quarterly)(total_staked)
+        (total_escrowed_monthly)(total_escrowed_quarterly)(total_shares)(base_payout)
+        (bonus)(total_payout)(interest_share)(unclaimed_tokens)
         (spare_a1)(spare_a2)(spare_i1)(spare_i2));
     };
 

@@ -174,6 +174,14 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
           s.stake_due = now() + DAY_WAIT;
           s.stake_date = now()+ WEEK_WAIT;
         }
+        else if (_stake_period == MONTHLY) {
+          s.stake_due = now() + DAY_WAIT;
+          s.stake_date = now() + MONTH_WAIT;
+        }
+        else if (_stake_period == QUARTERLY) {
+          s.stake_due = now() + DAY_WAIT;
+          s.stake_date = now() + QUARTER_WAIT;
+        }
     });
     c_t.modify(c_itr, _self, [&](auto &c) {
         c.active_accounts += 1;
@@ -183,6 +191,12 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
         }
         else if (_stake_period == WEEKLY) {
           c.staked_weekly.amount += _staked.amount;
+        }
+        else if (_stake_period == MONTHLY) {
+          c.staked_monthly.amount += _staked.amount;
+        }
+        else if (_stake_period == QUARTERLY) {
+          c.staked_quarterly.amount += _staked.amount;
         }
     });
 }
@@ -198,11 +212,15 @@ void boidtoken::claim(account_name _stake_account){
     asset pay_per_share;
     asset my_shares;
     asset payout;
-    asset add_daily = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};                // Variables used to keep the config table in sync
-    asset add_weekly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
-    asset add_escrow_weekly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
-    asset rem_escrow_weekly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
-    asset rem_unclaimed = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
+    asset add_daily = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};                // Variables used to keep the config table in sync
+    asset add_weekly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset add_monthly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset add_quarterly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset add_escrow_monthly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset rem_escrow_monthly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset add_escrow_quarterly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset rem_escrow_quarterly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+    asset rem_unclaimed = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
 
     config_table c_t(_self, _self);
     auto c_itr = c_t.find(0);
@@ -221,59 +239,116 @@ void boidtoken::claim(account_name _stake_account){
         uint32_t boidpower = get_boidpower(s.stake_account,s.staked.symbol);
             if (itr->stake_period == DAILY)
             {
-                if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
-                  my_shares = (((DAY_MULTIPLIERX100 * itr->staked)/100)
-                                + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
-                } else {
-                  my_shares = ((DAY_MULTIPLIERX100 * itr->staked)/100);                // calc payout
-                }
-                payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOIDTEST")};
-                //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
-                s.staked += payout;                                             // increases existing stake
-                add_weekly += payout;                                           // add to the config table weekly staked
-                rem_unclaimed += payout;                                        // decrement payout from pool
-                s.stake_due = now() + DAY_WAIT;                                // advance the claim due 1 day
-                s.stake_date = now() + DAY_WAIT;                               // advance the payout due 1 day 
+              if ((boidpower / itr->staked).amount >= STAKE_REWARD_RATIO) {
+                my_shares = (((DAY_MULTIPLIERX100 * itr->staked)/100)
+                              + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
+              } else {
+                my_shares = ((DAY_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+              }
+              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOID")};
+              //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
+              s.staked += payout;                                             // increases existing stake
+              add_daily += payout;                                           // add to the config table weekly staked
+              rem_unclaimed += payout;                                        // decrement payout from pool
+              s.stake_due = now() + DAY_WAIT;                                // advance the claim due 1 day
+              s.stake_date = now() + DAY_WAIT;                               // advance the payout due 1 day 
             }
             ///***************          WEEKLY         ****************************//
             else if (itr->stake_period == WEEKLY)
             {
-                if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
-                  my_shares = (((WEEK_MULTIPLIERX100 * itr->staked)/100)
-                                + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
-                } else {
-                  my_shares = ((WEEK_MULTIPLIERX100 * itr->staked)/100);                // calc payout
-                }
-             
-                payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOIDTEST")};
-                //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
-                if (itr->stake_date  <= now()) {                                  //if the stake_date has expired...payout this weeks funds + add_escrow advance both dates
-                  rem_unclaimed += payout;                                        // decrement payout from pool
-                  s.staked += payout;                                             // increases existing stake
-                  s.staked += s.escrow;                                           // increases the stake by escrow amount
-                  rem_escrow_weekly += s.escrow;                                 // config table book keeping
-                  add_weekly += s.escrow;                                        // config table book keeping
-                  add_weekly += payout;                                          // config table book keeping
-                  s.escrow -= s.escrow;                                           // zero the escrow
-                  s.stake_due = now() + DAY_WAIT;                                // advance the claim due 1 week
-                  s.stake_date = now() + WEEK_WAIT;                              // advance the payout due 1 week
-                }
-                else if (itr->stake_due  <= now()){                               // add to escrow
-                  s.escrow += payout;
-                  add_escrow_weekly += payout;                                   // decrement payout from pool
-                  rem_unclaimed += payout;                                        // decrement payout from pool
-                  s.stake_due = now() + DAY_WAIT;
-                };
+              if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
+                my_shares = (((WEEK_MULTIPLIERX100 * itr->staked)/100)
+                              + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
+              } else {
+                my_shares = ((WEEK_MULTIPLIERX100 * itr->staked)/100);                // calc payout
               }
+           
+              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOID")};
+              //print("myShares: ", my_shares, " pay_per_share: ", pay_per_share, " payout: ", payout, "\n" );
+              if (itr->stake_date  <= now()) {                                  //if the stake_date has expired...payout this weeks funds + add_escrow advance both dates
+                s.staked += payout;                                             // increases existing stake
+                add_weekly += payout;                                          // config table book keeping
+                rem_unclaimed += payout;                                        // decrement payout from pool
+                s.stake_due = now() + DAY_WAIT;                                // advance the claim due 1 week
+                s.stake_date = now() + WEEK_WAIT;                              // advance the payout due 1 week
+              }
+              else if (itr->stake_due  <= now()){                               // add to escrow
+                rem_unclaimed += payout;                                        // decrement payout from pool
+                s.stake_due = now() + DAY_WAIT;
+              };
+            }
+            ///***************          MONTHLY         ****************************//
+            else if (itr->stake_period == MONTHLY)
+            {
+              if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
+                my_shares = (((MONTH_MULTIPLIERX100 * itr->staked)/100)
+                              + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
+              } else {
+                my_shares = ((MONTH_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+              }
+              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOID")};
+              if (itr->stake_date <= now()) {
+                s.staked += payout;
+                s.staked += s.escrow;
+                rem_unclaimed += payout;
+                rem_escrow_monthly += s.escrow;
+                add_monthly += s.escrow;
+                add_monthly += payout;
+                s.escrow -= s.escrow;
+                s.stake_due = now() + DAY_WAIT;
+                s.stake_due = now() + MONTH_WAIT;
+              }
+              else if (itr->stake_due <= now()) {
+                s.escrow += payout;
+                add_escrow_monthly += payout;
+                rem_unclaimed += payout;
+                s.stake_due = now() + DAY_WAIT;
+              }
+            }
+            ///***************          QUARTERLY         ****************************//
+            else if (itr->stake_period == QUARTERLY)
+            {
+              if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
+                my_shares = (((QUARTER_MULTIPLIERX100 * itr->staked)/100)
+                              + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
+              } else {
+                my_shares = ((QUARTER_MULTIPLIERX100 * itr->staked)/100);                // calc payout
+              }
+              payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOID")};
+              if (itr->stake_date <= now()) {
+                s.staked += payout;
+                s.staked += s.escrow;
+                rem_unclaimed += payout;
+                rem_escrow_quarterly += s.escrow;
+                add_quarterly += s.escrow;
+                add_quarterly += payout;
+                s.escrow -= s.escrow;
+                s.stake_due = now() + DAY_WAIT;
+                s.stake_due = now() + QUARTER_WAIT;
+              }
+              else if (itr->stake_due <= now()) {
+                s.escrow += payout;
+                add_escrow_quarterly += payout;
+                rem_unclaimed += payout;
+                s.stake_due = now() + DAY_WAIT;
+              }
+            }
         });
         c_t.modify(c_itr, _self, [&](auto &c) {
-        c.staked_daily.amount += add_daily.amount;
-        c.staked_weekly.amount += add_weekly.amount;
-        c.total_staked.amount += (add_daily.amount + add_weekly.amount);
-        c.total_escrowed_weekly.amount += add_escrow_weekly.amount;
-        c.total_escrowed_weekly.amount -= rem_escrow_weekly.amount;
-        c.unclaimed_tokens.amount -= rem_unclaimed.amount;
-      });
+          c.staked_daily.amount += add_daily.amount;
+          c.staked_weekly.amount += add_weekly.amount;
+          c.staked_monthly.amount += add_monthly.amount;
+          c.staked_quarterly.amount += add_quarterly.amount;
+          c.total_staked.amount += (add_daily.amount
+                                    + add_weekly.amount
+                                    + add_monthly.amount
+                                    + add_quarterly.amount);
+          c.total_escrowed_monthly.amount += add_escrow_monthly.amount;
+          c.total_escrowed_monthly.amount -= rem_escrow_monthly.amount;
+          c.total_escrowed_quarterly.amount += add_escrow_quarterly.amount;
+          c.total_escrowed_quarterly.amount -= rem_escrow_quarterly.amount;
+          c.unclaimed_tokens.amount -= rem_unclaimed.amount;
+        });
 }
 
 /* Unstake tokens from specified account
@@ -302,7 +377,14 @@ void boidtoken::unstake(account_name _stake_account)
     }
     else if ((itr->stake_period == WEEKLY)) {
       c.staked_weekly.amount -= itr->staked.amount;
-      c.total_escrowed_weekly.amount -= itr->escrow.amount;
+    }
+    else if ((itr->stake_period == MONTHLY)) {
+      c.staked_weekly.amount -= itr->staked.amount;
+      c.total_escrowed_monthly.amount -= itr->escrow.amount;
+    }
+    else if ((itr->stake_period == QUARTERLY)) {
+      c.staked_weekly.amount -= itr->staked.amount;
+      c.total_escrowed_quarterly.amount -= itr->escrow.amount;
     }
   });
   s_t.erase(itr);
@@ -319,17 +401,20 @@ void boidtoken::checkrun()
     uint64_t total_shares = 0;
     auto supply = 1000000000;
     auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_weekly.amount);
-    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOIDTEST")};
+    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOID")};
     total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
     total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
-    total_shares += (WEEK_MULTIPLIERX100 * c_itr->total_escrowed_weekly.amount);
+    total_shares = (MONTH_MULTIPLIERX100 * c_itr->staked_monthly.amount);
+    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->staked_quarterly.amount);
+    total_shares += (MONTH_MULTIPLIERX100 * c_itr->total_escrowed_monthly.amount);
+    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->total_escrowed_quarterly.amount);
     total_shares /= 100;
     uint64_t perc_stakedx100 = (total_stake  * 1000000 / supply * 1000000);
-    uint64_t weekly_base = (BASE_WEEKLY * 1000000);
-    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "BOIDTEST")}; // TESTING ONLY change symbol to go-live
-    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOIDTEST")}; // TESTING ONLY change symbol to go-live
+    uint64_t daily_base = (BASE_DAILY * 1000000);
+    asset base_payout = asset{static_cast<int64_t>((daily_base / perc_stakedx100) /100), string_to_symbol(4, "BOID")}; // TESTING ONLY change symbol to go-live
+    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOID")}; // TESTING ONLY change symbol to go-live
     auto my_pps = (total_payout.amount*10000/total_shares*10000);
-    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOIDTEST")}; // TESTING ONLY change symbol to go-live
+    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOID")}; // TESTING ONLY change symbol to go-live
 
     if (total_payout.amount == 0 || total_stake == 0)
     {
@@ -399,17 +484,20 @@ void boidtoken::runpayout()
     uint64_t total_shares = 0;
     auto supply = 1000000000;
     auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_weekly.amount);
-    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOIDTEST")};
+    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOID")};
     total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
     total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
-    total_shares += (WEEK_MULTIPLIERX100 * c_itr->total_escrowed_weekly.amount);
+    total_shares += (MONTH_MULTIPLIERX100 * c_itr->staked_monthly.amount);
+    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->staked_quarterly.amount);
+    total_shares += (MONTH_MULTIPLIERX100 * c_itr->total_escrowed_monthly.amount);
+    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->total_escrowed_quarterly.amount);
     total_shares /= 100;
     uint64_t perc_stakedx100 = (total_stake  * 1000000 / supply * 1000000);
-    uint64_t weekly_base = (BASE_WEEKLY * 1000000);
-    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "BOIDTEST")};
-    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOIDTEST")};
+    uint64_t daily_base = (BASE_DAILY * 1000000);
+    asset base_payout = asset{static_cast<int64_t>((daily_base / perc_stakedx100) /100), string_to_symbol(4, "BOID")};
+    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOID")};
     auto my_pps = (total_payout.amount*10000/total_shares*10000);
-    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOIDTEST")};
+    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOID")};
     asset print_bonus = c_itr->bonus;
     auto unclaimed_tokens = total_payout;                                       // bonus set to zero below
     sub_balance(_self, unclaimed_tokens);                                       // remove the tokens from the account to the unclaimed pile
@@ -442,8 +530,8 @@ void boidtoken::runpayout()
  */
 void boidtoken::initstats(){
   require_auth (_self);
-  asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
-  asset cleartokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOIDTEST")};
+  asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+  asset cleartokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
   config_table c_t (_self, _self);
   auto c_itr = c_t.find(0);
   c_t.modify(c_itr, _self, [&](auto &c) {
@@ -451,8 +539,11 @@ void boidtoken::initstats(){
     c.bonus = cleartokens;
     c.staked_daily = cleartokens;
     c.staked_weekly = cleartokens;
+    c.staked_monthly = cleartokens;
+    c.staked_quarterly = cleartokens;
     c.total_staked = cleartokens;
-    c.total_escrowed_weekly = cleartokens;
+    c.total_escrowed_monthly = cleartokens;
+    c.total_escrowed_quarterly = cleartokens;
     c.active_accounts = 0;
     c.total_shares = 0;
     c.base_payout = cleartokens;
