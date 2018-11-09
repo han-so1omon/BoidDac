@@ -5,6 +5,7 @@
 
 #include "boidtoken.hpp"
 #include <math.h>
+#include <inttypes.h>
 
 /* Add specific token to token-staking stats table.
  *  - Set token symbol in table
@@ -116,6 +117,7 @@ void boidtoken::setoverflow(account_name _overflow)
 /* Specify contract run state to contract config table.
  */
 void boidtoken::running(uint8_t on_switch){
+  print("debugging running : ",(int)on_switch,"\n");
     require_auth (_self);
     config_table c_t (_self, _self);
     auto c_itr = c_t.find(0);
@@ -239,7 +241,7 @@ void boidtoken::claim(account_name _stake_account){
         uint32_t boidpower = get_boidpower(s.stake_account,s.staked.symbol);
             if (itr->stake_period == DAILY)
             {
-              if ((boidpower / itr->staked).amount >= STAKE_REWARD_RATIO) {
+              if ((boidpower / itr->staked.amount) >= STAKE_REWARD_RATIO) {
                 my_shares = (((DAY_MULTIPLIERX100 * itr->staked)/100)
                               + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
               } else {
@@ -400,7 +402,9 @@ void boidtoken::checkrun()
 
     uint64_t total_shares = 0;
     auto supply = 1000000000;
-    auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_weekly.amount);
+    auto total_stake = (c_itr->total_staked.amount
+                        + c_itr->total_escrowed_monthly.amount
+                        + c_itr->total_escrowed_quarterly.amount);
     asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOID")};
     total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
     total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
@@ -483,7 +487,14 @@ void boidtoken::runpayout()
 
     uint64_t total_shares = 0;
     auto supply = 1000000000;
-    auto total_stake = (c_itr->total_staked.amount + c_itr->total_escrowed_weekly.amount);
+    auto total_stake = (c_itr->total_staked.amount
+                        + c_itr->total_escrowed_monthly.amount
+                        + c_itr->total_escrowed_quarterly.amount);
+    if (total_stake == 0) {
+      print("Nothing staked. \n");
+      return;
+    }
+    // If nothing staked, exit function
     asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOID")};
     total_shares = (DAY_MULTIPLIERX100 * c_itr->staked_daily.amount);
     total_shares += (WEEK_MULTIPLIERX100 * c_itr->staked_weekly.amount);
@@ -511,8 +522,7 @@ void boidtoken::runpayout()
         c.interest_share = pay_per_share;
     });
 
-    if (total_payout.amount == 0 || total_stake == 0)
-
+    if (total_payout.amount == 0)
     {
         print("Nothing to pay. \n");
         return;
@@ -557,31 +567,35 @@ void boidtoken::initstats(){
   }
 }
 
-void boidtoken::request_boidpower_update(account_name owner) {
+void boidtoken::reqnewbp(account_name owner) {
   require_auth(_self);
   require_recipient(owner);
 
-  stake_table s_t(_self, _self);
-  action(
-      permission_level{get_self(),"active"_n},
-      "boid.power"_n,
-      "send_boidpower_update"_n,
-      std::make_tuple(owner,_accts)
-  ).send();
+  for (auto itr = _accts.begin(); itr != _accts.end(); itr++) {
+    stake_table s_t(_self, _self);
+    action(
+        permission_level{get_self(),"active"_n},
+        "boid.power"_n,
+        "sndnewbp"_n,
+        std::make_tuple(owner,*itr)
+    ).send();
+  }
 }
 
-void boidtoken::update_boidpower(account_name bp, map<account_name, uint32_t> bp_table) {
+void boidtoken::setnewbp(account_name bp,
+                         account_name acct,
+                         uint32_t boidpower) {
   require_auth("boid.power"_n);
   accounts accts(_self, bp);
-  for (auto itr=bp_table.begin(); itr != bp_table.end(); itr++) {
-    auto acct = itr->first;
-    auto boidpower = itr->second;
-    auto el = accts.find(acct);
-    if (el != accts.end()) {
-      accts.modify(el, acct, [&](auto &a) {
-        a.boidpower = boidpower; 
-      });
-    }
+  auto el = accts.find(acct);
+  if (el != accts.end()) {
+    accts.modify(el, acct, [&](auto &a) {
+      a.boidpower = boidpower; 
+    });
+  } else {
+    accts.modify(el, acct, [&](auto &a) {
+      a.boidpower = 0; 
+    });
   }
 }
 
@@ -623,24 +637,29 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
     }
 }
 
-uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
+
+void boidtoken::printstake(account_name owner, symbol_name sym)
 {
-  require_auth(owner);
-  accounts accountstable(_self, owner);
-  const auto &ac = accountstable.get(sym);
-  print("%u BOIDPOWER\n",ac.boidpower);
-  return ac.boidpower;
-}
-
-uint32_t boidtoken::get_staketype(account_name owner, symbol_name sym) const {
-  require_auth(owner);
-
+  require_auth(_self);
   stake_table s_t(_self, _self);
   auto itr = s_t.find(owner);
   if (itr != s_t.end()) {
-    print("%u\n",itr->stake_period);
+    print((int)itr->stake_period,"\n");
   }
-  return 0;
+}
+
+void boidtoken::printbpow(account_name owner, symbol_name sym) {
+  require_auth(_self);
+  accounts accountstable(_self, owner);
+  const auto &ac = accountstable.get(sym);
+  print(ac.boidpower, " BOIDPOWER\n");
+}
+
+uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
+{
+  accounts accountstable(_self, owner);
+  const auto &ac = accountstable.get(sym);
+  return ac.boidpower;
 }
 
 //TODO

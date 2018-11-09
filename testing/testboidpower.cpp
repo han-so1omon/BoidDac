@@ -28,22 +28,19 @@ void testboidpower::insert(account_name user, uint32_t boidpower) {
 }
 
 //     see https://developers.eos.io/eosio-home/docs/sending-an-inline-transaction-to-external-contract
-void testboidpower::send_boidpower_update(account_name requester, set<account_name> req_accts) {
+void testboidpower::sndnewbp(account_name requester, account_name req_acct) {
   require_auth("boid.stake"_n);
   accounts accts(_self,requester);
 
-  map<account_name, uint32_t> bp_table;
-  for (auto it = req_accts.begin(); it != req_accts.end(); it++) {
-    auto el = accts.find(*it);
-    if (el != accts.end()) {
-      bp_table[*it] = el->boidpower;
-    }
+  uint32_t boidpower = 0;
+  auto el = accts.find(req_acct);
+  if (el != accts.end()) {
+    boidpower = el->boidpower;
   }
-
   action(
     permission_level{get_self(),"active"_n},
     "boid.stake"_n,
-    "update_boidpower"_n,
-    std::make_tuple(get_self(),bp_table)
+    "setnewbp"_n,
+    std::make_tuple(get_self(),req_acct,boidpower)
   ).send();
 }

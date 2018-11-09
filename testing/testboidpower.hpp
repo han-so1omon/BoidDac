@@ -23,18 +23,17 @@ class testboidpower : public contract
   public:
     testboidpower(account_name self) : contract(self) {}
 
-    // @abi action
+    [[eosio::action]]
     void create(account_name issuer, asset maximum_supply);
 
-    // @abi action
+    [[eosio::action]]
     void insert(account_name user, uint32_t boidpower);
 
-    // @abi action
-    void send_boidpower_update(account_name requester, set<account_name> req_accts);
+    [[eosio::action]]
+    void sndnewbp(account_name requester, account_name req_acct);
 
   private:
-    // @abi table accounts i64
-    struct account
+    struct [[eosio::table]] account
     {
       account_name key;
       uint32_t boidpower; // TODO update boidpower daily
@@ -44,4 +43,4 @@ class testboidpower : public contract
     typedef eosio::multi_index<N(accounts), account> accounts;
 };
 
-EOSIO_ABI( testboidpower,(create)(insert)(send_boidpower_update))
+EOSIO_ABI( testboidpower,(create)(insert)(sndnewbp))

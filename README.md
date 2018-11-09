@@ -48,7 +48,7 @@ Token selling preferred bc higher immediate token liquidity
 2) run 
 ```
   $ cd testing && chmod +x ./local_test_setup.sh
-  $ ./local_test_setup.sh
+  $ bash -i ./local_test_setup.sh
 ```
 
 ## Building
