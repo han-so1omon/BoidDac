@@ -72,13 +72,13 @@ class boidtoken : public contract
 
     // Debugging action
     [[eosio::action]]
-    void printstake(account_name owner, symbol_name sym);
+    void printstake(account_name owner);
 
     // Debugging action
     [[eosio::action]]
-    void printbpow(account_name owner, symbol_name sym);
+    void printbpow(account_name owner);
 
-    uint32_t get_boidpower(account_name owner, symbol_name sym) const;
+    uint32_t get_boidpower(account_name owner) const;
 
     inline asset get_supply(symbol_name sym) const;
 
@@ -151,11 +151,10 @@ class boidtoken : public contract
     struct [[eosio::table]] account
     {
         asset balance;
-        uint32_t boidpower; // TODO update boidpower daily
         
         uint64_t primary_key() const { return balance.symbol.name(); }
 
-        EOSLIB_SERIALIZE (account, (balance)(boidpower));
+        EOSLIB_SERIALIZE (account, (balance));
     };
 
     typedef eosio::multi_index<N(accounts), account> accounts;
@@ -166,11 +165,12 @@ class boidtoken : public contract
         asset           staked;
         uint32_t        stake_date;
         uint32_t        stake_due;
+        uint32_t boidpower; // TODO update boidpower daily
         asset           escrow;
 
         account_name        primary_key () const { return stake_account; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow));
+        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow)(boidpower));
     };
 
    typedef eosio::multi_index<N(stakes), stake_row> stake_table;

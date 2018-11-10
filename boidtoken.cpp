@@ -117,7 +117,7 @@ void boidtoken::setoverflow(account_name _overflow)
 /* Specify contract run state to contract config table.
  */
 void boidtoken::running(uint8_t on_switch){
-  print("debugging running : ",(int)on_switch,"\n");
+  print("DEBUG running : ",(int)on_switch,"\n");
     require_auth (_self);
     config_table c_t (_self, _self);
     auto c_itr = c_t.find(0);
@@ -238,7 +238,7 @@ void boidtoken::claim(account_name _stake_account){
     {
         eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
             ///***************          DAILY         ****************************//
-        uint32_t boidpower = get_boidpower(s.stake_account,s.staked.symbol);
+        uint32_t boidpower = get_boidpower(s.stake_account);
             if (itr->stake_period == DAILY)
             {
               if ((boidpower / itr->staked.amount) >= STAKE_REWARD_RATIO) {
@@ -567,6 +567,7 @@ void boidtoken::initstats(){
   }
 }
 
+//FIXME
 void boidtoken::reqnewbp(account_name owner) {
   require_auth(_self);
   require_recipient(owner);
@@ -586,15 +587,11 @@ void boidtoken::setnewbp(account_name bp,
                          account_name acct,
                          uint32_t boidpower) {
   require_auth("boid.power"_n);
-  accounts accts(_self, bp);
-  auto el = accts.find(acct);
-  if (el != accts.end()) {
-    accts.modify(el, acct, [&](auto &a) {
-      a.boidpower = boidpower; 
-    });
-  } else {
-    accts.modify(el, acct, [&](auto &a) {
-      a.boidpower = 0; 
+  stake_table s_t(_self, _self);
+  auto itr = s_t.find(acct);
+  if (itr != s_t.end()) {
+    s_t.modify(itr, 0, [&](auto &a) {
+      a.boidpower = boidpower;
     });
   }
 }
@@ -638,28 +635,34 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
 }
 
 
-void boidtoken::printstake(account_name owner, symbol_name sym)
+void boidtoken::printstake(account_name owner)
 {
   require_auth(_self);
   stake_table s_t(_self, _self);
   auto itr = s_t.find(owner);
   if (itr != s_t.end()) {
-    print((int)itr->stake_period,"\n");
+    int stakeperiod = itr->stake_period;
+    print(stakeperiod, "\n");
   }
 }
 
-void boidtoken::printbpow(account_name owner, symbol_name sym) {
+void boidtoken::printbpow(account_name owner) {
   require_auth(_self);
-  accounts accountstable(_self, owner);
-  const auto &ac = accountstable.get(sym);
-  print(ac.boidpower, " BOIDPOWER\n");
+  stake_table s_t(_self, _self);
+  auto itr = s_t.find(owner);
+  if (itr != s_t.end()) {
+    print(itr->boidpower, " BOIDPOWER\n");
+  }
 }
 
-uint32_t boidtoken::get_boidpower(account_name owner, symbol_name sym) const
+uint32_t boidtoken::get_boidpower(account_name owner) const
 {
-  accounts accountstable(_self, owner);
-  const auto &ac = accountstable.get(sym);
-  return ac.boidpower;
+  stake_table s_t(_self, _self);
+  auto itr = s_t.find(owner);
+  if (itr != s_t.end()) {
+    return itr->boidpower;
+  }
+  return 0;
 }
 
 //TODO

@@ -73,6 +73,7 @@ appendData(){
   dt="$(($(date +%s%N)-$start))"
   setNextCurrencyBalances
   setNextBoidpower
+  setStakeType
   printf \
     "$dt,\t$acct1_eos,\t$acct1_boid,\t$acct1_bpow,\t$acct1_type,\t$acct2_eos,\t$acct2_boid,\t$acct2_bpow,\t$acct2_type\n" \
     >> ${DATAFILE}
@@ -91,16 +92,16 @@ setNextCurrencyBalances(){
 
 setNextBoidpower(){
   acct1_bpow="$(cleos_local_test push action boid.stake printbpow \
-    '[ "acct1", "BOID" ]' -p acct1 | tr -d '[:alpha:]')"
+    '[ "acct1" ]' -p boid.stake | sed -n 2p | sed 's/[^0-9]*//g')"
   acct2_bpow="$(cleos_local_test push action boid.stake printbpow \
-    '[ "acct2", "BOID" ]' -p acct2 | tr -d '[:alpha:]')"
+    '[ "acct2" ]' -p boid.stake | sed -n 2p | sed 's/[^0-9]*//g')"
 }
 
 setStakeType(){
   acct1_type="$(cleos_local_test push action boid.stake printstake \
-    '[ "acct1" ]' -p acct1 | tr -d '[:alpha:]')"
+    '[ "acct1" ]' -p boid.stake | sed -n 2p | sed 's/[^0-9]*//g')"
   acct2_type="$(cleos_local_test push action boid.stake printstake \
-    '[ "acct2" ]' -p acct2 | tr -d '[:alpha:]')"
+    '[ "acct2" ]' -p boid.stake | sed -n 2p | sed 's/[^0-9]*//g')"
 }
 
 ########### Boid staking setup and test
@@ -168,7 +169,7 @@ echo "Setting up boid power authorities"
 cleos_local_test set contract boid.power ${CONTRACT_DIR}/contracts/testboidpower -p boid.power
 sleep 0.1
 
-# 9) Run staking tests with test1 and test2
+# 9) Run staking tests with acct1 and acct2
 #TODO At this point maybe call a specified auxiliary script to run test conditions.
 #     This will minimize commenting-in/out of new/old test-cases.
 
@@ -190,7 +191,7 @@ sleep 0.1
 # Stake: [ account, {1:daily | 2:weekly}, amount]
 echo "Setting up boid token-staking contract"
 cleos_local_test push action boid.stake create \
-  '[ "boid.token", "1000000000.0000 BOID" ]' -p boid.stake
+  '[ "boid", "1000000000.0000 BOID" ]' -p boid.stake
 
 echo "Starting boid token-staking contract"
 cleos_local_test push action boid.stake running \
@@ -202,10 +203,10 @@ cleos_local_test push action boid.stake initstats \
 
 # issue before stake
 cleos_local_test push action boid.stake issue \
-  '[ "acct1", "1000.0000 BOID", "" ]' -p boid.token
+  '[ "acct1", "1000.0000 BOID", "" ]' -p boid
 
 cleos_local_test push action boid.stake issue \
-  '[ "acct2", "2000.0000 BOID", "" ]' -p boid.token
+  '[ "acct2", "2000.0000 BOID", "" ]' -p boid
 
 sleep 0.1
 cleos_local_test push action boid.stake stake \
@@ -215,11 +216,18 @@ sleep 0.1
 cleos_local_test push action boid.stake stake \
   '[ "acct2", "2", "2000.0000 BOID" ]' -p acct2
 
+sleep 0.1
+cleos_local_test push action boid.stake reqnewbp \
+  '[ "acct1" ]' -p boid.stake
+cleos_local_test push action boid.stake reqnewbp \
+  '[ "acct2" ]' -p boid.stake
+
+
 # Collect initial data
-setStakeType
 writeHeader
 appendData
 
+: ' 
 counter=0
 while [ $counter -lt 10 ]
 do
@@ -239,6 +247,8 @@ do
 
   counter=$(( $counter + 1))
 done
+
+'
 
 
 # 10) End test
