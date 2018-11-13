@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
 	# Set up boid power contract to boid.power
 
-	# Run staking tests with test1 and test2
+	# Run staking tests with acct1 and acct2
 
 
 	# stop the testnet
