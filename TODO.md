@@ -8,6 +8,7 @@ https://github.com/tokenika/eosfactory
 https://github.com/han-so1omon/Token-Staking-Upgrade/tree/testboidpower
 
 4. do a quick comparison of CI tools for eos development using GitHub
+	CI = Continuous Integration, aka testing stuff automatically when it's pushed to GitHub
 
 5. Go to the file local_test.py in Token-Staking-Upgrade/tests/, starting on line 83 you'll see:
 
