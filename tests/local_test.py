@@ -1,19 +1,6 @@
 from eosfactory.eosf import *
 import sys
 
-''' NOTES:
-
-	TO DO:
-
-		implement and debug the rest of the test
-			use the same variable names eric used to make it easier for him to read
-				.. or as many as possible
-
-		ask Sydney what OS she uses and if everything was installed properly:
-			eos
-			eosfactory
-
-	'''
 
 CONTRACT_PATH = sys.path[0] + '/../'
 
@@ -27,8 +14,7 @@ if __name__ == '__main__':
 	# accessed via global variable: master
 	create_master_account('master')
 
-	# 3) Create 6 accounts: eosio_token, boid, boid_stake, boid_power, acct1, acct2
-	# create_account('eosio_token', master, account_name='eosio.token')
+	# Create 6 accounts: eosio_token, boid, boid_stake, boid_power, acct1, acct2
 	create_account('boid', master, account_name='boid')
 	create_account('boid_stake', master, account_name='boid.stake')
 	create_account('boid_power', master, account_name='boid.power')
