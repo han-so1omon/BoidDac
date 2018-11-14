@@ -2,9 +2,9 @@
 This Contract is legally binding and can be used in the event of a dispute. Disputes shall be settled through the standard arbitration process established by EOS.IO.
 ### Description
 The `{{ runpayout }}` action... 
-INTENT: The intent of {{ runpayout }} is to place into the stake table additional tokens earned by users staking their EDNA tokens. These additional tokens called bonus tokens are distributed to according to the following formula:
-    Weekly Bonus = 2,000,000.0000 EDNA
-    Total Tokens = 1,300,000,000.0000 EDNA (max)
+INTENT: The intent of {{ runpayout }} is to place into the stake table additional tokens earned by users staking their BOID tokens. These additional tokens called bonus tokens are distributed to according to the following formula:
+    Weekly Bonus = 2,000,000.0000 BOID
+    Total Tokens = 1,300,000,000.0000 BOID (max)
     Staked Tokens = the total of all tokens present on the stake table
     Percentage Staked = Staked Tokens divided by Total Tokens
     Base Payout = Weekly Bonus times Percentage Staked
@@ -15,7 +15,7 @@ INTENT: The intent of {{ runpayout }} is to place into the stake table addition
     3) Quarterly = times 2.0
     The process then adds all stake amounts including their associated multipliers to arrive at a total number of "shares earned".
     Shares are not a representation of ownership, simply a term to represent percentage of bonus each account is awarded for that week as in "share of the total".
-    Single Share value = Total Payout divided by the total shares earned expressed in EDNA's
+    Single Share value = Total Payout divided by the total shares earned expressed in BOID's
     The Single Share value times the number of shares in each staked row on the staked table is added to the table in one of three ways:
     1) if the table row is staked for a weekly term, the tokens are added to the existing stake
     2) if the table row is staked for a monthly or quarterly term and the term is completed, the tokens are added to the existing stake
