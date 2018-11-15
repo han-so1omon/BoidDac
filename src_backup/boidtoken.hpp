@@ -24,60 +24,60 @@ class boidtoken : public contract
 
     boidtoken(account_name self) : contract(self) {}
 
-    // @abi action
+    [[eosio::action]]
     void create(account_name issuer, asset maximum_supply);
 
-    // @abi action
+    [[eosio::action]]
     void issue(account_name to, asset quantity, string memo);
 
-    // @abi action
+    [[eosio::action]]
     void transfer(account_name from, account_name to, asset quantity, string memo);
 
-    // @abi action
+    [[eosio::action]]
     void setoverflow (account_name _overflow);
 
-    // @abi action
+    [[eosio::action]]
     void running(uint8_t on_switch);
 
-    // @abi action
+    [[eosio::action]]
     void stake (account_name _stake_account, uint8_t  _stake_period, asset _staked ) ;
 
-    // @abi action
+    [[eosio::action]]
     void claim(const account_name _stake_account);
 
-    // @abi action
+    [[eosio::action]]
     void unstake (const account_name _stake_account);
 
     // Debugging method
-    // @abi action
+    [[eosio::action]]
     void checkrun();
 
-    // @abi action
+    [[eosio::action]]
     void addbonus (account_name _sender, asset _bonus);
 
-    // @abi action
+    [[eosio::action]]
     void rembonus ();
 
-    // @abi action
+    [[eosio::action]]
     void runpayout();
 
-    // @abi action
+    [[eosio::action]]
     void initstats();
 
-    // @abi action
+    [[eosio::action]]
     void reqnewbp(account_name owner);
 
-    // @abi action
+    [[eosio::action]]
     void setnewbp(account_name bp,
                   account_name acct,
                   uint32_t boidpower);
 
     // Debugging action
-    // @abi action
+    [[eosio::action]]
     void printstake(account_name owner);
 
     // Debugging action
-    // @abi action
+    [[eosio::action]]
     void printbpow(account_name owner);
 
     uint32_t get_boidpower(account_name owner) const;
@@ -116,8 +116,7 @@ class boidtoken : public contract
 
     set<account_name> _accts;
 
-    // @abi table configs i64
-    struct config {
+    struct [[eosio::table]] config {
         uint64_t        config_id;
         uint8_t         running;
         account_name    overflow;
@@ -151,8 +150,7 @@ class boidtoken : public contract
 
     typedef eosio::multi_index<N(configs), config> config_table;
 
-    // @abi table accounts i64
-    struct account
+    struct [[eosio::table]] account
     {
         asset balance;
         
@@ -163,8 +161,7 @@ class boidtoken : public contract
 
     typedef eosio::multi_index<N(accounts), account> accounts;
 
-    // @abi table stakes i64    
-    struct stake_row {
+    struct [[eosio::table]] stake_row {
         account_name    stake_account;
         uint8_t         stake_period;
         asset           staked;
@@ -180,8 +177,7 @@ class boidtoken : public contract
 
    typedef eosio::multi_index<N(stakes), stake_row> stake_table;
 
-    // @abi table stat i64
-    struct currencystat
+    struct [[eosio::table]] currencystat
     {
         asset supply;
         asset max_supply;
