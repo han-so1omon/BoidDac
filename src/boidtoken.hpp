@@ -20,6 +20,8 @@ using eosio::const_mem_fun;
 class boidtoken : public contract
 {
   public:
+    using contract::contract;
+
     boidtoken(account_name self) : contract(self) {}
 
     [[eosio::action]]
