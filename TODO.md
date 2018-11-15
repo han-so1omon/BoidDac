@@ -40,4 +40,6 @@ https://github.com/tokenika/eosfactory
 
 	Run staking tests with acct1 and acct2
 
-6. Create actual staking accounts
+6. Test staking with various different BOID quantities and with various stake/claim patterns
+
+7. Run on testnet
