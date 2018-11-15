@@ -575,9 +575,9 @@ void boidtoken::reqnewbp(account_name owner) {
   for (auto itr = _accts.begin(); itr != _accts.end(); itr++) {
     stake_table s_t(_self, _self);
     action(
-        permission_level{get_self(),"active"_n},
-        "boid.power"_n,
-        "sndnewbp"_n,
+        permission_level{get_self(),N("active")},
+        N("boid.power"),
+        N("sndnewbp"),
         std::make_tuple(owner,*itr)
     ).send();
   }
@@ -586,7 +586,7 @@ void boidtoken::reqnewbp(account_name owner) {
 void boidtoken::setnewbp(account_name bp,
                          account_name acct,
                          uint32_t boidpower) {
-  require_auth("boid.power"_n);
+  require_auth(N("boid.power"));
   stake_table s_t(_self, _self);
   auto itr = s_t.find(acct);
   if (itr != s_t.end()) {
