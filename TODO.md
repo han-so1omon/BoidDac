@@ -7,8 +7,6 @@ https://github.com/tokenika/eosfactory
 3. do a quick comparison of CI tools for eos development using GitHub
 	CI = Continuous Integration, aka testing stuff automatically when it's pushed to GitHub
 
-<<<<<<< HEAD
-=======
 4. Make the ricardian documents for boidtoken.cpp, and make sure local_test.py runs error free.
 	See EOS constitution:
 		Article VII - Open Source -Each Member who makes available a smart contract on this blockchain shall be a Developer. Each Developer shall offer their smart contracts via a free and open source license, and each smart contract shall be documented with a Ricardian Contract stating the intent of all parties and naming the Arbitration Forum that will resolve disputes arising from that contract.
@@ -23,14 +21,30 @@ https://github.com/tokenika/eosfactory
 		unstake
 		create
 		checkrun
-		rembonus
-		runpayout
 		initstats
 		reqnewbp
 		setnewbp
 		printstake
 		printbpow
->>>>>>> a857a8472bfe1dac37a94930ecfe14d3681a5dc6
+
+	all ricardian contracts:
+		create - VERIFIED
+		issue - VERIFIED
+		addbonus - VERIFIED
+		checkrun - VERIFIED
+		claim - VERIFIED
+		initstats - VERIFIED
+		printbpow - VERIFIED
+		printstake - VERIFIED
+		process - ERIC WILL DO THIS ONE
+		reqnewbp - VERIFIED
+		running - VERIFIED
+		setnewbp - VERIFIED
+		setoverflow - NOT NECESSARY
+		stake - NOT NECESSARY
+		transfer - NOT NECESSARY
+		unstake - NOT NECESSARY
+		boidtoken - UNVERIFIED
 
 5. Go to the file local_test.py in Token-Staking-Upgrade/tests/, starting on line 83 you'll see comments:
 

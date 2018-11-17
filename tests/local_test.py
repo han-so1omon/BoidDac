@@ -82,7 +82,9 @@ if __name__ == '__main__':
 
 	# Set up boid staking contract to boid.stake
 
+
 	# Set up boid power contract to boid.power
+
 
 	# Run staking tests with acct1 and acct2
 

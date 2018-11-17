@@ -6,7 +6,7 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 The `{{ create }}` action... 
 
-INTENT: The intent of {{ create }} is to allow an EOS account to add additional BOID Tokens to the total payout bonus available for the current weekly payout. This most usually will come from the overflow account, but could come from elsewhere. Adding to the payout bonus is always at the sole discretion of the contract owner.    
+INTENT: The intent of `{{ create }}` is to action... Original unmodified from EOSIO delivered eosio.token contract That Ricardian Contract applies here.
 
 TERM: This action lasts for the duration of the processing of the contract.
 

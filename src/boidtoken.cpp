@@ -14,17 +14,25 @@
  */
 void boidtoken::create(account_name issuer, asset maximum_supply)
 {
+    // accounts perform actions
+    // some accounts shouldnt be able to perform specific actions
+    // the caller of the action must equal _self
+    // _self is the owner of the contract
     require_auth(_self);
 
+    // verify valid symbol and max supply is within range of 0 to (1LL<<62)-1
     auto sym = maximum_supply.symbol;
     eosio_assert(sym.is_valid(), "invalid symbol name");
     eosio_assert(maximum_supply.is_valid(), "invalid supply");
     eosio_assert(maximum_supply.amount > 0, "max-supply must be positive");
 
-    stats statstable(_self, sym.name());
-    auto existing = statstable.find(sym.name());
+    // assert we didn't already put some amount of tokens
+    // (of type sym) into the contract
+    stats statstable(_self, sym.name());  // get stats table from EOS database (and declare local version of it)
+    auto existing = statstable.find(sym.name());  // and see if sym is in the stats table
     eosio_assert(existing == statstable.end(), "stake with symbol already exists");
 
+    // set table so that sym tokens can be issued (given to accounts)
     statstable.emplace(_self, [&](auto &s) {
         s.supply.symbol = maximum_supply.symbol;
         s.max_supply = maximum_supply;

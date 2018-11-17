@@ -183,12 +183,14 @@ class boidtoken : public contract
     // @abi table stat i64
     struct currencystat
     {
-        asset supply;
-        asset max_supply;
-        account_name issuer;
+        asset supply;  // curent number of BOID tokens
+        asset max_supply;  // max number of BOID tokens
+        account_name issuer;  // name of the account that issues BOID tokens
 
+        // table (database) key to get read and write access
         uint64_t primary_key() const { return supply.symbol.name(); }
 
+        // serialize database format to EOSIO blockchain database format
         EOSLIB_SERIALIZE (currencystat, (supply)(max_supply)(issuer));
     };
 

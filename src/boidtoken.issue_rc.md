@@ -4,7 +4,8 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 ### Description
 
-The `{{ issue }}` action... [Original] unmodified from EOSIO delivered eosio.token contract
+The `{{ issue }}` action... Original unmodified from EOSIO delivered eosio.token contract That Ricardian Contract applies here
+
 
 ### Inputs and Input Types
 
