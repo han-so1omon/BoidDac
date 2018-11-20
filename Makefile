@@ -11,9 +11,9 @@ boidtoken:
 .PHONY: test
 test: boidtoken
 	mkdir -p build/contracts/testboidpower
-	eosio-cpp -I /usr/local/eosio.cdt/include/ testing/testboidpower.cpp -o build/contracts/testboidpower/testboidpower.wasm
+	eosio-cpp -I /usr/local/eosio.cdt/include/ testing/src/testboidpower.cpp -o build/contracts/testboidpower/testboidpower.wasm
 	eosio-wasm2wast build/contracts/testboidpower/testboidpower.wasm -o build/contracts/testboidpower/testboidpower.wast
-	eosio-abigen testing/testboidpower.cpp -output=build/contracts/testboidpower/testboidpower.abi
+	eosio-abigen testing/src/testboidpower.cpp -output=build/contracts/testboidpower/testboidpower.abi
 
 .PHONY: clean
 clean:
