@@ -1,10 +1,10 @@
-# Smart Contract - `{{ ednatoken }}`
+# Smart Contract - `{{ boidtoken }}`
 
-This is an overview of the actions for the `{{ ednatoken }}` smart contract. This Contract is legally binding and can be used in the event of a dispute. Disputes shall be settled through the standard arbitration process established by EOS.IO.
+This is an overview of the actions for the `{{ boidtoken }}` smart contract. This Contract is legally binding and can be used in the event of a dispute. Disputes shall be settled through the standard arbitration process established by EOS.IO.
 
 ### Description
 
-The `{{ ednatoken }}` CONTRACT FOR EDNA TOKEN/STAKING CONTRACT
+The `{{ boidtoken }}` CONTRACT FOR BOID TOKEN/STAKING CONTRACT
 
 OVERALL FUNCTION : This contract is a upgrade/replacement for the original ednazztokens contract which was deployed on Jun-19-2018, 08:29:53 AM in block #1,538,253 by transaction #: 566736553519b432d02074ab0a3b6523dd6b9a394a66bb26c9479b63f5a33537 and deployed by the ednazztokens account.
 
@@ -21,7 +21,7 @@ This includes, but is not limited to membership terms and conditions, dispute re
 
 ### Actions, Inputs and Input Types
 
-The table below contains the `actions`, `inputs` and `input types` for the `{{ ednatoken }}` contract.
+The table below contains the `actions`, `inputs` and `input types` for the `{{ boidtoken }}` contract.
 
 | Action | Input | Input Type |
 |:--|:--|:--|

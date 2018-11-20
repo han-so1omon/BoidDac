@@ -7,15 +7,22 @@
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
 #include <string>
+//#include <vector>
+#include <set>
+#include <cmath>
 
 using namespace eosio;
 using std::string;
+//using std::vector;
+using std::set;
 using eosio::const_mem_fun;
 
-class ednatoken : public contract
+class boidtoken : public contract
 {
   public:
-    ednatoken(account_name self) : contract(self) {}
+    using contract::contract;
+
+    boidtoken(account_name self) : contract(self) {}
 
     // @abi action
     void create(account_name issuer, asset maximum_supply);
@@ -41,6 +48,7 @@ class ednatoken : public contract
     // @abi action
     void unstake (const account_name _stake_account);
 
+    // Debugging method
     // @abi action
     void checkrun();
 
@@ -56,29 +64,57 @@ class ednatoken : public contract
     // @abi action
     void initstats();
 
+    // @abi action
+    void reqnewbp(account_name owner);
+
+    // @abi action
+    void setnewbp(account_name bp,
+                  account_name acct,
+                  uint32_t boidpower);
+
+    // Debugging action
+    // @abi action
+    void printstake(account_name owner);
+
+    // Debugging action
+    // @abi action
+    void printbpow(account_name owner);
+
+    uint32_t get_boidpower(account_name owner) const;
+
     inline asset get_supply(symbol_name sym) const;
 
     inline asset get_balance(account_name owner, symbol_name sym) const;
 
   private:
 
+    // Reward qualifications options
+    // 1) Require boidpower/boidstake >= 10 to qualify for staking rewards
+    const uint16_t  STAKE_REWARD_RATIO = 10;
+    // 2) Reward per coin = 0.0001*max(boidpower/1000,1)
+    const uint32_t  STAKE_REWARD_DIVISOR = 10000;
+    const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
+
+    const uint16_t  DAY_MULTIPLIERX100 = 30;
     const uint16_t  WEEK_MULTIPLIERX100 = 100;
     const uint16_t  MONTH_MULTIPLIERX100 = 150;
     const uint16_t  QUARTER_MULTIPLIERX100 = 200;
-    const int64_t   BASE_WEEKLY = 20000000000;
+    const int64_t   BASE_DAILY = 200000000;
 
-    const uint8_t   WEEKLY = 1;
-    const uint8_t   MONTHLY = 2;
-    const uint8_t   QUARTERLY = 3;
+    const uint8_t   DAILY = 1;
+    const uint8_t   WEEKLY = 2;
+    const uint8_t   MONTHLY = 3;
+    const uint8_t   QUARTERLY = 4;
 
-//    const uint32_t  WEEK_WAIT =    (60 * 3);   // TESTING Speed Only
-//    const uint32_t  MONTH_WAIT =   (60 * 12);  // TESTING Speed Only
-//    const uint32_t  QUARTER_WAIT = (60 * 36);  // TESTING Speed Only
+    const uint32_t  DAY_WAIT =     (1);   // TESTING Speed Only
+    const uint32_t  WEEK_WAIT =    (1 * 7);   // TESTING Speed Only
+    const uint32_t  MONTH_WAIT =   (1 * 7 * 30);  // TESTING Speed Only
+    const uint32_t  QUARTER_WAIT = (1 * 7 * 30 * 4);  // TESTING Speed Only
 
-    const uint32_t   WEEK_WAIT =    (60 * 60 * 24 * 7);
-    const uint32_t   MONTH_WAIT =   (60 * 60 * 24 * 7 * 4);
-    const uint32_t   QUARTER_WAIT = (60 * 60 * 24 * 7 * 4 * 3);
+//    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
+//    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
 
+    set<account_name> _accts;
 
     // @abi table configs i64
     struct config {
@@ -86,6 +122,7 @@ class ednatoken : public contract
         uint8_t         running;
         account_name    overflow;
         uint32_t        active_accounts;
+        asset           staked_daily;
         asset           staked_weekly;
         asset           staked_monthly;
         asset           staked_quarterly;
@@ -105,8 +142,10 @@ class ednatoken : public contract
 
         uint64_t    primary_key() const { return config_id; }
 
-        EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)(staked_weekly)(staked_monthly)(staked_quarterly)(total_staked)
-        (total_escrowed_monthly)(total_escrowed_quarterly)(total_shares)(base_payout)(bonus)(total_payout)(interest_share)(unclaimed_tokens)
+        EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)
+        (staked_daily)(staked_weekly)(staked_monthly)(staked_quarterly)(total_staked)
+        (total_escrowed_monthly)(total_escrowed_quarterly)(total_shares)(base_payout)
+        (bonus)(total_payout)(interest_share)(unclaimed_tokens)
         (spare_a1)(spare_a2)(spare_i1)(spare_i2));
     };
 
@@ -116,23 +155,27 @@ class ednatoken : public contract
     struct account
     {
         asset balance;
+        
         uint64_t primary_key() const { return balance.symbol.name(); }
 
         EOSLIB_SERIALIZE (account, (balance));
     };
 
-    // @abi table stakes i64
+    typedef eosio::multi_index<N(accounts), account> accounts;
+
+    // @abi table stakes i64    
     struct stake_row {
         account_name    stake_account;
         uint8_t         stake_period;
         asset           staked;
         uint32_t        stake_date;
         uint32_t        stake_due;
+        uint32_t boidpower; // TODO update boidpower daily
         asset           escrow;
 
         account_name        primary_key () const { return stake_account; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow));
+        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow)(boidpower));
     };
 
    typedef eosio::multi_index<N(stakes), stake_row> stake_table;
@@ -140,21 +183,23 @@ class ednatoken : public contract
     // @abi table stat i64
     struct currencystat
     {
-        asset supply;
-        asset max_supply;
-        account_name issuer;
+        asset supply;  // curent number of BOID tokens
+        asset max_supply;  // max number of BOID tokens
+        account_name issuer;  // name of the account that issues BOID tokens
 
+        // table (database) key to get read and write access
         uint64_t primary_key() const { return supply.symbol.name(); }
 
+        // serialize database format to EOSIO blockchain database format
         EOSLIB_SERIALIZE (currencystat, (supply)(max_supply)(issuer));
     };
 
-    typedef eosio::multi_index<N(accounts), account> accounts;
     typedef eosio::multi_index<N(stat), currencystat> stats;
 
     void sub_balance(account_name owner, asset value);
     void add_balance(account_name owner, asset value, account_name ram_payer);
 
+    //TODO
     void sub_stake(account_name owner, asset value);
     void add_stake(account_name owner, asset value);
 
@@ -169,7 +214,7 @@ class ednatoken : public contract
 };
 
 
-asset ednatoken::get_supply(symbol_name sym) const
+asset boidtoken::get_supply(symbol_name sym) const
 {
     stats statstable(_self, sym);
     const auto &st = statstable.get(sym);
@@ -177,11 +222,12 @@ asset ednatoken::get_supply(symbol_name sym) const
 }
 
 
-asset ednatoken::get_balance(account_name owner, symbol_name sym) const
+asset boidtoken::get_balance(account_name owner, symbol_name sym) const
 {
     accounts accountstable(_self, owner);
     const auto &ac = accountstable.get(sym);
     return ac.balance;
 }
 
-EOSIO_ABI( ednatoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats))
+EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake)(printbpow))
+//EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake))

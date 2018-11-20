@@ -4,9 +4,11 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 ### Description
 
-The `{{ create }}` action...
-*Original* unmodified from EOSIO delivered eosio.token contract
-That Ricardian Contract applies here.  
+The `{{ create }}` action... 
+
+INTENT: The intent of `{{ create }}` is to action... Original unmodified from EOSIO delivered eosio.token contract That Ricardian Contract applies here.
+
+TERM: This action lasts for the duration of the processing of the contract.
 
 ### Inputs and Input Types
 
@@ -14,4 +16,4 @@ The `{{ create }}` action requires the following `inputs` and `input types`:
 
 | Action | Input | Input Type |
 |:--|:--|:--|
-| `{{ create }}` | `{{ issuerVar }}`<br/>`{{ maximum_supplyVar }}` | `{{ name }}`<br/>`{{ asset }}` |
+| `{{ create }}` | `{{ _senderVar }}`<br/>`{{ _bonusVar }}` | `{{ name }}`<br/>`{{ asset }}` |

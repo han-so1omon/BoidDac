@@ -1,19 +1,6 @@
 from eosfactory.eosf import *
 import sys
 
-''' NOTES:
-
-	TO DO:
-
-		implement and debug the rest of the test
-			use the same variable names eric used to make it easier for him to read
-				.. or as many as possible
-
-		ask Sydney what OS she uses and if everything was installed properly:
-			eos
-			eosfactory
-
-	'''
 
 CONTRACT_PATH = sys.path[0] + '/../'
 
@@ -27,8 +14,7 @@ if __name__ == '__main__':
 	# accessed via global variable: master
 	create_master_account('master')
 
-	# 3) Create 6 accounts: eosio_token, boid, boid_stake, boid_power, acct1, acct2
-	# create_account('eosio_token', master, account_name='eosio.token')
+	# Create 6 accounts: eosio_token, boid, boid_stake, boid_power, acct1, acct2
 	create_account('boid', master, account_name='boid')
 	create_account('boid_stake', master, account_name='boid.stake')
 	create_account('boid_power', master, account_name='boid.power')
@@ -56,51 +42,69 @@ if __name__ == '__main__':
 	#		action_name,
 	#		action_arguments_in_json,
 	#		account_whose_permission_is_needed)
-	host.push_action(
-		'create',
-		{'issuer': master,
-			'maximum_supply': '1000000000.0000 EOS'},
-		[master, host])
+	host.push_action('create', {
+		'issuer': master,
+		'maximum_supply': '1000000000.0000 EOS'
+		}, [master, host])
 
-	host.push_action(
-		'create',
-		{'issuer': boid,
-			'maximum_supply': '1000000000.0000 BOID'},
-		[boid, host])
+	host.push_action('create', {
+		'issuer': boid,
+		'maximum_supply': '1000000000.0000 BOID'
+		}, [boid, host])
 
 	# Distribute initial quantities of EOS & BOID to test accounts
-	host.push_action(
-		'issue',
-		{'to': acct1,
+	host.push_action('issue', {
+		'to': acct1,
 		'quantity': '1000.0000 EOS',
-		'memo': 'memo'},
-		[master])
-	host.push_action(
-		'issue',
-		{'to': acct2,
+		'memo': 'memo'
+		}, [master])
+	host.push_action('issue', {
+		'to': acct2,
 		'quantity': '2000.0000 EOS',
-		'memo': 'memo'},
-		[master])
-	host.push_action(
-		'issue',
-		{'to': acct1,
+		'memo': 'memo'
+		}, [master])
+	host.push_action('issue', {
+		'to': acct1,
 		'quantity': '1000.0000 BOID',
-		'memo': 'memo'},
-		[boid])
-	host.push_action(
-		'issue',
-		{'to': acct2,
+		'memo': 'memo'
+		}, [boid])
+	host.push_action('issue', {
+		'to': acct2,
 		'quantity': '2000.0000 BOID',
-		'memo': 'memo'},
-		[boid])
+		'memo': 'memo'
+		}, [boid])
 
 	# Set up boid staking contract to boid.stake
+	'''
+		cleos set contract <account_name> <contract_name>
+							boid.stake     boidtoken
+		push said contract with said user
+	
+		how to set a contract
 
+
+		'''
+	
 	# Set up boid power contract to boid.power
 
-	# Run staking tests with test1 and test2
+	# Run staking tests with acct1 and acct2
+	host.push_action('stake', {
+		'_stake_account': acct1,
+		'_stake_period': 2,
+		'_staked': '1000.0000 BOID'
+		}, [boid_stake])
 
+	cleos_local_test push action boid.stake create \
+	  '[ "boid", "1000000000.0000 BOID" ]' -p boid.stake
+	host.push_action('create', {
+		'issuer': boid_stake,
+		'maximum_supply': '1000000000.0000 BOID'
+		}, [])
+	host.push_action('create', {
+		'issuer': boid,
+		'maximum_supply': '1000000000.0000 BOID'
+		}, [boid, host])
 
-	# stop the testnet
+	# stop the testnet and exit python
 	stop()
-
+	exit()
