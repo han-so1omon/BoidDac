@@ -48,7 +48,7 @@ def getStakeType(acct):
 if __name__ == '__main__':
 
     # start single-node local testnet
-    reset()
+    eosf.reset()
 
     # create master account from which
     # other account can be created
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # create reference to the token staking contract
     eosioToken_c = eosf.Contract(
             eosio_token, EOS_TOKEN_CONTRACT_PATH)
-    boidStake_c = Contract(
+    boidStake_c = eosf.Contract(
             boid_stake, BOID_STAKE_CONTRACT_PATH)
     testBoidpower_c = eosf.Contract(
             boid_power, TEST_BOIDPOWER_CONTRACT_PATH)
@@ -147,6 +147,7 @@ if __name__ == '__main__':
                 'issuer': boid_power,
                 'maximum_supply': '100000.0000 BPOW'
             }, [boid_power])
+    # insert - ad hoc way to give accounts boid power
     testBoidpower_c.push_action(
             'insert',
             {
@@ -167,13 +168,17 @@ if __name__ == '__main__':
                 'issuer': boid_stake,
                 'maximum_supply', '1000000000.0000 BOID'
             }, [boid_stake])
-    boidStake_c.push_action(
+    # TODO find way to print total number of boid tokens
+    # to determine if this function above is minting more coins
+    # or if its alocating pre-existing coins
+    boidStake_c.push_action(  # running - sets payouts to on
             'running',
             {
                 'on_switch': '1',
             }, [boid_stake])
+    # initstats - reset/setup configuration of contract
     boidStake_c.push_action(
-            'initstate',
+            'initstats',   
             {}, [boid_stake])
 
 
@@ -199,7 +204,9 @@ if __name__ == '__main__':
                 '_staked': '2000.0000 BOID'
             }, [boid_stake])
 
+    print(eosToken_c.table("accounts", acct1))
+    print(eosToken_c.table("accounts", acct2))
 
     # stop the testnet and exit python
     eosf.stop()
-    eosf.exit()
+    exit()

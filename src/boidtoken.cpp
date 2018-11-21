@@ -478,6 +478,8 @@ void boidtoken::rembonus()
 }
 
 /* Payout daily + weekly staked token bonuses
+ * FIXME total_payout should include boidpower from all accounts,
+ *       not just regular staking bonus (EDNA-style)
  */
 void boidtoken::runpayout()
 {
