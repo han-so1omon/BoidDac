@@ -24,81 +24,153 @@ class boidtoken : public contract
 
     boidtoken(account_name self) : contract(self) {}
 
+    /** \brief Add specific token to token-staking stats table.
+     *
+     *  - Set token symbol in table
+     *  - Set token max supply in table
+     *  - Set authorized token issuer in table
+     */
     // @abi action
     void create(account_name issuer, asset maximum_supply);
 
+    /** \brief Issuer issues tokens to a specified account
+     *
+     *  - Specified token must be in stats table
+     *  - Specified quantity must be less than max supply of token to be issued
+     *    -- Max supply from contract-local stats table
+     *    -- Max supply not necessarily total token supply over entire economy
+     */
     // @abi action
     void issue(account_name to, asset quantity, string memo);
 
+    /** \brief Transfer tokens from one account to another
+     *
+     *  - Token type must be same as type to-be-staked via this contract
+     *  - Both accounts of transfer must be valid
+     */
     // @abi action
     void transfer(account_name from, account_name to, asset quantity, string memo);
 
+    /** \brief Specify overflow account for holding overflow.
+     *
+     * Overflow is defined as unclaimed or excess tokens.
+     */
     // @abi action
     void setoverflow (account_name _overflow);
 
+    /** \brief Specify contract run state to contract config table.
+     */
     // @abi action
     void running(uint8_t on_switch);
 
+    /** \brief Stake tokens with a specified account
+     *
+     *  - Add account to stake table or add amount staked to existing account
+     *  - Specify staking period
+     *    -- Stake period must be valid staking period offered by this contract
+     *    -- Daily or weekly
+     *  - Specify amount staked 
+     *    -- Token type must be same as type to-be-staked via this contract
+     */
     // @abi action
     void stake (account_name _stake_account, uint8_t  _stake_period, asset _staked ) ;
 
+    /** \brief Claim token-staking bonus for specified account
+     */
     // @abi action
     void claim(const account_name _stake_account);
 
+    /** \brief Unstake tokens from specified account
+     *
+     *  - Return stored escrow to contract account
+     *  - Deduct staked amount from contract config table
+     */
     // @abi action
     void unstake (const account_name _stake_account);
 
-    // Debugging method
+
+    /** \brief Check result of running payout
+     *
+     * Debugging action
+     */
     // @abi action
     void checkrun();
 
+    /** \brief Add bonus to config table
+     */
     // @abi action
     void addbonus (account_name _sender, asset _bonus);
 
+    /** \brief Transfer unclaimed bonus to overflow account
+     */
     // @abi action
     void rembonus ();
 
+    /** \brief Payout staked token bonuses
+     */
     // @abi action
     void runpayout();
 
+    /** \brief Initialize config table
+     */
     // @abi action
     void initstats();
 
+    /** \brief Request new boidpower from boidpower contract
+     */
     // @abi action
     void reqnewbp(account_name owner);
 
+    /** \brief Set new boidpower
+     *
+     * This is called from boidpower contract
+     */
     // @abi action
     void setnewbp(account_name bp,
                   account_name acct,
                   uint32_t boidpower);
 
-    // Debugging action
+    /** \brief Print stake of some account 
+     *
+     * Debugging action
+     */
     // @abi action
     void printstake(account_name owner);
 
-    // Debugging action
+    /** \brief Print boidpower of some account
+     *
+     * Debugging action
+     */
     // @abi action
     void printbpow(account_name owner);
 
+    /** \brief Get current boidpower of some account in accounts table
+     */
     uint32_t get_boidpower(account_name owner) const;
 
+    /** \brief Get BOID token supply
+     */
     inline asset get_supply(symbol_name sym) const;
 
+    /** \brief Get balance of some account for some token in accounts table
+     */
     inline asset get_balance(account_name owner, symbol_name sym) const;
 
   private:
 
     // Reward qualifications options
     // 1) Require boidpower/boidstake >= 10 to qualify for staking rewards
-    const uint16_t  STAKE_REWARD_RATIO = 10;
     // 2) Reward per coin = 0.0001*max(boidpower/1000,1)
+    const uint16_t  STAKE_REWARD_RATIO = 10; //!< Require boidpower/boidstake >= 10 to qualify for staking rewards
+                                             //!< Reward per coin =
+                                             //0.0001*max(boidpower/1000,1)
     const uint32_t  STAKE_REWARD_DIVISOR = 10000;
     const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
-    const uint16_t  DAY_MULTIPLIERX100 = 30;
-    const uint16_t  WEEK_MULTIPLIERX100 = 100;
-    const uint16_t  MONTH_MULTIPLIERX100 = 150;
-    const uint16_t  QUARTER_MULTIPLIERX100 = 200;
+    const uint16_t  DAY_MULTIPLIERX100 = 30; //!< Reward for staking daily 
+    const uint16_t  WEEK_MULTIPLIERX100 = 100; //!< Reward for staking weekly
+    const uint16_t  MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
+    const uint16_t  QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
     const int64_t   BASE_DAILY = 200000000;
 
     const uint8_t   DAILY = 1;

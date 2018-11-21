@@ -1,0 +1,250 @@
+\hypertarget{classboidtoken}{}\section{boidtoken Class Reference}
+\label{classboidtoken}\index{boidtoken@{boidtoken}}
+
+
+Inheritance diagram for boidtoken\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=139pt]{classboidtoken__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for boidtoken\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=139pt]{classboidtoken__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \hyperlink{structboidtoken_1_1transfer__args}{transfer\+\_\+args}
+\end{DoxyCompactItemize}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries boidtoken} (account\+\_\+name self)\hypertarget{classboidtoken_a251a26b76724620cd1eb654d32ff4972}{}\label{classboidtoken_a251a26b76724620cd1eb654d32ff4972}
+
+\item 
+void \hyperlink{classboidtoken_a09328f276ba96ecb4e2870c6b3433132}{create} (account\+\_\+name issuer, asset maximum\+\_\+supply)
+\begin{DoxyCompactList}\small\item\em Add specific token to token-\/staking stats table. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ad4275155b85cfe7932954945f7099cc3}{issue} (account\+\_\+name to, asset quantity, string memo)
+\begin{DoxyCompactList}\small\item\em Issuer issues tokens to a specified account. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a81244cb7a5df5ecc52f9ea38d640a763}{transfer} (account\+\_\+name from, account\+\_\+name to, asset quantity, string memo)
+\begin{DoxyCompactList}\small\item\em Transfer tokens from one account to another. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ac56437afe05540b627b12e6c7773c793}{setoverflow} (account\+\_\+name \+\_\+overflow)
+\begin{DoxyCompactList}\small\item\em Specify overflow account for holding overflow. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_af8507dc2ddf06be4b73b5df2def38256}{running} (uint8\+\_\+t on\+\_\+switch)\hypertarget{classboidtoken_af8507dc2ddf06be4b73b5df2def38256}{}\label{classboidtoken_af8507dc2ddf06be4b73b5df2def38256}
+
+\begin{DoxyCompactList}\small\item\em Specify contract run state to contract config table. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_af7c0a3fb8818ba690fb053f585026fbb}{stake} (account\+\_\+name \+\_\+stake\+\_\+account, uint8\+\_\+t \+\_\+stake\+\_\+period, asset \+\_\+staked)
+\begin{DoxyCompactList}\small\item\em Stake tokens with a specified account. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a25a781212d8a51b13ffa5fa8b899fe8a}{claim} (const account\+\_\+name \+\_\+stake\+\_\+account)
+\begin{DoxyCompactList}\small\item\em Claim token-\/staking bonus for specified account. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a53added7a70af2b440581b6f26a57e9f}{unstake} (const account\+\_\+name \+\_\+stake\+\_\+account)
+\begin{DoxyCompactList}\small\item\em Unstake tokens from specified account. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ab0897d090230a13a8e5c272bb6ef849d}{checkrun} ()
+\begin{DoxyCompactList}\small\item\em Check result of running payout. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ab39151bdead8e592f1d422adf104eebd}{addbonus} (account\+\_\+name \+\_\+sender, asset \+\_\+bonus)\hypertarget{classboidtoken_ab39151bdead8e592f1d422adf104eebd}{}\label{classboidtoken_ab39151bdead8e592f1d422adf104eebd}
+
+\begin{DoxyCompactList}\small\item\em Add bonus to config table. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a828013f2944964600d083ea990684edd}{rembonus} ()\hypertarget{classboidtoken_a828013f2944964600d083ea990684edd}{}\label{classboidtoken_a828013f2944964600d083ea990684edd}
+
+\begin{DoxyCompactList}\small\item\em Transfer unclaimed bonus to overflow account. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a13044fb384103ca5d14029b8aa4fd8bf}{runpayout} ()\hypertarget{classboidtoken_a13044fb384103ca5d14029b8aa4fd8bf}{}\label{classboidtoken_a13044fb384103ca5d14029b8aa4fd8bf}
+
+\begin{DoxyCompactList}\small\item\em Payout staked token bonuses. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ab4f795e1a6d8b363b11c50c50fa00f4b}{initstats} ()\hypertarget{classboidtoken_ab4f795e1a6d8b363b11c50c50fa00f4b}{}\label{classboidtoken_ab4f795e1a6d8b363b11c50c50fa00f4b}
+
+\begin{DoxyCompactList}\small\item\em Initialize config table. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ae5b8eafdb3f1790ef7e601ffb84ff0f7}{reqnewbp} (account\+\_\+name owner)\hypertarget{classboidtoken_ae5b8eafdb3f1790ef7e601ffb84ff0f7}{}\label{classboidtoken_ae5b8eafdb3f1790ef7e601ffb84ff0f7}
+
+\begin{DoxyCompactList}\small\item\em Request new boidpower from boidpower contract. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_ae809d2f3f59bd73775d2ac045b0e0134}{setnewbp} (account\+\_\+name bp, account\+\_\+name acct, uint32\+\_\+t boidpower)
+\begin{DoxyCompactList}\small\item\em Set new boidpower. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a6e07ac72952b33000b7ab1ff59349d2c}{printstake} (account\+\_\+name owner)
+\begin{DoxyCompactList}\small\item\em Print stake of some account. \end{DoxyCompactList}\item 
+void \hyperlink{classboidtoken_a611d76eed90fab922d571e04bc2b2fd8}{printbpow} (account\+\_\+name owner)
+\begin{DoxyCompactList}\small\item\em Print boidpower of some account. \end{DoxyCompactList}\item 
+uint32\+\_\+t \hyperlink{classboidtoken_a58d339c0c3a01a7b046ca250d59bf80f}{get\+\_\+boidpower} (account\+\_\+name owner) const \hypertarget{classboidtoken_a58d339c0c3a01a7b046ca250d59bf80f}{}\label{classboidtoken_a58d339c0c3a01a7b046ca250d59bf80f}
+
+\begin{DoxyCompactList}\small\item\em Get current boidpower of some account in accounts table. \end{DoxyCompactList}\item 
+asset \hyperlink{classboidtoken_a6e8a9e31ec29c145bce76662af7e17d5}{get\+\_\+supply} (symbol\+\_\+name sym) const \hypertarget{classboidtoken_a6e8a9e31ec29c145bce76662af7e17d5}{}\label{classboidtoken_a6e8a9e31ec29c145bce76662af7e17d5}
+
+\begin{DoxyCompactList}\small\item\em Get B\+O\+ID token supply. \end{DoxyCompactList}\item 
+asset \hyperlink{classboidtoken_af4a97a0262e64dc2d2434cc4a0942ad3}{get\+\_\+balance} (account\+\_\+name owner, symbol\+\_\+name sym) const \hypertarget{classboidtoken_af4a97a0262e64dc2d2434cc4a0942ad3}{}\label{classboidtoken_af4a97a0262e64dc2d2434cc4a0942ad3}
+
+\begin{DoxyCompactList}\small\item\em Get balance of some account for some token in accounts table. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Member Function Documentation}
+\index{boidtoken@{boidtoken}!checkrun@{checkrun}}
+\index{checkrun@{checkrun}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{checkrun()}{checkrun()}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::checkrun (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_ab0897d090230a13a8e5c272bb6ef849d}{}\label{classboidtoken_ab0897d090230a13a8e5c272bb6ef849d}
+
+
+Check result of running payout. 
+
+Debugging action \index{boidtoken@{boidtoken}!claim@{claim}}
+\index{claim@{claim}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{claim(const account\+\_\+name \+\_\+stake\+\_\+account)}{claim(const account_name _stake_account)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::claim (
+\begin{DoxyParamCaption}
+\item[{const account\+\_\+name}]{\+\_\+stake\+\_\+account}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_a25a781212d8a51b13ffa5fa8b899fe8a}{}\label{classboidtoken_a25a781212d8a51b13ffa5fa8b899fe8a}
+
+
+Claim token-\/staking bonus for specified account. 
+
+$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$ D\+A\+I\+LY $\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$//
+
+$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$ W\+E\+E\+K\+LY $\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$//
+
+$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$ M\+O\+N\+T\+H\+LY $\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$//
+
+$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$ Q\+U\+A\+R\+T\+E\+R\+LY $\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$$\ast$// \index{boidtoken@{boidtoken}!create@{create}}
+\index{create@{create}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{create(account\+\_\+name issuer, asset maximum\+\_\+supply)}{create(account_name issuer, asset maximum_supply)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::create (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{issuer, }
+\item[{asset}]{maximum\+\_\+supply}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_a09328f276ba96ecb4e2870c6b3433132}{}\label{classboidtoken_a09328f276ba96ecb4e2870c6b3433132}
+
+
+Add specific token to token-\/staking stats table. 
+
+
+\begin{DoxyItemize}
+\item Set token symbol in table
+\item Set token max supply in table
+\item Set authorized token issuer in table 
+\end{DoxyItemize}\index{boidtoken@{boidtoken}!issue@{issue}}
+\index{issue@{issue}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{issue(account\+\_\+name to, asset quantity, string memo)}{issue(account_name to, asset quantity, string memo)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::issue (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{to, }
+\item[{asset}]{quantity, }
+\item[{string}]{memo}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_ad4275155b85cfe7932954945f7099cc3}{}\label{classboidtoken_ad4275155b85cfe7932954945f7099cc3}
+
+
+Issuer issues tokens to a specified account. 
+
+
+\begin{DoxyItemize}
+\item Specified token must be in stats table
+\item Specified quantity must be less than max supply of token to be issued -- Max supply from contract-\/local stats table -- Max supply not necessarily total token supply over entire economy 
+\end{DoxyItemize}\index{boidtoken@{boidtoken}!printbpow@{printbpow}}
+\index{printbpow@{printbpow}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{printbpow(account\+\_\+name owner)}{printbpow(account_name owner)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::printbpow (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{owner}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_a611d76eed90fab922d571e04bc2b2fd8}{}\label{classboidtoken_a611d76eed90fab922d571e04bc2b2fd8}
+
+
+Print boidpower of some account. 
+
+Debugging action \index{boidtoken@{boidtoken}!printstake@{printstake}}
+\index{printstake@{printstake}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{printstake(account\+\_\+name owner)}{printstake(account_name owner)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::printstake (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{owner}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_a6e07ac72952b33000b7ab1ff59349d2c}{}\label{classboidtoken_a6e07ac72952b33000b7ab1ff59349d2c}
+
+
+Print stake of some account. 
+
+Debugging action \index{boidtoken@{boidtoken}!setnewbp@{setnewbp}}
+\index{setnewbp@{setnewbp}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{setnewbp(account\+\_\+name bp, account\+\_\+name acct, uint32\+\_\+t boidpower)}{setnewbp(account_name bp, account_name acct, uint32_t boidpower)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::setnewbp (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{bp, }
+\item[{account\+\_\+name}]{acct, }
+\item[{uint32\+\_\+t}]{boidpower}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_ae809d2f3f59bd73775d2ac045b0e0134}{}\label{classboidtoken_ae809d2f3f59bd73775d2ac045b0e0134}
+
+
+Set new boidpower. 
+
+This is called from boidpower contract \index{boidtoken@{boidtoken}!setoverflow@{setoverflow}}
+\index{setoverflow@{setoverflow}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{setoverflow(account\+\_\+name \+\_\+overflow)}{setoverflow(account_name _overflow)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::setoverflow (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{\+\_\+overflow}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_ac56437afe05540b627b12e6c7773c793}{}\label{classboidtoken_ac56437afe05540b627b12e6c7773c793}
+
+
+Specify overflow account for holding overflow. 
+
+Overflow is defined as unclaimed or excess tokens. \index{boidtoken@{boidtoken}!stake@{stake}}
+\index{stake@{stake}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{stake(account\+\_\+name \+\_\+stake\+\_\+account, uint8\+\_\+t \+\_\+stake\+\_\+period, asset \+\_\+staked)}{stake(account_name _stake_account, uint8_t _stake_period, asset _staked)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::stake (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{\+\_\+stake\+\_\+account, }
+\item[{uint8\+\_\+t}]{\+\_\+stake\+\_\+period, }
+\item[{asset}]{\+\_\+staked}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_af7c0a3fb8818ba690fb053f585026fbb}{}\label{classboidtoken_af7c0a3fb8818ba690fb053f585026fbb}
+
+
+Stake tokens with a specified account. 
+
+
+\begin{DoxyItemize}
+\item Add account to stake table or add amount staked to existing account
+\item Specify staking period -- Stake period must be valid staking period offered by this contract -- Daily or weekly
+\item Specify amount staked -- Token type must be same as type to-\/be-\/staked via this contract 
+\end{DoxyItemize}\index{boidtoken@{boidtoken}!transfer@{transfer}}
+\index{transfer@{transfer}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{transfer(account\+\_\+name from, account\+\_\+name to, asset quantity, string memo)}{transfer(account_name from, account_name to, asset quantity, string memo)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::transfer (
+\begin{DoxyParamCaption}
+\item[{account\+\_\+name}]{from, }
+\item[{account\+\_\+name}]{to, }
+\item[{asset}]{quantity, }
+\item[{string}]{memo}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_a81244cb7a5df5ecc52f9ea38d640a763}{}\label{classboidtoken_a81244cb7a5df5ecc52f9ea38d640a763}
+
+
+Transfer tokens from one account to another. 
+
+
+\begin{DoxyItemize}
+\item Token type must be same as type to-\/be-\/staked via this contract
+\item Both accounts of transfer must be valid 
+\end{DoxyItemize}\index{boidtoken@{boidtoken}!unstake@{unstake}}
+\index{unstake@{unstake}!boidtoken@{boidtoken}}
+\subsubsection[{\texorpdfstring{unstake(const account\+\_\+name \+\_\+stake\+\_\+account)}{unstake(const account_name _stake_account)}}]{\setlength{\rightskip}{0pt plus 5cm}void boidtoken\+::unstake (
+\begin{DoxyParamCaption}
+\item[{const account\+\_\+name}]{\+\_\+stake\+\_\+account}
+\end{DoxyParamCaption}
+)}\hypertarget{classboidtoken_a53added7a70af2b440581b6f26a57e9f}{}\label{classboidtoken_a53added7a70af2b440581b6f26a57e9f}
+
+
+Unstake tokens from specified account. 
+
+
+\begin{DoxyItemize}
+\item Return stored escrow to contract account
+\item Deduct staked amount from contract config table 
+\end{DoxyItemize}
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+src/\hyperlink{boidtoken_8hpp}{boidtoken.\+hpp}\item 
+src/\hyperlink{boidtoken_8cpp}{boidtoken.\+cpp}\end{DoxyCompactItemize}

@@ -1,0 +1,62 @@
+This is an overview of the actions for the {\ttfamily \{\{ boidtoken \}\}} smart contract. This Contract is legally binding and can be used in the event of a dispute. Disputes shall be settled through the standard arbitration process established by E\+O\+S.\+IO.
+
+\subsubsection*{Description}
+
+The {\ttfamily \{\{ boidtoken \}\}} C\+O\+N\+T\+R\+A\+CT F\+OR B\+O\+ID T\+O\+K\+E\+N/\+S\+T\+A\+K\+I\+NG C\+O\+N\+T\+R\+A\+CT
+
+O\+V\+E\+R\+A\+LL F\+U\+N\+C\+T\+I\+O\+N \+: This contract is a upgrade/replacement for the original ednazztokens contract which was deployed on Jun-\/19-\/2018, 08\+:29\+:53 AM in block \#1,538,253 by transaction \#\+: 566736553519b432d02074ab0a3b6523dd6b9a394a66bb26c9479b63f5a33537 and deployed by the ednazztokens account.
+
+Unless otherwise explicitly noted here, this contract does not modify or alter that original contract in either intent or function. Original unmodified actions are listed here for ease of reference and are tagged with the notation \mbox{[}original\mbox{]} in their respective file descriptions.
+
+This contract also covers the standard token functions as expressed in the eosio.\+token example contract published by eosio, they are notated below as \mbox{[}original\mbox{]} and are unmodifiedfrom teh eosio delivered original functions in the eosio.\+token contract.
+
+E\+N\+T\+I\+RE A\+G\+R\+E\+E\+M\+E\+NT. This contract contains the entire agreement of the parties, for all described actions, and there are no other promises or conditions in any other agreement whether oral or written concerning the subject matter of this Contract. This contract supersedes any prior written or oral agreements between the parties.
+
+B\+I\+N\+D\+I\+NG C\+O\+N\+S\+T\+I\+T\+U\+T\+I\+ON\+: All the the action described in this contract are subject to the E\+D\+N\+A-\/\+D\+AC constitution as held at https\+://edna.life/constitution , as well a the E\+O\+S\+IO Constitution held at \href{https://github.com/EOS-Mainnet/governance/blob/master/eosio.system/eosio.system-clause-constitution-rc.md}{\tt https\+://github.\+com/\+E\+O\+S-\/\+Mainnet/governance/blob/master/eosio.\+system/eosio.\+system-\/clause-\/constitution-\/rc.\+md} This includes, but is not limited to membership terms and conditions, dispute resolution and severability.
+
+\subsubsection*{Actions, Inputs and Input Types}
+
+The table below contains the {\ttfamily actions}, {\ttfamily inputs} and {\ttfamily input types} for the {\ttfamily \{\{ boidtoken \}\}} contract.
+
+\tabulinesep=1mm
+\begin{longtabu} spread 0pt [c]{*3{|X[-1]}|}
+\hline
+\rowcolor{\tableheadbgcolor}{\bf Action }&{\bf Input }&{\bf Input Type  }\\\cline{1-3}
+\endfirsthead
+\hline
+\endfoot
+\hline
+\rowcolor{\tableheadbgcolor}{\bf Action }&{\bf Input }&{\bf Input Type  }\\\cline{1-3}
+\endhead
+{\ttfamily \{\{ create \}\}} &{\ttfamily \{\{ issuer \}\}}~\newline
+{\ttfamily \{\{ maximum\+\_\+supply \}\}} &{\ttfamily \{\{ name \}\}}~\newline
+{\ttfamily \{\{ asset \}\}} \\\cline{1-3}
+{\ttfamily \{\{ issue \}\}} &{\ttfamily \{\{ to \}\}}~\newline
+{\ttfamily \{\{ quantity \}\}}~\newline
+{\ttfamily \{\{ memo \}\}} &{\ttfamily \{\{ name \}\}}~\newline
+{\ttfamily \{\{ asset \}\}}~\newline
+{\ttfamily \{\{ string \}\}} \\\cline{1-3}
+{\ttfamily \{\{ stake \}\}} &{\ttfamily \{\{ \+\_\+stake\+\_\+account \}\}}~\newline
+{\ttfamily \{\{ \+\_\+stake\+\_\+period \}\}}~\newline
+{\ttfamily \{\{ \+\_\+staked \}\}} &{\ttfamily \{\{ name \}\}}~\newline
+{\ttfamily \{\{ uint8 \}\}}~\newline
+{\ttfamily \{\{ asset \}\}} \\\cline{1-3}
+{\ttfamily \{\{ unstake \}\}} &{\ttfamily \{\{ \+\_\+stake\+\_\+account \}\}} &{\ttfamily \{\{ name \}\}} \\\cline{1-3}
+{\ttfamily \{\{ transfer \}\}} &{\ttfamily \{\{ from \}\}}~\newline
+{\ttfamily \{\{ to \}\}}~\newline
+{\ttfamily \{\{ quantity \}\}}~\newline
+{\ttfamily \{\{ memo \}\}} &{\ttfamily \{\{ name \}\}}~\newline
+{\ttfamily \{\{ name \}\}}~\newline
+{\ttfamily \{\{ asset \}\}}~\newline
+{\ttfamily \{\{ string \}\}} \\\cline{1-3}
+{\ttfamily \{\{ setoverflow \}\}} &{\ttfamily \{\{ \+\_\+overflow \}\}} &{\ttfamily \{\{ name \}\}} \\\cline{1-3}
+{\ttfamily \{\{ addbonus \}\}} &{\ttfamily \{\{ \+\_\+sender \}\}}~\newline
+{\ttfamily \{\{ \+\_\+bonus \}\}} &{\ttfamily \{\{ name \}\}}~\newline
+{\ttfamily \{\{ asset \}\}} \\\cline{1-3}
+{\ttfamily \{\{ runpayout \}\}} &{\ttfamily \{\{ runpayout \}\}} &{\ttfamily \{\{ runpayout \}\}} \\\cline{1-3}
+{\ttfamily \{\{ running \}\}} &{\ttfamily \{\{ on\+\_\+switch \}\}} &{\ttfamily \{\{ uint8 \}\}} \\\cline{1-3}
+{\ttfamily \{\{ claim \}\}} &{\ttfamily \{\{ claim \}\}} &{\ttfamily \{\{ claim \}\}} \\\cline{1-3}
+{\ttfamily \{\{ checkrun \}\}} &{\ttfamily \{\{ checkrun \}\}} &{\ttfamily \{\{ checkrun \}\}} \\\cline{1-3}
+{\ttfamily \{\{ rembonus \}\}} &{\ttfamily \{\{ rembonus \}\}} &{\ttfamily \{\{ rembonus \}\}} \\\cline{1-3}
+{\ttfamily \{\{ initstats \}\}} &{\ttfamily \{\{ initstats \}\}} &{\ttfamily \{\{ initstats \}\}} \\\cline{1-3}
+\end{longtabu}

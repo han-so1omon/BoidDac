@@ -1,0 +1,26 @@
+This Contract is legally binding and can be used in the event of a dispute. Disputes shall be settled through the standard arbitration process established by E\+O\+S.\+IO.
+
+\subsubsection*{Description}
+
+The {\ttfamily \{\{ claim \}\}} action...
+
+I\+N\+T\+E\+NT\+: The intent of {\ttfamily \{\{ claim \}\}} is to allow users to move token awards from escrow to the staked token storage in the stakes table and to update the users next period stake amount. The users next payout is based on the additional tokens deposited by the system this action also serves to demark the line when the tokens move under user ownership and no longer subject to forfeiture for early withdrawal from the stake period. User participation is required for this action due to the B\+P-\/imposed timeout for transactions over 250ms, which will not allow a contract-\/driven global claim function to be fully executed when over 100 users have staked to the system.
+
+T\+E\+RM\+: This action lasts for the duration of the processing of the contract.
+
+\subsubsection*{Inputs and Input Types}
+
+The {\ttfamily \{\{ claim \}\}} action requires the following {\ttfamily inputs} and {\ttfamily input types}\+:
+
+\tabulinesep=1mm
+\begin{longtabu} spread 0pt [c]{*3{|X[-1]}|}
+\hline
+\rowcolor{\tableheadbgcolor}{\bf Action }&{\bf Input }&{\bf Input Type  }\\\cline{1-3}
+\endfirsthead
+\hline
+\endfoot
+\hline
+\rowcolor{\tableheadbgcolor}{\bf Action }&{\bf Input }&{\bf Input Type  }\\\cline{1-3}
+\endhead
+{\ttfamily \{\{ claim \}\}} &{\ttfamily \{\{ \+\_\+stake\+\_\+account\+Var \}\}} &{\ttfamily \{\{ name \}\}} \\\cline{1-3}
+\end{longtabu}

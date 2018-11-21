@@ -7,11 +7,6 @@
 #include <math.h>
 #include <inttypes.h>
 
-/* Add specific token to token-staking stats table.
- *  - Set token symbol in table
- *  - Set token max supply in table
- *  - Set authorized token issuer in table
- */
 void boidtoken::create(account_name issuer, asset maximum_supply)
 {
     // accounts perform actions
