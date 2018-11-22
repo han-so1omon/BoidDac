@@ -2,24 +2,49 @@ import eosfactory.eosf as eosf
 import sys
 import os
 
-EOS_TOKEN_CONTRACT_PATH = os.getenv('EOSFACTORY_DIR') 
-if EOS_TOKEN_CONTRACT_PATH == '':
+
+# TODO: find a better way to reference the eos/contracts/eosio.token
+# EOS_TOKEN_CONTRACT_PATH = os.getenv('EOSFACTORY_DIR')
+EOS_TOKEN_CONTRACT_PATH = '/home/luke/rooms/BOID/eos/contracts/eosio.token'
+if EOS_TOKEN_CONTRACT_PATH == '' or EOS_TOKEN_CONTRACT_PATH == None:
     raise ValueError(
             'EOSFACTORY_DIR environment variable must be set')
 
-BOID_STAKE_CONTRACT_PATH =
-    os.path.dirname(os.path.abspath(__file__)) + '/../'
+BOID_STAKE_CONTRACT_PATH = \
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
-TEST_BOIDPOWER_CONTRACT_PATH =
-    os.path.dirname(os.path.abspath(__file__)) + '/../tests'
+TEST_BOIDPOWER_CONTRACT_PATH = \
+    os.path.dirname(os.path.abspath(__file__))  # + '/../tests'
 
-#TODO return something?
-def reqnewbp(contractAcct, acct):
+
+# TODO: the file paths are different for unknown reasons
+def contract_built(contract_path, contract_name):
+    base_path = os.path.join(contract_path, 'build', contract_name)
+    # print(base_path)
+    abi_exists = os.path.exists(base_path+'.abi')
+    # print(abi_exists)
+    wast_exists = os.path.exists(base_path+'.wast')
+    # print(wast_exists)
+    wasm_exists = os.path.exists(base_path+'.wasm')
+    # print(wasm_exists)
+    return abi_exists and wast_exists and wasm_exists
+
+'''
+    args:
+        contractAcct - contract with reqnewbp action
+        acct - account requesting new boidpower
+        auth - account to authorize reqnewbp (aka contract owner)
+    '''
+def test_reqnewbp(contractAcct, acct, auth):
+    print('before')
+    print(contractAcct.table("accounts", acct))
+    print('after')
     contractAcct.push_action(
         'reqnewbp',
         {
             'owner': acct
-        }, [contractAcct])
+        }, [auth])
+    print(contractAcct.table("accounts", acct))
 
 #TODO
 def getCurrencyBalance(acct):
@@ -57,31 +82,36 @@ if __name__ == '__main__':
 
     # Create 7 accounts: eosio_token, eos, boid, boid_stake, boid_power, acct1, acct2
     eosf.create_account(
-            'eosio_token', master, account_name='eosio.token')
+        'eosio_token', master, account_name='eosio.token')
     eosf.create_account(
-            'eos', master, account_name='eos')
+        'eos', master, account_name='eos')
     eosf.create_account(
-            'boid', master, account_name='boid')
+        'boid', master, account_name='boid')
     eosf.create_account(
-            'boid_stake', master, account_name='boid.stake')
+        'boid_stake', master, account_name='boid.stake')
     eosf.create_account(
-            'boid_power', master, account_name='boid.power')
+        'boid_power', master, account_name='boid.power')
     eosf.create_account(
-            'acct1', master, account_name='account1')
+        'acct1', master, account_name='account1')
     eosf.create_account(
-            'acct2', master, account_name='account2')
+        'acct2', master, account_name='account2')
 
     # create reference to the token staking contract
     eosioToken_c = eosf.Contract(
-            eosio_token, EOS_TOKEN_CONTRACT_PATH)
+        eosio_token, EOS_TOKEN_CONTRACT_PATH)
     boidStake_c = eosf.Contract(
-            boid_stake, BOID_STAKE_CONTRACT_PATH)
+        boid_stake, BOID_STAKE_CONTRACT_PATH)
     testBoidpower_c = eosf.Contract(
-            boid_power, TEST_BOIDPOWER_CONTRACT_PATH)
+        boid_power, TEST_BOIDPOWER_CONTRACT_PATH)
 
     # build the token staking contract
-    boidStake_c.build()
-    testBoidpower_c.build() # May want to pre-build and go straight to deploy
+    # TODO: eosio_token path is wrong .. path does not exist, but it says it does
+    if False:  # not contract_built(EOS_TOKEN_CONTRACT_PATH, 'eosio_token'):
+        eosioToken_c.build()
+    if not contract_built(BOID_STAKE_CONTRACT_PATH, 'boidtoken'):
+        boidStake_c.build()
+    if not contract_built(TEST_BOIDPOWER_CONTRACT_PATH, 'testboidpower'):
+        testBoidpower_c.build()
 
     # deploy the token staking contract on the testnet
     eosioToken_c.deploy()
@@ -96,92 +126,98 @@ if __name__ == '__main__':
     #		action_name,
     #		action_arguments_in_json,
     #		account_whose_permission_is_needed)
-    eosToken_c.push_action(
-            'create',
-            {
-                'issuer': eos,
-                'maximum_supply': '1000000000.0000 EOS'
-            }, [eos, eosio_token])
+    eosioToken_c.push_action(
+        'create',
+        {
+            'issuer': eos,
+            'maximum_supply': '1000000000.0000 EOS'
+        }, [eos, eosio_token])
 
-    eosToken_c.push_action(
-            'create',
-            {
-                'issuer': boid,
-                'maximum_supply': '1000000000.0000 BOID'
-            }, [boid, eosio_token])
+    eosioToken_c.push_action(
+        'create',
+        {
+            'issuer': boid,
+            'maximum_supply': '1000000000.0000 BOID'
+        }, [boid, eosio_token])
 
     # Distribute initial quantities of EOS & BOID
-    eosToken_c.push_action(
-            'issue',
-            {
-                'to': acct1,
-                'quantity': '1000.0000 EOS',
-                'memo': 'memo'
-            }, [eos])
-    eosToken_c.push_action(
-            'issue',
-            {
-                'to': acct2,
-                'quantity': '2000.0000 EOS',
-                'memo': 'memo'
-            }, [eos])
-    eosToken_c.push_action(
-            'issue',
-            {
-                'to': acct1,
-                'quantity': '1000.0000 BOID',
-                'memo': 'memo'
-            }, [boid])
-    eosToken_c.push_action(
-            'issue',
-            {
-                'to': acct2,
-                'quantity': '2000.0000 BOID',
-                'memo': 'memo'
-            }, [boid])
+    eosioToken_c.push_action(
+        'issue',
+        {
+            'to': acct1,
+            'quantity': '1000.0000 EOS',
+            'memo': 'memo'
+        }, [eos])
+    eosioToken_c.push_action(
+        'issue',
+        {
+            'to': acct2,
+            'quantity': '2000.0000 EOS',
+            'memo': 'memo'
+        }, [eos])
+    eosioToken_c.push_action(
+        'issue',
+        {
+            'to': acct1,
+            'quantity': '1000.0000 BOID',
+            'memo': 'memo'
+        }, [boid])
+    eosioToken_c.push_action(
+        'issue',
+        {
+            'to': acct2,
+            'quantity': '2000.0000 BOID',
+            'memo': 'memo'
+        }, [boid])
 
     # Set up accounts with boidpower
     testBoidpower_c.push_action(
-            'create',
-            {
-                'issuer': boid_power,
-                'maximum_supply': '100000.0000 BPOW'
-            }, [boid_power])
+        'create',
+        {
+            'issuer': boid_power,
+            'maximum_supply': '100000.0000 BPOW'
+        }, [boid_power])
     # insert - ad hoc way to give accounts boid power
     testBoidpower_c.push_action(
-            'insert',
-            {
-                'user': acct1,
-                'boidpower': '10'
-            }, [acct1])
+        'insert',
+        {
+            'user': acct1,
+            'boidpower': '10'
+        }, [acct1])
     testBoidpower_c.push_action(
-            'insert',
-            {
-                'user': acct2,
-                'boidpower': '10000'
-            }, [acct2])
+        'insert',
+        {
+            'user': acct2,
+            'boidpower': '10000'
+        }, [acct2])
 
     # Initialize boid staking contract
     boidStake_c.push_action(
-            'create',
-            {
-                'issuer': boid_stake,
-                'maximum_supply', '1000000000.0000 BOID'
-            }, [boid_stake])
+        'create',
+        {
+            'issuer': boid_stake,
+            'maximum_supply': '1000000000.0000 BOID'
+        }, [boid_stake])
     # TODO find way to print total number of boid tokens
     # to determine if this function above is minting more coins
     # or if its alocating pre-existing coins
     boidStake_c.push_action(  # running - sets payouts to on
-            'running',
-            {
-                'on_switch': '1',
-            }, [boid_stake])
+        'running',
+        {
+            'on_switch': '1',
+        }, [boid_stake])
     # initstats - reset/setup configuration of contract
     boidStake_c.push_action(
-            'initstats',   
-            {}, [boid_stake])
+        'initstats',   
+        {}, [boid_stake])
+
+    test_reqnewbp(boidStake_c, acct1, boid_stake)
+    eosf.stop()
+    sys.exit()
 
 
+    print(eosioToken_c.table("accounts", acct1))
+    
     #FIXME Issue boid before staking test
     #      Why is this necessary?
     #       Other than permissions on stake action...
@@ -190,23 +226,23 @@ if __name__ == '__main__':
 
     # Run staking tests with acct1 and acct2
     boidStake_c.push_action(
-            'stake',
-            {
-                '_stake_account': acct1,
-                '_stake_period': '1',
-                '_staked': '1000.0000 BOID'
-            }, [boid_stake])
+        'stake',
+        {
+            '_stake_account': acct1,
+            '_stake_period': '1',
+            '_staked': '1000.0000 BOID'
+        }, [boid_stake])
     boidStake_c.push_action(
-            'stake',
-            {
-                '_stake_account': acct2,
-                '_stake_period': '2',
-                '_staked': '2000.0000 BOID'
-            }, [boid_stake])
+        'stake',
+        {
+            '_stake_account': acct2,
+            '_stake_period': '2',
+            '_staked': '2000.0000 BOID'
+        }, [boid_stake])
 
-    print(eosToken_c.table("accounts", acct1))
-    print(eosToken_c.table("accounts", acct2))
+    print(eosioToken_c.table("accounts", acct1))
+    print(eosioToken_c.table("accounts", acct2))
 
     # stop the testnet and exit python
     eosf.stop()
-    exit()
+    sys.exit()

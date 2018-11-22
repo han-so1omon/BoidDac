@@ -577,7 +577,12 @@ void boidtoken::initstats(){
   }
 }
 
-//FIXME
+// FIXME - request new bp - sends a bunch of requests to sendnwewbp
+// sendnpb - calls setnewbp
+// if owner has boidpower:
+//    get their boidpower
+//    put that boidpower into the accounts table
+// test by verifying that the table was updated properly
 void boidtoken::reqnewbp(account_name owner) {
   require_auth(_self);
   require_recipient(owner);

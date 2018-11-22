@@ -23,13 +23,13 @@ class testboidpower : public contract
   public:
     testboidpower(account_name self) : contract(self) {}
 
-    [[eosio::action]]
+    // @abi action
     void create(account_name issuer, asset maximum_supply);
 
-    [[eosio::action]]
+    // @abi action
     void insert(account_name user, uint32_t boidpower);
 
-    [[eosio::action]]
+    // @abi action
     void sndnewbp(account_name requester, account_name req_acct);
 
   private:
