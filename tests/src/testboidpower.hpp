@@ -33,12 +33,15 @@ class testboidpower : public contract
     void sndnewbp(account_name requester, account_name req_acct);
 
   private:
+    // @abi table accounts i64
     struct [[eosio::table]] account
     {
       account_name key;
       uint32_t boidpower; // TODO update boidpower daily
         
       uint64_t primary_key() const { return key; }
+      EOSLIB_SERIALIZE (account, (key)(boidpower));
+
     };
     typedef eosio::multi_index<N(accounts), account> accounts;
 };

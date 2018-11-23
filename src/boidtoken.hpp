@@ -17,6 +17,9 @@ using std::string;
 using std::set;
 using eosio::const_mem_fun;
 
+// FIXME this contract should accept existing tokens and not have to issue them
+// first
+// BOID tokens would be staked for another token, such as EOS
 class boidtoken : public contract
 {
   public:

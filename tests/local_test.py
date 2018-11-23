@@ -4,17 +4,18 @@ import os
 
 
 # TODO: find a better way to reference the eos/contracts/eosio.token
-# EOS_TOKEN_CONTRACT_PATH = os.getenv('EOSFACTORY_DIR')
-EOS_TOKEN_CONTRACT_PATH = '/home/luke/rooms/BOID/eos/contracts/eosio.token'
-if EOS_TOKEN_CONTRACT_PATH == '' or EOS_TOKEN_CONTRACT_PATH == None:
+#eosBuild = os.getenv('EOS_BUILD')
+eosBuild = os.getenv('EOS_SRC')
+EOS_TOKEN_CONTRACT_PATH = eosBuild + '/contracts/eosio.token'
+if eosBuild == '' or eosBuild == None:
     raise ValueError(
-            'EOSFACTORY_DIR environment variable must be set')
+            'EOS_BUILD environment variable must be set')
 
 BOID_STAKE_CONTRACT_PATH = \
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 TEST_BOIDPOWER_CONTRACT_PATH = \
-    os.path.dirname(os.path.abspath(__file__))  # + '/../tests'
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
 
 
 # TODO: the file paths are different for unknown reasons
@@ -105,13 +106,9 @@ if __name__ == '__main__':
         boid_power, TEST_BOIDPOWER_CONTRACT_PATH)
 
     # build the token staking contract
-    # TODO: eosio_token path is wrong .. path does not exist, but it says it does
-    if False:  # not contract_built(EOS_TOKEN_CONTRACT_PATH, 'eosio_token'):
-        eosioToken_c.build()
-    if not contract_built(BOID_STAKE_CONTRACT_PATH, 'boidtoken'):
-        boidStake_c.build()
-    if not contract_built(TEST_BOIDPOWER_CONTRACT_PATH, 'testboidpower'):
-        testBoidpower_c.build()
+    eosioToken_c.build()
+    boidStake_c.build()
+    testBoidpower_c.build()
 
     # deploy the token staking contract on the testnet
     eosioToken_c.deploy()
@@ -131,14 +128,14 @@ if __name__ == '__main__':
         {
             'issuer': eos,
             'maximum_supply': '1000000000.0000 EOS'
-        }, [eos, eosio_token])
+        }, [eosio_token])
 
     eosioToken_c.push_action(
         'create',
         {
             'issuer': boid,
             'maximum_supply': '1000000000.0000 BOID'
-        }, [boid, eosio_token])
+        }, [eosio_token])
 
     # Distribute initial quantities of EOS & BOID
     eosioToken_c.push_action(
@@ -195,7 +192,7 @@ if __name__ == '__main__':
     boidStake_c.push_action(
         'create',
         {
-            'issuer': boid_stake,
+            'issuer': boid,
             'maximum_supply': '1000000000.0000 BOID'
         }, [boid_stake])
     # TODO find way to print total number of boid tokens
@@ -211,18 +208,25 @@ if __name__ == '__main__':
         'initstats',   
         {}, [boid_stake])
 
-    test_reqnewbp(boidStake_c, acct1, boid_stake)
-    eosf.stop()
-    sys.exit()
-
-
-    print(eosioToken_c.table("accounts", acct1))
-    
     #FIXME Issue boid before staking test
     #      Why is this necessary?
     #       Other than permissions on stake action...
     #cleos_local_test push action boid.stake issue \
     #   '[ "acct2", "2000.0000 BOID", "" ]' -p boid
+    boidStake_c.push_action(
+        'issue',
+        {
+            'to': acct1,
+            'quantity': '1000.0000 BOID',
+            'memo': ''
+        }, [boid])
+    boidStake_c.push_action(
+        'issue',
+        {
+            'to': acct2,
+            'quantity': '2000.0000 BOID',
+            'memo': ''
+        }, [boid])
 
     # Run staking tests with acct1 and acct2
     boidStake_c.push_action(
@@ -231,17 +235,17 @@ if __name__ == '__main__':
             '_stake_account': acct1,
             '_stake_period': '1',
             '_staked': '1000.0000 BOID'
-        }, [boid_stake])
+        }, [acct1])
     boidStake_c.push_action(
         'stake',
         {
             '_stake_account': acct2,
             '_stake_period': '2',
             '_staked': '2000.0000 BOID'
-        }, [boid_stake])
+        }, [acct2])
 
-    print(eosioToken_c.table("accounts", acct1))
-    print(eosioToken_c.table("accounts", acct2))
+    print(boidStake_c.table("accounts", acct1))
+    #print(boidStake_c.table("accounts", acct2))
 
     # stop the testnet and exit python
     eosf.stop()
