@@ -634,6 +634,7 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
     {
         to_acnts.emplace(ram_payer, [&](auto &a) {
             a.balance = value;
+          print("emplacing!!!!!\n");
         });
     }
     else

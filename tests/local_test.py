@@ -227,6 +227,8 @@ if __name__ == '__main__':
             'quantity': '2000.0000 BOID',
             'memo': ''
         }, [boid])
+    print(boidStake_c.table("accounts", acct1))
+    print(boidStake_c.table("accounts", acct2))
 
     # Run staking tests with acct1 and acct2
     boidStake_c.push_action(
@@ -234,7 +236,7 @@ if __name__ == '__main__':
         {
             '_stake_account': acct1,
             '_stake_period': '1',
-            '_staked': '1000.0000 BOID'
+            '_staked': '500.0000 BOID'
         }, [acct1])
     boidStake_c.push_action(
         'stake',
@@ -245,7 +247,7 @@ if __name__ == '__main__':
         }, [acct2])
 
     print(boidStake_c.table("accounts", acct1))
-    #print(boidStake_c.table("accounts", acct2))
+    print(boidStake_c.table("accounts", acct2))
 
     # stop the testnet and exit python
     eosf.stop()
