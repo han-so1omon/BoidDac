@@ -1,6 +1,7 @@
 import eosfactory.eosf as eosf
 import sys
 import os
+import json
 
 
 # TODO: find a better way to reference the eos/contracts/eosio.token
@@ -246,8 +247,11 @@ if __name__ == '__main__':
             '_staked': '2000.0000 BOID'
         }, [acct2])
 
-    print(boidStake_c.table("accounts", acct1))
-    print(boidStake_c.table("accounts", acct2))
+    data = boidStake_c.table("accounts", acct1)
+    #TODO make this a lambda function
+    print(float(data.json['rows'][0]['balance'].split()[0]))
+    #print(boidStake_c.table("accounts", acct1))
+    #print(boidStake_c.table("accounts", acct2))
 
     # stop the testnet and exit python
     eosf.stop()
