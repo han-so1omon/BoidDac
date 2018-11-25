@@ -30,7 +30,7 @@ class testboidpower : public contract
     void insert(account_name user, uint32_t boidpower);
 
     // @abi action
-    void sndnewbp(account_name requester, account_name req_acct);
+    void sndnewbp(account_name req_acct);
 
   private:
     // @abi table accounts i64

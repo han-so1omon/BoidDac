@@ -2,6 +2,7 @@ import eosfactory.eosf as eosf
 import sys
 import os
 import json
+import argparse
 
 
 # TODO: find a better way to reference the eos/contracts/eosio.token
@@ -18,6 +19,25 @@ BOID_STAKE_CONTRACT_PATH = \
 TEST_BOIDPOWER_CONTRACT_PATH = \
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
 
+assetDict = {'BOID': 0, 'EOS': 1}
+getAssetQuantity = lambda x: float(x.split()[0])
+getAssetType = lambda x: assetDict(x.split()[1])
+
+def getBalance(x):
+    if len(x.json['rows']) > 0:
+        return float(x.json['rows'][0]['balance'].split()[0])
+    else:
+        return 0
+
+def getStakeParams(x):
+    ret = {}
+    for i in range(len(x.json['rows'])):
+        ret[x.json['rows'][i]['stake_account']] = \
+            {'stake_period': x.json['rows'][i]['stake_period'],
+             'staked': x.json['rows'][i]['staked'],
+             'boidpower': x.json['rows'][i]['boidpower'],
+             'escrow': x.json['rows'][i]['escrow']}
+    return ret
 
 # TODO: the file paths are different for unknown reasons
 def contract_built(contract_path, contract_name):
@@ -74,6 +94,11 @@ def getStakeType(acct):
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-b","--build", action="store_true",
+                        help="build new contract abis")
+    args = parser.parse_args()
+
     # start single-node local testnet
     eosf.reset()
 
@@ -107,9 +132,10 @@ if __name__ == '__main__':
         boid_power, TEST_BOIDPOWER_CONTRACT_PATH)
 
     # build the token staking contract
-    eosioToken_c.build()
-    boidStake_c.build()
-    testBoidpower_c.build()
+    if args.build:
+        eosioToken_c.build()
+        boidStake_c.build()
+        testBoidpower_c.build()
 
     # deploy the token staking contract on the testnet
     eosioToken_c.deploy()
@@ -189,6 +215,10 @@ if __name__ == '__main__':
             'boidpower': '10000'
         }, [acct2])
 
+    print(testBoidpower_c)
+    eosf.stop()
+    sys.exit()
+
     # Initialize boid staking contract
     boidStake_c.push_action(
         'create',
@@ -247,11 +277,14 @@ if __name__ == '__main__':
             '_staked': '2000.0000 BOID'
         }, [acct2])
 
-    data = boidStake_c.table("accounts", acct1)
-    #TODO make this a lambda function
-    print(float(data.json['rows'][0]['balance'].split()[0]))
-    #print(boidStake_c.table("accounts", acct1))
-    #print(boidStake_c.table("accounts", acct2))
+    print(getBalance(boidStake_c.table("accounts", acct1)))
+    print(getBalance(boidStake_c.table("accounts", acct2)))
+
+    boidStake_c.push_action(
+        'reqnewbp',
+        {}, [boid_stake])
+
+    #print(getStakeParams(boidStake_c.table('stakes',boid_stake)))
 
     # stop the testnet and exit python
     eosf.stop()

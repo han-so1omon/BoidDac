@@ -122,7 +122,7 @@ class boidtoken : public contract
     /** \brief Request new boidpower from boidpower contract
      */
     // @abi action
-    void reqnewbp(account_name owner);
+    void reqnewbp();
 
     /** \brief Set new boidpower
      *
@@ -189,8 +189,6 @@ class boidtoken : public contract
 //    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
 //    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
 
-    set<account_name> _accts;
-
     // @abi table configs i64
     struct config {
         uint64_t        config_id;
@@ -250,7 +248,7 @@ class boidtoken : public contract
 
         account_name        primary_key () const { return stake_account; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow)(boidpower));
+        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(boidpower)(escrow));
     };
 
    typedef eosio::multi_index<N(stakes), stake_row> stake_table;

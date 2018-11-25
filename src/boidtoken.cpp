@@ -120,7 +120,6 @@ void boidtoken::setoverflow(account_name _overflow)
 /* Specify contract run state to contract config table.
  */
 void boidtoken::running(uint8_t on_switch){
-  print("DEBUG running : ",(int)on_switch,"\n");
     require_auth (_self);
     config_table c_t (_self, _self);
     auto c_itr = c_t.find(0);
@@ -157,7 +156,7 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
     eosio_assert(_staked.is_valid(), "invalid quantity");
     eosio_assert(_staked.amount > 0, "must transfer positive quantity");
     eosio_assert(_staked.symbol == st.supply.symbol, "symbol precision mismatch");
-    eosio_assert(_stake_period >= 1 && _stake_period <= 3, "Invalid stake period.");
+    eosio_assert(_stake_period >= 1 && _stake_period <= 4, "Invalid stake period.");
     auto itr = s_t.find(_stake_account);
     eosio_assert(itr == s_t.end(), "Account already has a stake. Must unstake first.");
 
@@ -166,10 +165,10 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
     asset setme = _staked;
     setme -= _staked;                                                           // get a zero asset value to plug into the escrow row.
     s_t.emplace(_stake_account, [&](auto &s) {
-        _accts.emplace(_stake_account);
         s.stake_account = _stake_account;
         s.stake_period = _stake_period;
         s.staked = _staked;
+        s.boidpower = 0;
         s.escrow = setme;
         if(_stake_period == DAILY){
           s.stake_due = now() + DAY_WAIT;
@@ -365,7 +364,6 @@ void boidtoken::unstake(account_name _stake_account)
     stake_table s_t(_self, _self);
     auto itr = s_t.find(_stake_account);
     require_auth(itr->stake_account);
-    _accts.erase(_stake_account);
     add_balance(itr->stake_account, itr->staked, itr->stake_account);
 
     config_table c_t(_self, _self);
@@ -578,17 +576,18 @@ void boidtoken::initstats(){
 //    get their boidpower
 //    put that boidpower into the accounts table
 // test by verifying that the table was updated properly
-void boidtoken::reqnewbp(account_name owner) {
+void boidtoken::reqnewbp() {
   require_auth(_self);
-  require_recipient(owner);
 
-  for (auto itr = _accts.begin(); itr != _accts.end(); itr++) {
-    stake_table s_t(_self, _self);
+  stake_table s_t(_self, _self);
+  for (auto itr = s_t.begin(); itr != s_t.end(); itr++) {
+    //SEND_INLINE_ACTION(*this, transfer, {st.issuer, N(active)}, {st.issuer, to, quantity, memo});
+    print("herere\n");
     action(
         permission_level{get_self(),N("active")},
         N("boid.power"),
         N("sndnewbp"),
-        std::make_tuple(owner,*itr)
+        std::make_tuple(itr->stake_account)
     ).send();
   }
 }
@@ -603,6 +602,7 @@ void boidtoken::setnewbp(account_name bp,
     s_t.modify(itr, 0, [&](auto &a) {
       a.boidpower = boidpower;
     });
+    print("yooo");
   }
 }
 
@@ -634,7 +634,6 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
     {
         to_acnts.emplace(ram_payer, [&](auto &a) {
             a.balance = value;
-          print("emplacing!!!!!\n");
         });
     }
     else
