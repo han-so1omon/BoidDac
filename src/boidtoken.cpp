@@ -168,7 +168,6 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
         s.stake_account = _stake_account;
         s.stake_period = _stake_period;
         s.staked = _staked;
-        s.boidpower = 0;
         s.escrow = setme;
         if(_stake_period == DAILY){
           s.stake_due = now() + DAY_WAIT;
@@ -570,39 +569,23 @@ void boidtoken::initstats(){
   }
 }
 
-// FIXME - request new bp - sends a bunch of requests to sendnwewbp
-// sendnpb - calls setnewbp
-// if owner has boidpower:
-//    get their boidpower
-//    put that boidpower into the accounts table
-// test by verifying that the table was updated properly
-void boidtoken::reqnewbp() {
+void boidtoken::setnewbp(account_name acct, uint32_t boidpower) {
   require_auth(_self);
+  boidpowers bps(_self,_self);
 
-  stake_table s_t(_self, _self);
-  for (auto itr = s_t.begin(); itr != s_t.end(); itr++) {
-    //SEND_INLINE_ACTION(*this, transfer, {st.issuer, N(active)}, {st.issuer, to, quantity, memo});
-    print("herere\n");
-    action(
-        permission_level{get_self(),N("active")},
-        N("boid.power"),
-        N("sndnewbp"),
-        std::make_tuple(itr->stake_account)
-    ).send();
+  auto bp_acct = bps.find(acct);
+  if (bp_acct == bps.end())
+  {
+      bps.emplace(acct, [&](auto &a) {
+          a.acct = acct;
+          a.quantity = boidpower;
+      });
   }
-}
-
-void boidtoken::setnewbp(account_name bp,
-                         account_name acct,
-                         uint32_t boidpower) {
-  require_auth(N("boid.power"));
-  stake_table s_t(_self, _self);
-  auto itr = s_t.find(acct);
-  if (itr != s_t.end()) {
-    s_t.modify(itr, 0, [&](auto &a) {
-      a.boidpower = boidpower;
-    });
-    print("yooo");
+  else
+  {
+      bps.modify(bp_acct, 0, [&](auto &a) {
+          a.quantity = boidpower;
+      });
   }
 }
 
@@ -644,33 +627,12 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
     }
 }
 
-
-void boidtoken::printstake(account_name owner)
-{
-  require_auth(_self);
-  stake_table s_t(_self, _self);
-  auto itr = s_t.find(owner);
-  if (itr != s_t.end()) {
-    int stakeperiod = itr->stake_period;
-    print(stakeperiod, "\n");
-  }
-}
-
-void boidtoken::printbpow(account_name owner) {
-  require_auth(_self);
-  stake_table s_t(_self, _self);
-  auto itr = s_t.find(owner);
-  if (itr != s_t.end()) {
-    print(itr->boidpower, " BOIDPOWER\n");
-  }
-}
-
 uint32_t boidtoken::get_boidpower(account_name owner) const
 {
-  stake_table s_t(_self, _self);
-  auto itr = s_t.find(owner);
-  if (itr != s_t.end()) {
-    return itr->boidpower;
+  boidpowers bps(_self, _self);
+  auto itr = bps.find(owner);
+  if (itr != bps.end()) {
+    return itr->quantity;
   }
   return 0;
 }

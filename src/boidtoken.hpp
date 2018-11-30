@@ -119,33 +119,10 @@ class boidtoken : public contract
     // @abi action
     void initstats();
 
-    /** \brief Request new boidpower from boidpower contract
-     */
-    // @abi action
-    void reqnewbp();
-
     /** \brief Set new boidpower
-     *
-     * This is called from boidpower contract
      */
     // @abi action
-    void setnewbp(account_name bp,
-                  account_name acct,
-                  uint32_t boidpower);
-
-    /** \brief Print stake of some account 
-     *
-     * Debugging action
-     */
-    // @abi action
-    void printstake(account_name owner);
-
-    /** \brief Print boidpower of some account
-     *
-     * Debugging action
-     */
-    // @abi action
-    void printbpow(account_name owner);
+    void setnewbp(account_name acct, uint32_t boidpower);
 
     /** \brief Get current boidpower of some account in accounts table
      */
@@ -236,6 +213,19 @@ class boidtoken : public contract
 
     typedef eosio::multi_index<N(accounts), account> accounts;
 
+    // @abi table boidpowers i64
+    struct boidpower
+    {
+      account_name acct;
+      uint32_t quantity;
+
+      account_name primary_key() const { return acct; }
+
+      EOSLIB_SERIALIZE(boidpower, (acct)(quantity));
+    };
+
+    typedef eosio::multi_index<N(boidpowers), boidpower> boidpowers;
+
     // @abi table stakes i64    
     struct stake_row {
         account_name    stake_account;
@@ -243,12 +233,11 @@ class boidtoken : public contract
         asset           staked;
         uint32_t        stake_date;
         uint32_t        stake_due;
-        uint32_t boidpower; // TODO update boidpower daily
         asset           escrow;
 
         account_name        primary_key () const { return stake_account; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(boidpower)(escrow));
+        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow));
     };
 
    typedef eosio::multi_index<N(stakes), stake_row> stake_table;
@@ -302,5 +291,5 @@ asset boidtoken::get_balance(account_name owner, symbol_name sym) const
     return ac.balance;
 }
 
-EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake)(printbpow))
+EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp))
 //EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake))

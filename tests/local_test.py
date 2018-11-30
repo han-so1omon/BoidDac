@@ -16,9 +16,6 @@ if eosBuild == '' or eosBuild == None:
 BOID_STAKE_CONTRACT_PATH = \
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
-TEST_BOIDPOWER_CONTRACT_PATH = \
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
-
 assetDict = {'BOID': 0, 'EOS': 1}
 getAssetQuantity = lambda x: float(x.split()[0])
 getAssetType = lambda x: assetDict(x.split()[1])
@@ -35,8 +32,13 @@ def getStakeParams(x):
         ret[x.json['rows'][i]['stake_account']] = \
             {'stake_period': x.json['rows'][i]['stake_period'],
              'staked': x.json['rows'][i]['staked'],
-             'boidpower': x.json['rows'][i]['boidpower'],
              'escrow': x.json['rows'][i]['escrow']}
+    return ret
+
+def getBoidpowers(x):
+    ret = {}
+    for i in range(len(x.json['rows'])):
+        ret[x.json['rows'][i]['acct']] = x.json['rows'][i]['quantity']
     return ret
 
 # TODO: the file paths are different for unknown reasons
@@ -128,19 +130,15 @@ if __name__ == '__main__':
         eosio_token, EOS_TOKEN_CONTRACT_PATH)
     boidStake_c = eosf.Contract(
         boid_stake, BOID_STAKE_CONTRACT_PATH)
-    testBoidpower_c = eosf.Contract(
-        boid_power, TEST_BOIDPOWER_CONTRACT_PATH)
 
     # build the token staking contract
     if args.build:
         eosioToken_c.build()
         boidStake_c.build()
-        testBoidpower_c.build()
 
     # deploy the token staking contract on the testnet
     eosioToken_c.deploy()
     boidStake_c.deploy()
-    testBoidpower_c.deploy()
 
     ############# now we can call functions ##############
     ########## (aka actions) from the contract! ##########
@@ -194,31 +192,6 @@ if __name__ == '__main__':
             'memo': 'memo'
         }, [boid])
 
-    # Set up accounts with boidpower
-    testBoidpower_c.push_action(
-        'create',
-        {
-            'issuer': boid_power,
-            'maximum_supply': '100000.0000 BPOW'
-        }, [boid_power])
-    # insert - ad hoc way to give accounts boid power
-    testBoidpower_c.push_action(
-        'insert',
-        {
-            'user': acct1,
-            'boidpower': '10'
-        }, [acct1])
-    testBoidpower_c.push_action(
-        'insert',
-        {
-            'user': acct2,
-            'boidpower': '10000'
-        }, [acct2])
-
-    print(testBoidpower_c)
-    eosf.stop()
-    sys.exit()
-
     # Initialize boid staking contract
     boidStake_c.push_action(
         'create',
@@ -261,6 +234,23 @@ if __name__ == '__main__':
     print(boidStake_c.table("accounts", acct1))
     print(boidStake_c.table("accounts", acct2))
 
+    # insert - ad hoc way to give accounts boid power
+    #boid_stake.get_info()
+    boidStake_c.push_action(
+        'setnewbp',
+        {
+            'acct': acct1,
+            'boidpower': 10
+        }, [boid_stake, acct1])
+
+    boidStake_c.push_action(
+        'setnewbp',
+        {
+            'acct': acct2,
+            'boidpower': '10000'
+        }, [boid_stake, acct2])
+    print(getBoidpowers(boidStake_c.table('boidpowers', boid_stake)))
+
     # Run staking tests with acct1 and acct2
     boidStake_c.push_action(
         'stake',
@@ -280,11 +270,7 @@ if __name__ == '__main__':
     print(getBalance(boidStake_c.table("accounts", acct1)))
     print(getBalance(boidStake_c.table("accounts", acct2)))
 
-    boidStake_c.push_action(
-        'reqnewbp',
-        {}, [boid_stake])
-
-    #print(getStakeParams(boidStake_c.table('stakes',boid_stake)))
+    print(getStakeParams(boidStake_c.table('stakes',boid_stake)))
 
     # stop the testnet and exit python
     eosf.stop()
