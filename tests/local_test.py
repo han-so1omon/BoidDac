@@ -8,13 +8,16 @@ import argparse
 # TODO: find a better way to reference the eos/contracts/eosio.token
 #eosBuild = os.getenv('EOS_BUILD')
 eosBuild = os.getenv('EOS_SRC')
-EOS_TOKEN_CONTRACT_PATH = eosBuild + '/contracts/eosio.token'
 if eosBuild == '' or eosBuild == None:
     raise ValueError(
             'EOS_BUILD environment variable must be set')
+EOS_TOKEN_CONTRACT_PATH = os.path.join(eosBuild,'contracts','eosio.token')
 
 BOID_STAKE_CONTRACT_PATH = \
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            '..'))
 
 assetDict = {'BOID': 0, 'EOS': 1}
 getAssetQuantity = lambda x: float(x.split()[0])
@@ -124,6 +127,11 @@ if __name__ == '__main__':
         'acct1', master, account_name='account1')
     eosf.create_account(
         'acct2', master, account_name='account2')
+
+    # make build directory if it does not exist
+    build_dir = os.path.join(BOID_STAKE_CONTRACT_PATH, 'build')
+    if not os.path.exists(build_dir):
+        os.mkdir(build_dir)
 
     # create reference to the token staking contract
     eosioToken_c = eosf.Contract(
