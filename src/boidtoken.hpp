@@ -147,18 +147,13 @@ class boidtoken : public contract
     const uint32_t  STAKE_REWARD_DIVISOR = 10000;
     const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
-    const uint16_t  DAY_MULTIPLIERX100 = 30; //!< Reward for staking daily 
-    const uint16_t  WEEK_MULTIPLIERX100 = 100; //!< Reward for staking weekly
     const uint16_t  MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
     const uint16_t  QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
     const int64_t   BASE_DAILY = 200000000;
 
-    const uint8_t   DAILY = 1;
-    const uint8_t   WEEKLY = 2;
-    const uint8_t   MONTHLY = 3;
-    const uint8_t   QUARTERLY = 4;
+    const uint8_t   MONTHLY = 1;
+    const uint8_t   QUARTERLY = 2;
 
-    const uint32_t  DAY_WAIT =     (1);   // TESTING Speed Only
     const uint32_t  WEEK_WAIT =    (1 * 7);   // TESTING Speed Only
     const uint32_t  MONTH_WAIT =   (1 * 7 * 30);  // TESTING Speed Only
     const uint32_t  QUARTER_WAIT = (1 * 7 * 30 * 4);  // TESTING Speed Only
