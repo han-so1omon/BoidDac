@@ -1,3 +1,9 @@
+simple tests
+	monthly stakes
+	quarterly stakes
+	different amounts of currency/boidpower
+	agregate data and plot it
+
 1. Install EOS (this took about 30 minutes)
 https://github.com/EOSIO/eos
 
