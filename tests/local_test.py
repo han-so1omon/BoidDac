@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import argparse
+import subprocess
 
 
 # TODO: find a better way to reference the eos/contracts/eosio.token
@@ -121,6 +122,17 @@ if __name__ == '__main__':
         'boid', master, account_name='boid')
     eosf.create_account(
         'boid_stake', master, account_name='boid.stake')
+    permissionsCmd = 'cleos set account permission {0} active\
+        \'{{"threshold": 1,\
+           "keys":[{{"key": "{1}","weight": 1}}],\
+           "accounts": [{{"permission": {{"actor": "{2}",\
+                                        "permission":"eosio.code"}},\
+                         "weight": 1}}]}}\'\
+        owner -p {3}'.format(boid_stake.name,
+                             eosio_token.active_key.key_public,
+                             eosio_token.name,
+                             boid_stake.name)
+    subprocess.call(permissionsCmd,shell=True)
     eosf.create_account(
         'boid_power', master, account_name='boid.power')
     eosf.create_account(
@@ -169,6 +181,9 @@ if __name__ == '__main__':
             'issuer': boid,
             'maximum_supply': '1000000000.0000 BOID'
         }, [eosio_token])
+
+    # Import eosio.token into staking
+    
 
     # Distribute initial quantities of EOS & BOID
     eosioToken_c.push_action(
@@ -275,10 +290,10 @@ if __name__ == '__main__':
             '_staked': '2000.0000 BOID'
         }, [acct2])
 
-    print(getBalance(boidStake_c.table("accounts", acct1)))
-    print(getBalance(boidStake_c.table("accounts", acct2)))
+    #print(getBalance(boidStake_c.table("accounts", acct1)))
+    #print(getBalance(boidStake_c.table("accounts", acct2)))
 
-    print(getStakeParams(boidStake_c.table('stakes',boid_stake)))
+    #print(getStakeParams(boidStake_c.table('stakes',boid_stake)))
 
     # stop the testnet and exit python
     eosf.stop()

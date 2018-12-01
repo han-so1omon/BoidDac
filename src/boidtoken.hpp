@@ -6,6 +6,7 @@
 
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/eosio.token.hpp>
 #include <string>
 //#include <vector>
 #include <set>
@@ -91,7 +92,6 @@ class boidtoken : public contract
     // @abi action
     void unstake (const account_name _stake_account);
 
-
     /** \brief Check result of running payout
      *
      * Debugging action
@@ -124,6 +124,13 @@ class boidtoken : public contract
     // @abi action
     void setnewbp(account_name acct, uint32_t boidpower);
 
+    /** \brief Set new stake rates
+     *  @param monthly      Monthly bonus percentage
+     *  @param quarterly    Quarterly bonus percentage 
+     */
+    // @abi action
+    void setbonuses(uint16_t monthly, uint16_t quarterly);
+
     /** \brief Get current boidpower of some account in accounts table
      */
     uint32_t get_boidpower(account_name owner) const;
@@ -147,9 +154,9 @@ class boidtoken : public contract
     const uint32_t  STAKE_REWARD_DIVISOR = 10000;
     const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
-    const uint16_t  MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
-    const uint16_t  QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
-    const int64_t   BASE_DAILY = 200000000;
+    uint16_t        MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
+    uint16_t        QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
+    const int64_t   BASE_WEEKLY = 200000000;
 
     const uint8_t   MONTHLY = 1;
     const uint8_t   QUARTERLY = 2;
@@ -167,8 +174,6 @@ class boidtoken : public contract
         uint8_t         running;
         account_name    overflow;
         uint32_t        active_accounts;
-        asset           staked_daily;
-        asset           staked_weekly;
         asset           staked_monthly;
         asset           staked_quarterly;
         asset           total_staked;
@@ -188,7 +193,7 @@ class boidtoken : public contract
         uint64_t    primary_key() const { return config_id; }
 
         EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)
-        (staked_daily)(staked_weekly)(staked_monthly)(staked_quarterly)(total_staked)
+        (staked_monthly)(staked_quarterly)(total_staked)
         (total_escrowed_monthly)(total_escrowed_quarterly)(total_shares)(base_payout)
         (bonus)(total_payout)(interest_share)(unclaimed_tokens)
         (spare_a1)(spare_a2)(spare_i1)(spare_i2));
@@ -281,10 +286,11 @@ asset boidtoken::get_supply(symbol_name sym) const
 
 asset boidtoken::get_balance(account_name owner, symbol_name sym) const
 {
-    accounts accountstable(_self, owner);
-    const auto &ac = accountstable.get(sym);
-    return ac.balance;
+  token t(N(eosio.token));
+  const auto balance = t.get_balance(N(owner), sym.name());
+  print("balance: ", balance);
+  return balance;
 }
 
-EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp))
+EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp)(setbonuses))
 //EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake))
