@@ -6,7 +6,7 @@
 
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
-#include <eosiolib/eosio.token.hpp>
+#include <eosio.token/eosio.token.hpp>
 #include <string>
 //#include <vector>
 #include <set>
@@ -148,11 +148,11 @@ class boidtoken : public contract
     // Reward qualifications options
     // 1) Require boidpower/boidstake >= 10 to qualify for staking rewards
     // 2) Reward per coin = 0.0001*max(boidpower/1000,1)
-    const uint16_t  STAKE_REWARD_RATIO = 10; //!< Require boidpower/boidstake >= 10 to qualify for staking rewards
+    uint16_t  STAKE_REWARD_RATIO = 10; //!< Require boidpower/boidstake >= 10 to qualify for staking rewards
                                              //!< Reward per coin =
                                              //0.0001*max(boidpower/1000,1)
-    const uint32_t  STAKE_REWARD_DIVISOR = 10000;
-    const uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
+    uint32_t  STAKE_REWARD_DIVISOR = 10000;
+    uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
     uint16_t        MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
     uint16_t        QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
@@ -286,8 +286,8 @@ asset boidtoken::get_supply(symbol_name sym) const
 
 asset boidtoken::get_balance(account_name owner, symbol_name sym) const
 {
-  token t(N(eosio.token));
-  const auto balance = t.get_balance(N(owner), sym.name());
+  auto t = eosio::token(N(eosio.token));
+  const auto balance = t.get_balance(N(owner), sym);
   print("balance: ", balance);
   return balance;
 }
