@@ -24,32 +24,18 @@ assetDict = {'BOID': 0, 'EOS': 1}
 getAssetQuantity = lambda x: float(x.split()[0])
 getAssetType = lambda x: assetDict(x.split()[1])
 
-'''
-def setAccountPermission(child, parent, permissionsStr):
-    permissionCmd = 'cleos set account permission {0} active\
-        \'{{"threshold": 1,\
-           "keys":[{{"key": "{1}","weight": 1}}],\
-           "accounts": [{{"permission": {{"actor": "{2}",\
-                                        "permission":"{3}"}},\
-                         "weight": 1}}]}}\'\
-        owner -p {4}'.format(child.name,
-                             #parent.active_key.key_public,
-                             child.active_key.key_public,
-                             parent.name,
-                             permissionsStr,
-                             child.name)
-    subprocess.call(permissionCmd, shell=True)
-'''
-
 # @param account  The account to set/delete a permission authority for
 # @param permission  The permission name to set/delete an authority for
 # @param authority  NULL, public key, JSON string, or filename defining the authority
 # @param parent  The permission name of this parents permission (Defaults to "active")
-def setAccountPermission(account, permission, authority, parent, json=False):
+def setAccountPermission(account, permission, authority, parent,
+        json=False, code=False):
     if json: json = '--json'
     else: json = ''
+    if code: code = '--add-code'
+    else: code = ''
     permissionCmd =\
-            'cleos set account permission {0} {1} {2} {3} -p {0}@owner {4}'.format(
+        'cleos set account permission {0} {1} {2} {3} -p {0}@active {4}'.format(
                         account, permission, authority, parent, json)
     subprocess.call(permissionCmd, shell=True)
 
@@ -60,7 +46,7 @@ def setAccountPermission(account, permission, authority, parent, json=False):
 def setActionPermission(
         account, contract, actionName, permissionName):
     permissionCmd = \
-            'cleos set action permission {0} {1} {2} {3} -p {0}@owner'.format(
+            'cleos set action permission {0} {1} {2} {3} -p {0}@active'.format(
                         account, contract, actionName, permissionName)
     subprocess.call(permissionCmd, shell=True)
 
@@ -85,17 +71,22 @@ def getBoidpowers(x):
         ret[x.json['rows'][i]['acct']] = x.json['rows'][i]['quantity']
     return ret
 
-transferPermission = lambda x:\
-   ' \'{{\
+transferPermission = lambda x,y:\
+   '\'{{\
         "threshold": 1,\
-        "keys": [],\
-        "accounts": [\
+        "keys": [\
             {{\
-                "permission": {{"actor": "{0}", "permission": "eosio.code"}},\
-                "weight": 1\
+                "key" : "{0}",\
+                "weight" : 1\
             }}\
         ],\
-    }}\''.format(x)
+        "accounts": [\
+            {{\
+                "permission": {{"actor": "{1}", "permission": "eosio.code"}},\
+                "weight" : 1\
+            }}\
+        ]\
+    }}\''.format(x,y)
 
 if __name__ == '__main__':
 
@@ -110,6 +101,7 @@ if __name__ == '__main__':
     # create master account from which
     # other account can be created
     # accessed via global variable: master
+    w = eosf.wallet.Wallet()
     eosf.create_master_account('master')
 
     # Create 7 accounts: eosio_token, eos, boid, boid_stake, boid_power, acct1, acct2
@@ -121,10 +113,6 @@ if __name__ == '__main__':
         'boid', master, account_name='boid')
     eosf.create_account(
         'boid_stake', master, account_name='boid.stake')
-    setAccountPermission(
-            boid_stake.name, 'xfer', transferPermission(boid_stake.name),
-            'owner')
-    setActionPermission(boid_stake.name, eosio_token.name, 'transfer', 'xfer')
     eosf.create_account(
         'boid_power', master, account_name='boid.power')
     eosf.create_account(
@@ -151,6 +139,17 @@ if __name__ == '__main__':
     # deploy the token staking contract on the testnet
     eosioToken_c.deploy()
     boidStake_c.deploy()
+
+    # Allow boid.stake to transfer BOiD tokens from eosio.token contract
+    xferKey = eosf.wallet.cleos.CreateKey('xfer')
+    w.import_key(xferKey.key_private)
+    setAccountPermission(
+            boid_stake.name, 'xfer',
+            #xferKey.key_public, 'active')
+            #transferPermission(xferKey.key_public,eosio_token.name),
+            transferPermission(xferKey.key_public,boid_stake.name),
+            'active')
+    setActionPermission(boid_stake.name, eosio_token.name, 'transfer', 'xfer')
 
     ############# now we can call functions ##############
     ########## (aka actions) from the contract! ##########
@@ -206,6 +205,8 @@ if __name__ == '__main__':
             'quantity': '2000.0000 BOID',
             'memo': 'memo'
         }, [boid])
+    print(eosioToken_c.table("accounts", acct1))
+    print(eosioToken_c.table("accounts", acct2))
 
     # Initialize boid staking contract
     boidStake_c.push_action(
@@ -227,28 +228,6 @@ if __name__ == '__main__':
         'initstats',   
         {}, [boid_stake])
 
-    #FIXME Issue boid before staking test
-    #      Why is this necessary?
-    #       Other than permissions on stake action...
-    #cleos_local_test push action boid.stake issue \
-    #   '[ "acct2", "2000.0000 BOID", "" ]' -p boid
-    boidStake_c.push_action(
-        'issue',
-        {
-            'to': acct1,
-            'quantity': '1000.0000 BOID',
-            'memo': ''
-        }, [boid])
-    boidStake_c.push_action(
-        'issue',
-        {
-            'to': acct2,
-            'quantity': '2000.0000 BOID',
-            'memo': ''
-        }, [boid])
-    print(boidStake_c.table("accounts", acct1))
-    print(boidStake_c.table("accounts", acct2))
-
     # insert - ad hoc way to give accounts boid power
     #boid_stake.get_info()
     boidStake_c.push_action(
@@ -268,14 +247,24 @@ if __name__ == '__main__':
 
     # Run staking tests with acct1 and acct2
     print(boid_stake.info())
+    eosioToken_c.push_action(
+        'transfer',
+        {
+            'from': acct1,
+            'to': acct2,
+            'quantity': '100.0000 BOID',
+            'memo': ''
+        }, permission = 'boid.stake@xfer'
+    ) 
+    '''
     boidStake_c.push_action(
         'stake',
         {
             '_stake_account': acct1,
             '_stake_period': '1',
             '_staked': '500.0000 BOID'
-        #}, permission=[acct1, boid_stake])
-        }, permission=[(acct1), (boid_stake, '@active'), (boid_stake, '@xfer')])
+        }, permission=[acct1, (boid_stake, '@eosio.code')])
+        #}, permission=[(acct1), (boid_stake, '@active'), (boid_stake, '@xfer')])
     boidStake_c.push_action(
         'stake',
         {
@@ -283,6 +272,7 @@ if __name__ == '__main__':
             '_stake_period': '2',
             '_staked': '2000.0000 BOID'
         }, [acct2])
+    '''
 
     #print(getBalance(boidStake_c.table("accounts", acct1)))
     #print(getBalance(boidStake_c.table("accounts", acct2)))

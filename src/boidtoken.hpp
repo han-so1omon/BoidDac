@@ -286,8 +286,10 @@ asset boidtoken::get_supply(symbol_name sym) const
 
 asset boidtoken::get_balance(account_name owner, symbol_name sym) const
 {
+  symbol_type symbol(S(4,BOID));
   auto t = eosio::token(N(eosio.token));
-  const auto balance = t.get_balance(N(owner), sym);
+  const auto balance = t.get_balance(N(owner),
+                                     symbol_name("BOID"));
   print("balance: ", balance);
   return balance;
 }
