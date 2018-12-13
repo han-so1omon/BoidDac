@@ -92,13 +92,6 @@ class boidtoken : public contract
     // @abi action
     void unstake (const account_name _stake_account);
 
-    /** \brief Check result of running payout
-     *
-     * Debugging action
-     */
-    // @abi action
-    void checkrun();
-
     /** \brief Add bonus to config table
      */
     // @abi action
@@ -133,7 +126,7 @@ class boidtoken : public contract
 
     /** \brief Get current boidpower of some account in accounts table
      */
-    uint32_t get_boidpower(account_name owner) const;
+    inline uint32_t get_boidpower(account_name owner) const;
 
     /** \brief Get BOID token supply
      */
@@ -286,13 +279,20 @@ asset boidtoken::get_supply(symbol_name sym) const
 
 asset boidtoken::get_balance(account_name owner, symbol_name sym) const
 {
-  symbol_type symbol(S(4,BOID));
-  auto t = eosio::token(N(eosio.token));
-  const auto balance = t.get_balance(N(owner),
-                                     symbol_name("BOID"));
-  print("balance: ", balance);
-  return balance;
+  accounts accountstable(_self, owner);
+  const auto& ac = accountstable.get(sym);
+  return ac.balance;
 }
 
-EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp)(setbonuses))
+uint32_t boidtoken::get_boidpower(account_name owner) const
+{
+  boidpowers bps(_self, _self);
+  auto itr = bps.find(owner);
+  if (itr != bps.end()) {
+    return itr->quantity;
+  }
+  return 0;
+}
+
+EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp)(setbonuses))
 //EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake))

@@ -145,17 +145,7 @@ void boidtoken::running(uint8_t on_switch){
 void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset _staked)
 {
     require_auth(_stake_account);
-    //FIXME debug
-    action(
-        permission_level{_stake_account,N(active)},
-        N(eosio.token),N(transfer),
-        std::make_tuple(_stake_account,
-                        _self,
-                        _staked,
-                        std::string(""))
-    ).send();
-    //get_balance(_stake_account,_staked.symbol.name());
-    return;
+    require_auth(_self);
     config_table c_t (_self, _self);
     auto c_itr = c_t.find(0);
     stake_table s_t(_self, _self);
@@ -167,7 +157,7 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
     eosio_assert(_staked.is_valid(), "invalid quantity");
     eosio_assert(_staked.amount > 0, "must transfer positive quantity");
     eosio_assert(_staked.symbol == st.supply.symbol, "symbol precision mismatch");
-    eosio_assert(_stake_period >= 1 && _stake_period <= 4, "Invalid stake period.");
+    eosio_assert(_stake_period >= 1 && _stake_period <= 2, "Invalid stake period.");
     auto itr = s_t.find(_stake_account);
     eosio_assert(itr == s_t.end(), "Account already has a stake. Must unstake first.");
 
@@ -202,7 +192,8 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
 }
 
 
-//TODO associate payout with boid power
+//TODO associate payout wiall payouts should be immediately liquid
+//TODO don't want escrow! 
 /* Claim token-staking bonus for specified account
  */
 void boidtoken::claim(account_name _stake_account){
@@ -336,45 +327,6 @@ void boidtoken::unstake(account_name _stake_account)
   s_t.erase(itr);
 }
 
-/*  
- */
-void boidtoken::checkrun()
-{
-    require_auth(_self);
-    config_table c_t(_self, _self);
-    auto c_itr = c_t.find(0);
-
-    uint64_t total_shares = 0;
-    auto supply = 1000000000;
-    auto total_stake = (c_itr->total_staked.amount
-                        + c_itr->total_escrowed_monthly.amount
-                        + c_itr->total_escrowed_quarterly.amount);
-    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOID")};
-    total_shares =  (MONTH_MULTIPLIERX100 * c_itr->staked_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->staked_quarterly.amount);
-    total_shares += (MONTH_MULTIPLIERX100 * c_itr->total_escrowed_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->total_escrowed_quarterly.amount);
-    total_shares /= 100;
-    uint64_t perc_stakedx100 = (total_stake  * 1000000 / supply * 1000000);
-    uint64_t weekly_base = (BASE_WEEKLY * 1000000);
-    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "BOID")}; // TESTING ONLY change symbol to go-live
-    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOID")}; // TESTING ONLY change symbol to go-live
-    auto my_pps = (total_payout.amount*10000/total_shares*10000);
-    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOID")}; // TESTING ONLY change symbol to go-live
-
-    if (total_payout.amount == 0 || total_stake == 0)
-    {
-        print("Nothing to pay.\n");
-        return;
-    }
-    else{
-      config_table c_t(_self, _self);
-      auto p_itr = c_t.find(0);
-      print("TEST RUN: " , "Total Staked & Escrowed: " , print_staked, " | " , "Total Payout: ", total_payout , " | ",
-      "Bonus: ", c_itr->bonus , " | " , "Total Shares: " , total_shares/10000, " | " , "Pay/Share: "   , pay_per_share, "\n" );
-    }
-}
-
 /* Add bonus to config table
  */
 void boidtoken::addbonus(account_name _sender, asset _bonus)
@@ -483,6 +435,7 @@ void boidtoken::initstats(){
   require_auth (_self);
   asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
   asset cleartokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
+  asset interesttokens = asset{static_cast<int64_t>(1.0000), string_to_symbol(4, "BOID")};
   config_table c_t (_self, _self);
   auto c_itr = c_t.find(0);
   c_t.modify(c_itr, _self, [&](auto &c) {
@@ -497,7 +450,7 @@ void boidtoken::initstats(){
     c.total_shares = 0;
     c.base_payout = cleartokens;
     c.total_payout = cleartokens;
-    c.interest_share = cleartokens;
+    c.interest_share = interesttokens;
     c.unclaimed_tokens = cleartokens;
   });
   if(returntokens.amount > 0){
@@ -568,16 +521,6 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
             a.balance += value;
         });
     }
-}
-
-uint32_t boidtoken::get_boidpower(account_name owner) const
-{
-  boidpowers bps(_self, _self);
-  auto itr = bps.find(owner);
-  if (itr != bps.end()) {
-    return itr->quantity;
-  }
-  return 0;
 }
 
 //TODO

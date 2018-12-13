@@ -5,24 +5,14 @@ import json
 import argparse
 import subprocess
 
-
-# TODO: find a better way to reference the eos/contracts/eosio.token
-#eosBuild = os.getenv('EOS_BUILD')
-eosBuild = os.getenv('EOS_SRC')
-if eosBuild == '' or eosBuild == None:
-    raise ValueError(
-            'EOS_BUILD environment variable must be set')
-EOS_TOKEN_CONTRACT_PATH = os.path.join(eosBuild,'contracts','eosio.token')
-
-BOID_STAKE_CONTRACT_PATH = \
+BOID_TOKEN_CONTRACT_PATH = \
     os.path.abspath(
         os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             '..'))
 
-assetDict = {'BOID': 0, 'EOS': 1}
-getAssetQuantity = lambda x: float(x.split()[0])
-getAssetType = lambda x: assetDict(x.split()[1])
+STAKE_MONTHLY = '1'
+STAKE_QUARTERLY = '2'
 
 # @param account  The account to set/delete a permission authority for
 # @param permission  The permission name to set/delete an authority for
@@ -50,6 +40,41 @@ def setActionPermission(
                         account, contract, actionName, permissionName)
     subprocess.call(permissionCmd, shell=True)
 
+transferPermission = lambda x,y:\
+   '\'{{\
+        "threshold": 1,\
+        "keys": [\
+            {{\
+                "key" : "{0}",\
+                "weight" : 1\
+            }}\
+        ],\
+        "accounts": [\
+            {{\
+                "permission": {{"actor": "{1}", "permission": "eosio.code"}},\
+                "weight" : 1\
+            }}\
+        ]\
+    }}\''.format(x,y)
+
+def stake(acct, amount, stake_period):
+    boidToken_c.push_action(
+        'stake',
+        {
+            '_stake_account': acct,
+            '_stake_period': stake_period,
+            '_staked': amount
+        }, permission=[acct, boid_token]
+    )
+
+def unstake(acct):
+    boidToken_c.push_action(
+        'unstake',
+        {
+            '_stake_account': acct,
+        }, permission=[acct, boid_token]
+    )
+
 def getBalance(x):
     if len(x.json['rows']) > 0:
         return float(x.json['rows'][0]['balance'].split()[0])
@@ -71,23 +96,6 @@ def getBoidpowers(x):
         ret[x.json['rows'][i]['acct']] = x.json['rows'][i]['quantity']
     return ret
 
-transferPermission = lambda x,y:\
-   '\'{{\
-        "threshold": 1,\
-        "keys": [\
-            {{\
-                "key" : "{0}",\
-                "weight" : 1\
-            }}\
-        ],\
-        "accounts": [\
-            {{\
-                "permission": {{"actor": "{1}", "permission": "eosio.code"}},\
-                "weight" : 1\
-            }}\
-        ]\
-    }}\''.format(x,y)
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -106,13 +114,9 @@ if __name__ == '__main__':
 
     # Create 7 accounts: eosio_token, eos, boid, boid_stake, boid_power, acct1, acct2
     eosf.create_account(
-        'eosio_token', master, account_name='eosio.token')
-    eosf.create_account(
-        'eos', master, account_name='eos')
+        'boid_token', master, account_name='boid.token')
     eosf.create_account(
         'boid', master, account_name='boid')
-    eosf.create_account(
-        'boid_stake', master, account_name='boid.stake')
     eosf.create_account(
         'boid_power', master, account_name='boid.power')
     eosf.create_account(
@@ -121,24 +125,20 @@ if __name__ == '__main__':
         'acct2', master, account_name='account2')
 
     # make build directory if it does not exist
-    build_dir = os.path.join(BOID_STAKE_CONTRACT_PATH, 'build')
+    build_dir = os.path.join(BOID_TOKEN_CONTRACT_PATH, 'build')
     if not os.path.exists(build_dir):
         os.mkdir(build_dir)
 
     # create reference to the token staking contract
-    eosioToken_c = eosf.Contract(
-        eosio_token, EOS_TOKEN_CONTRACT_PATH)
-    boidStake_c = eosf.Contract(
-        boid_stake, BOID_STAKE_CONTRACT_PATH)
+    boidToken_c = eosf.Contract(
+        boid_token, BOID_TOKEN_CONTRACT_PATH)
 
     # build the token staking contract
     if args.build:
-        eosioToken_c.build()
-        boidStake_c.build()
+        boidToken_c.build()
 
     # deploy the token staking contract on the testnet
-    eosioToken_c.deploy()
-    boidStake_c.deploy()
+    boidToken_c.deploy()
 
     # Allow boid.stake to transfer BOiD tokens from eosio.token contract
     '''
@@ -151,11 +151,13 @@ if __name__ == '__main__':
             transferPermission(xferKey.key_public,boid_stake.name),
             'active')
     setActionPermission(boid_stake.name, eosio_token.name, 'transfer', 'xfer')
-    '''
+
+
     setAccountPermission(
             acct1.name, 'active',
             transferPermission(acct1.active_key.key_public, boid_stake.name),
             'owner')
+    '''
 
     ############# now we can call functions ##############
     ########## (aka actions) from the contract! ##########
@@ -165,136 +167,70 @@ if __name__ == '__main__':
     #		action_name,
     #		action_arguments_in_json,
     #		account_whose_permission_is_needed)
-    eosioToken_c.push_action(
-        'create',
-        {
-            'issuer': eos,
-            'maximum_supply': '1000000000.0000 EOS'
-        }, [eosio_token])
-
-    eosioToken_c.push_action(
+    boidToken_c.push_action(
         'create',
         {
             'issuer': boid,
             'maximum_supply': '1000000000.0000 BOID'
-        }, [eosio_token])
-
-    # Import eosio.token into staking
-    
+        }, [boid_token])
 
     # Distribute initial quantities of EOS & BOID
-    eosioToken_c.push_action(
-        'issue',
-        {
-            'to': acct1,
-            'quantity': '1000.0000 EOS',
-            'memo': 'memo'
-        }, [eos])
-    eosioToken_c.push_action(
-        'issue',
-        {
-            'to': acct2,
-            'quantity': '2000.0000 EOS',
-            'memo': 'memo'
-        }, [eos])
-    eosioToken_c.push_action(
+    boidToken_c.push_action(
         'issue',
         {
             'to': acct1,
             'quantity': '1000.0000 BOID',
             'memo': 'memo'
         }, [boid])
-    eosioToken_c.push_action(
+    boidToken_c.push_action(
         'issue',
         {
             'to': acct2,
             'quantity': '2000.0000 BOID',
             'memo': 'memo'
         }, [boid])
-    print(eosioToken_c.table("accounts", acct1))
-    print(eosioToken_c.table("accounts", acct2))
+    print(boidToken_c.table("accounts", acct1))
+    print(boidToken_c.table("accounts", acct2))
 
-    # Initialize boid staking contract
-    boidStake_c.push_action(
-        'create',
-        {
-            'issuer': boid,
-            'maximum_supply': '1000000000.0000 BOID'
-        }, [boid_stake])
     # TODO find way to print total number of boid tokens
     # to determine if this function above is minting more coins
     # or if its alocating pre-existing coins
-    boidStake_c.push_action(  # running - sets payouts to on
+    boidToken_c.push_action(  # running - sets payouts to on
         'running',
         {
             'on_switch': '1',
-        }, [boid_stake])
+        }, [boid_token])
     # initstats - reset/setup configuration of contract
-    boidStake_c.push_action(
+    boidToken_c.push_action(
         'initstats',   
-        {}, [boid_stake])
+        {}, [boid_token])
 
     # insert - ad hoc way to give accounts boid power
     #boid_stake.get_info()
-    boidStake_c.push_action(
+    boidToken_c.push_action(
         'setnewbp',
         {
             'acct': acct1,
             'boidpower': 10
-        }, [boid_stake, acct1])
-
-    boidStake_c.push_action(
+        }, [boid_token, acct1])
+    boidToken_c.push_action(
         'setnewbp',
         {
             'acct': acct2,
             'boidpower': '10000'
-        }, [boid_stake, acct2])
-    print(getBoidpowers(boidStake_c.table('boidpowers', boid_stake)))
+        }, [boid_token, acct2])
+    print(getBoidpowers(boidToken_c.table('boidpowers', boid_token)))
 
     # Run staking tests with acct1 and acct2
-    print(boid_stake.info())
+    stake(acct1, '100.0000 BOID', STAKE_MONTHLY)
+    stake(acct2, '100.0000 BOID', STAKE_QUARTERLY)
+    print(boidToken_c.table("accounts", acct1))
+    print(boidToken_c.table("accounts", acct2))
 
-    ''' Simple transfer action
-    eosioToken_c.push_action(
-        'transfer',
-        {
-            'from': acct1,
-            'to': acct2,
-            'quantity': '100.0000 BOID',
-            'memo': ''
-        }, permission = [(acct1)]
-    ) 
-    '''
-
-    boidStake_c.push_action(
-        'stake',
-        {
-            '_stake_account': acct1,
-            '_stake_period': '1',
-            '_staked': '100.0000 BOID'
-        }, permission=[(acct1)]
-    )
-
-    print(eosioToken_c.table("accounts", acct1))
-    print(eosioToken_c.table("accounts", acct2))
-    print(eosioToken_c.table("accounts", boid_stake))
-    '''
-    boidStake_c.push_action(
-        'stake',
-        {
-            '_stake_account': acct1,
-            '_stake_period': '1',
-            '_staked': '500.0000 BOID'
-        }, permission=[acct1, (boid_stake, '@eosio.code')])
-        #}, permission=[(acct1), (boid_stake, '@active'), (boid_stake, '@xfer')])
-    boidStake_c.push_action(
-        'stake',
-        {
-            '_stake_account': acct2,
-            '_stake_period': '2',
-            '_staked': '2000.0000 BOID'
-        }, [acct2])
-    '''
+    unstake(acct1)
+    unstake(acct2)
+    print(boidToken_c.table("accounts", acct1))
+    print(boidToken_c.table("accounts", acct2))
 
     #print(getBalance(boidStake_c.table("accounts", acct1)))
     #print(getBalance(boidStake_c.table("accounts", acct2)))
