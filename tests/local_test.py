@@ -141,6 +141,7 @@ if __name__ == '__main__':
     boidStake_c.deploy()
 
     # Allow boid.stake to transfer BOiD tokens from eosio.token contract
+    '''
     xferKey = eosf.wallet.cleos.CreateKey('xfer')
     w.import_key(xferKey.key_private)
     setAccountPermission(
@@ -150,6 +151,11 @@ if __name__ == '__main__':
             transferPermission(xferKey.key_public,boid_stake.name),
             'active')
     setActionPermission(boid_stake.name, eosio_token.name, 'transfer', 'xfer')
+    '''
+    setAccountPermission(
+            acct1.name, 'active',
+            transferPermission(acct1.active_key.key_public, boid_stake.name),
+            'owner')
 
     ############# now we can call functions ##############
     ########## (aka actions) from the contract! ##########
@@ -247,6 +253,8 @@ if __name__ == '__main__':
 
     # Run staking tests with acct1 and acct2
     print(boid_stake.info())
+
+    ''' Simple transfer action
     eosioToken_c.push_action(
         'transfer',
         {
@@ -254,8 +262,22 @@ if __name__ == '__main__':
             'to': acct2,
             'quantity': '100.0000 BOID',
             'memo': ''
-        }, permission = 'boid.stake@xfer'
+        }, permission = [(acct1)]
     ) 
+    '''
+
+    boidStake_c.push_action(
+        'stake',
+        {
+            '_stake_account': acct1,
+            '_stake_period': '1',
+            '_staked': '100.0000 BOID'
+        }, permission=[(acct1)]
+    )
+
+    print(eosioToken_c.table("accounts", acct1))
+    print(eosioToken_c.table("accounts", acct2))
+    print(eosioToken_c.table("accounts", boid_stake))
     '''
     boidStake_c.push_action(
         'stake',

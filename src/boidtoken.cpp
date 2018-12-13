@@ -147,11 +147,11 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
     require_auth(_stake_account);
     //FIXME debug
     action(
-        permission_level{_self,N(active)},
+        permission_level{_stake_account,N(active)},
         N(eosio.token),N(transfer),
         std::make_tuple(_stake_account,
                         _self,
-                        asset(100,symbol_type(S(4,BOID))),
+                        _staked,
                         std::string(""))
     ).send();
     //get_balance(_stake_account,_staked.symbol.name());
