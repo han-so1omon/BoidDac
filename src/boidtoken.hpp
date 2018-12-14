@@ -86,7 +86,6 @@ class boidtoken : public contract
 
     /** \brief Unstake tokens from specified account
      *
-     *  - Return stored escrow to contract account
      *  - Deduct staked amount from contract config table
      */
     // @abi action
@@ -101,11 +100,6 @@ class boidtoken : public contract
      */
     // @abi action
     void rembonus ();
-
-    /** \brief Payout staked token bonuses
-     */
-    // @abi action
-    void runpayout();
 
     /** \brief Initialize config table
      */
@@ -122,7 +116,7 @@ class boidtoken : public contract
      *  @param quarterly    Quarterly bonus percentage 
      */
     // @abi action
-    void setbonuses(uint16_t monthly, uint16_t quarterly);
+    void setparams(uint16_t monthly, uint16_t quarterly);
 
     /** \brief Get current boidpower of some account in accounts table
      */
@@ -145,7 +139,8 @@ class boidtoken : public contract
                                              //!< Reward per coin =
                                              //0.0001*max(boidpower/1000,1)
     uint32_t  STAKE_REWARD_DIVISOR = 10000;
-    uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
+    uint16_t  STAKE_BOIDPOWER_DIVISOR = 10;
+    uint16_t  STAKE_BOIDPOWER_CHECK_MULTIPLIER = 1000;
 
     uint16_t        MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
     uint16_t        QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
@@ -170,14 +165,11 @@ class boidtoken : public contract
         asset           staked_monthly;
         asset           staked_quarterly;
         asset           total_staked;
-        asset           total_escrowed_monthly;
-        asset           total_escrowed_quarterly;
         uint64_t        total_shares;
         asset           base_payout;
         asset           bonus;
         asset           total_payout;
         asset           interest_share;
-        asset           unclaimed_tokens;
         asset           spare_a1;
         asset           spare_a2;
         uint64_t        spare_i1;
@@ -187,8 +179,8 @@ class boidtoken : public contract
 
         EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)
         (staked_monthly)(staked_quarterly)(total_staked)
-        (total_escrowed_monthly)(total_escrowed_quarterly)(total_shares)(base_payout)
-        (bonus)(total_payout)(interest_share)(unclaimed_tokens)
+        (total_shares)(base_payout)
+        (bonus)(total_payout)(interest_share)
         (spare_a1)(spare_a2)(spare_i1)(spare_i2));
     };
 
@@ -226,11 +218,10 @@ class boidtoken : public contract
         asset           staked;
         uint32_t        stake_date;
         uint32_t        stake_due;
-        asset           escrow;
 
         account_name        primary_key () const { return stake_account; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow));
+        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due));
     };
 
    typedef eosio::multi_index<N(stakes), stake_row> stake_table;
@@ -268,7 +259,6 @@ class boidtoken : public contract
     };
 };
 
-
 asset boidtoken::get_supply(symbol_name sym) const
 {
     stats statstable(_self, sym);
@@ -294,5 +284,5 @@ uint32_t boidtoken::get_boidpower(account_name owner) const
   return 0;
 }
 
-EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp)(setbonuses))
+EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(addbonus)(rembonus)(initstats)(setnewbp)(setparams))
 //EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(reqnewbp)(setnewbp)(printstake))

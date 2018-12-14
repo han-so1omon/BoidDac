@@ -163,13 +163,10 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
 
     sub_balance(_stake_account, _staked);
 
-    asset setme = _staked;
-    setme -= _staked;                                                           // get a zero asset value to plug into the escrow row.
     s_t.emplace(_stake_account, [&](auto &s) {
         s.stake_account = _stake_account;
         s.stake_period = _stake_period;
         s.staked = _staked;
-        s.escrow = setme;
         if (_stake_period == MONTHLY) {
           s.stake_due = now() + WEEK_WAIT;
           s.stake_date = now() + MONTH_WAIT;
@@ -192,24 +189,17 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
 }
 
 
-//TODO associate payout wiall payouts should be immediately liquid
-//TODO don't want escrow! 
 /* Claim token-staking bonus for specified account
  */
-void boidtoken::claim(account_name _stake_account){
+void boidtoken::claim(account_name _stake_account)
+{
+    require_auth(_stake_account);
 
     uint64_t total_shares;
     asset total_payout;
     asset pay_per_share;
     asset my_shares;
     asset payout;
-    asset add_monthly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-    asset add_quarterly = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-    asset add_escrow_monthly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-    asset rem_escrow_monthly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-    asset add_escrow_quarterly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-    asset rem_escrow_quarterly =  asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-    asset rem_unclaimed = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
 
     config_table c_t(_self, _self);
     auto c_itr = c_t.find(0);
@@ -220,108 +210,62 @@ void boidtoken::claim(account_name _stake_account){
 
     stake_table s_t(_self, _self);
     auto itr = s_t.find(_stake_account);
-    require_auth(itr->stake_account);
     s_t.modify(itr, 0, [&](auto &s)
     {
         eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
         uint32_t boidpower = get_boidpower(s.stake_account);
+        uint16_t multiplier;
+        uint32_t wait;
         ///***************          MONTHLY         ****************************//
         if (itr->stake_period == MONTHLY)
+        { 
+          multiplier = MONTH_MULTIPLIERX100;
+          wait = MONTH_WAIT;
+        } else if (itr->stake_period == QUARTERLY)
         {
-          if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
-            my_shares = (((MONTH_MULTIPLIERX100 * itr->staked)/100)
-                          + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
-          } else {
-            my_shares = ((MONTH_MULTIPLIERX100 * itr->staked)/100);                // calc payout
-          }
-          payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOID")};
-          if (itr->stake_date <= now()) {
-            s.staked += payout;
-            s.staked += s.escrow;
-            rem_unclaimed += payout;
-            rem_escrow_monthly += s.escrow;
-            add_monthly += s.escrow;
-            add_monthly += payout;
-            s.escrow -= s.escrow;
-            s.stake_due = now() + WEEK_WAIT;
-            s.stake_date = now() + MONTH_WAIT;
-          }
-          else if (itr->stake_due <= now()) {
-            s.escrow += payout;
-            add_escrow_monthly += payout;
-            rem_unclaimed += payout;
-            s.stake_due = now() + WEEK_WAIT;
-          }
+          multiplier = QUARTER_MULTIPLIERX100;
+          wait = QUARTER_WAIT;
         }
-        ///***************          QUARTERLY         ****************************//
-        else if (itr->stake_period == QUARTERLY)
+
+        my_shares = ((multiplier * itr->staked) / 100);
+        if (STAKE_BOIDPOWER_CHECK_MULTIPLIER * (boidpower / itr->staked.amount)
+            > STAKE_REWARD_RATIO)
         {
-          if ((itr->staked / boidpower).amount >= STAKE_REWARD_RATIO) {
-            my_shares = (((QUARTER_MULTIPLIERX100 * itr->staked)/100)
-                          + (((boidpower/STAKE_BOIDPOWER_DIVISOR)*itr->staked)/STAKE_REWARD_DIVISOR));
-          } else {
-            my_shares = ((QUARTER_MULTIPLIERX100 * itr->staked)/100);                // calc payout
-          }
-          payout = asset{static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),string_to_symbol(4, "BOID")};
-          if (itr->stake_date <= now()) {
-            s.staked += payout;
-            s.staked += s.escrow;
-            rem_unclaimed += payout;
-            rem_escrow_quarterly += s.escrow;
-            add_quarterly += s.escrow;
-            add_quarterly += payout;
-            s.escrow -= s.escrow;
-            s.stake_due = now() + WEEK_WAIT;
-            s.stake_date = now() + QUARTER_WAIT;
-          }
-          else if (itr->stake_due <= now()) {
-            s.escrow += payout;
-            add_escrow_quarterly += payout;
-            rem_unclaimed += payout;
-            s.stake_due = now() + WEEK_WAIT;
-          }
+          my_shares += (((boidpower/STAKE_BOIDPOWER_DIVISOR) * itr->staked)
+                        / STAKE_REWARD_DIVISOR);
         }
-    });
-    c_t.modify(c_itr, _self, [&](auto &c) {
-      c.staked_monthly.amount += add_monthly.amount;
-      c.staked_quarterly.amount += add_quarterly.amount;
-      c.total_staked.amount += (add_monthly.amount
-                                + add_quarterly.amount);
-      c.total_escrowed_monthly.amount += add_escrow_monthly.amount;
-      c.total_escrowed_monthly.amount -= rem_escrow_monthly.amount;
-      c.total_escrowed_quarterly.amount += add_escrow_quarterly.amount;
-      c.total_escrowed_quarterly.amount -= rem_escrow_quarterly.amount;
-      c.unclaimed_tokens.amount -= rem_unclaimed.amount;
+
+        payout  = asset{
+            static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),
+            string_to_symbol(4, "BOID")};
+
+        add_balance(_stake_account, payout, _stake_account);
+        s.stake_due = now() + WEEK_WAIT;
+        s.stake_date = now() + wait;
     });
 }
 
 /* Unstake tokens from specified account
- *  - Return stored escrow to contract account
  *  - Deduct staked amount from contract config table
  */
 void boidtoken::unstake(account_name _stake_account)
 {
-    stake_table s_t(_self, _self);
-    auto itr = s_t.find(_stake_account);
-    require_auth(itr->stake_account);
-    add_balance(itr->stake_account, itr->staked, itr->stake_account);
+  require_auth(_stake_account);
+  stake_table s_t(_self, _self);
+  auto itr = s_t.find(_stake_account);
+  add_balance(itr->stake_account, itr->staked, itr->stake_account);
 
-    config_table c_t(_self, _self);
-    auto c_itr = c_t.find(0);
-    eosio_assert(c_itr->running != 0,"staking contract is currently disabled.");
-    if (itr->escrow.amount > 0){
-      add_balance(_self, itr->escrow, _self);                                   // return the stored escrow - it was deducted from the contract during payout
-    }
-    c_t.modify(c_itr, _self, [&](auto &c) {                                     // bookkeeping on the config table to keep the staked & esrowed amounts correct
+  config_table c_t(_self, _self);
+  auto c_itr = c_t.find(0);
+  eosio_assert(c_itr->running != 0,"staking contract is currently disabled.");
+  c_t.modify(c_itr, _self, [&](auto &c) {                                     // bookkeeping on the config table to keep the staked amounts correct
     c.active_accounts -= 1;
     c.total_staked.amount -= itr->staked.amount;
     if ((itr->stake_period == MONTHLY)) {
       c.staked_monthly.amount -= itr->staked.amount;
-      c.total_escrowed_monthly.amount -= itr->escrow.amount;
     }
     else if ((itr->stake_period == QUARTERLY)) {
       c.staked_quarterly.amount -= itr->staked.amount;
-      c.total_escrowed_quarterly.amount -= itr->escrow.amount;
     }
   });
   s_t.erase(itr);
@@ -363,72 +307,6 @@ void boidtoken::rembonus()
   });
 }
 
-/* Payout staked token bonuses
- */
-void boidtoken::runpayout()
-{
-    boidtoken::running(0);                                                      //lock the staking and addbonus functions
-    require_auth(_self);
-    config_table c_t(_self, _self);
-    auto c_itr = c_t.find(0);
-
-    c_t.modify(c_itr, _self, [&](auto &c) {
-      if (c.unclaimed_tokens.amount > 0){
-        add_balance(_self, c.unclaimed_tokens, _self);                            // Move unclaimed off the config table and return them to the account - zeroed below
-        c.unclaimed_tokens -= c.unclaimed_tokens;
-      }
-    });
-
-    uint64_t total_shares = 0;
-    auto supply = 1000000000;
-    auto total_stake = (c_itr->total_staked.amount
-                        + c_itr->total_escrowed_monthly.amount
-                        + c_itr->total_escrowed_quarterly.amount);
-    if (total_stake == 0) {
-      print("Nothing staked. \n");
-      return; // If nothing staked, exit function
-    }
-    
-    asset print_staked = asset{static_cast<int64_t>(total_stake), string_to_symbol(4, "BOID")};
-    total_shares = (MONTH_MULTIPLIERX100 * c_itr->staked_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->staked_quarterly.amount);
-    total_shares += (MONTH_MULTIPLIERX100 * c_itr->total_escrowed_monthly.amount);
-    total_shares += (QUARTER_MULTIPLIERX100 * c_itr->total_escrowed_quarterly.amount);
-    total_shares /= 100;
-    //FIXME is perc_stakedx100 correct?
-    uint64_t perc_stakedx100 = (total_stake  * 1000000 / supply * 1000000);
-    uint64_t weekly_base = (BASE_WEEKLY * 1000000);
-    asset base_payout = asset{static_cast<int64_t>((weekly_base / perc_stakedx100) /100), string_to_symbol(4, "BOID")};
-    asset total_payout = asset{static_cast<int64_t>(base_payout.amount + c_itr->bonus.amount), string_to_symbol(4, "BOID")};
-    auto my_pps = (total_payout.amount*10000/total_shares*10000);
-    asset pay_per_share = asset{static_cast<int64_t>(my_pps/10000), string_to_symbol(4, "BOID")};
-    asset print_bonus = c_itr->bonus;
-    auto unclaimed_tokens = total_payout;                                       // bonus set to zero below
-    sub_balance(_self, unclaimed_tokens);                                       // remove the tokens from the account to the unclaimed pile
-
-    c_t.modify(c_itr, _self, [&](auto &c) {
-        c.base_payout.amount = base_payout.amount;
-        c.total_shares = total_shares;
-        c.unclaimed_tokens.amount = unclaimed_tokens.amount;                    // add this weeks payout to the unclaimed
-        c.total_payout.amount = total_payout.amount;
-        c.bonus.amount -= c.bonus.amount;                                       // zero the bonus
-        c.interest_share = pay_per_share;
-    });
-
-    if (total_payout.amount == 0)
-    {
-        print("Nothing to pay. \n");
-        return;
-    }
-    else{
-      config_table c_t(_self, _self);
-      auto p_itr = c_t.find(0);
-      print("TEST RUN: " , "Total Staked & Escrowed: " , print_staked, " | " , "Total Payout: ", total_payout , " | ",
-      "Bonus: ", c_itr->bonus , " | " , "Total Shares: " , total_shares/10000, " | " , "Pay/Share: "   , pay_per_share, "\n" );
-    }
-    boidtoken::running(1);                                                      // unlock staking and add bonus
-}
-
 /* Initialize config table
  */
 void boidtoken::initstats(){
@@ -439,19 +317,16 @@ void boidtoken::initstats(){
   config_table c_t (_self, _self);
   auto c_itr = c_t.find(0);
   c_t.modify(c_itr, _self, [&](auto &c) {
-    returntokens = c.bonus + c.unclaimed_tokens;
+    returntokens = c.bonus;
     c.bonus = cleartokens;
     c.staked_monthly = cleartokens;
     c.staked_quarterly = cleartokens;
     c.total_staked = cleartokens;
-    c.total_escrowed_monthly = cleartokens;
-    c.total_escrowed_quarterly = cleartokens;
     c.active_accounts = 0;
     c.total_shares = 0;
     c.base_payout = cleartokens;
     c.total_payout = cleartokens;
     c.interest_share = interesttokens;
-    c.unclaimed_tokens = cleartokens;
   });
   if(returntokens.amount > 0){
     transfer(_self, c_itr->overflow, returntokens, "returned reset tokens"); // Send returned tokens to the overflow account
@@ -479,7 +354,7 @@ void boidtoken::setnewbp(account_name acct, uint32_t boidpower) {
   }
 }
 
-void boidtoken::setbonuses(uint16_t monthly, uint16_t quarterly) {
+void boidtoken::setparams(uint16_t monthly, uint16_t quarterly) {
   require_auth(_self);
   MONTH_MULTIPLIERX100 = monthly;
   QUARTER_MULTIPLIERX100 = quarterly;

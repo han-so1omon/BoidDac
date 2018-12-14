@@ -4,6 +4,9 @@ import os
 import json
 import argparse
 import subprocess
+import time
+import numpy as np
+import pandas as pd
 
 BOID_TOKEN_CONTRACT_PATH = \
     os.path.abspath(
@@ -13,6 +16,10 @@ BOID_TOKEN_CONTRACT_PATH = \
 
 STAKE_MONTHLY = '1'
 STAKE_QUARTERLY = '2'
+
+WEEK_WAIT = 1 * 7
+MONTH_WAIT = 1 * 7 * 30
+QUARTER_WAIT = 1 * 7 * 30 * 4
 
 # @param account  The account to set/delete a permission authority for
 # @param permission  The permission name to set/delete an authority for
@@ -67,6 +74,14 @@ def stake(acct, amount, stake_period):
         }, permission=[acct, boid_token]
     )
 
+def claim(acct):
+    boidToken_c.push_action(
+        'claim',
+        {
+            '_stake_account': acct
+        }, permission = [acct]
+    )
+
 def unstake(acct):
     boidToken_c.push_action(
         'unstake',
@@ -74,6 +89,26 @@ def unstake(acct):
             '_stake_account': acct,
         }, permission=[acct, boid_token]
     )
+
+def initStaking():
+    boidToken_c.push_action(  # running - sets payouts to on
+        'running',
+        {
+            'on_switch': '1',
+        }, [boid_token])
+    # initstats - reset/setup configuration of contract
+    boidToken_c.push_action(
+        'initstats',   
+        {}, [boid_token])
+
+def setBoidpower(acct, bp):
+    boidToken_c.push_action(
+        'setnewbp',
+        {
+            'acct': acct,
+            'boidpower': bp
+        }, [boid_token, acct])
+
 
 def getBalance(x):
     if len(x.json['rows']) > 0:
@@ -85,9 +120,10 @@ def getStakeParams(x):
     ret = {}
     for i in range(len(x.json['rows'])):
         ret[x.json['rows'][i]['stake_account']] = \
-            {'stake_period': x.json['rows'][i]['stake_period'],
-             'staked': x.json['rows'][i]['staked'],
-             'escrow': x.json['rows'][i]['escrow']}
+            {
+             'stake_period': x.json['rows'][i]['stake_period'],
+             'staked': x.json['rows'][i]['staked']
+            }
     return ret
 
 def getBoidpowers(x):
@@ -179,63 +215,44 @@ if __name__ == '__main__':
         'issue',
         {
             'to': acct1,
-            'quantity': '1000.0000 BOID',
+            'quantity': '1000000.0000 BOID',
             'memo': 'memo'
         }, [boid])
     boidToken_c.push_action(
         'issue',
         {
             'to': acct2,
-            'quantity': '2000.0000 BOID',
+            'quantity': '2000000.0000 BOID',
             'memo': 'memo'
         }, [boid])
-    print(boidToken_c.table("accounts", acct1))
-    print(boidToken_c.table("accounts", acct2))
 
-    # TODO find way to print total number of boid tokens
-    # to determine if this function above is minting more coins
-    # or if its alocating pre-existing coins
-    boidToken_c.push_action(  # running - sets payouts to on
-        'running',
-        {
-            'on_switch': '1',
-        }, [boid_token])
-    # initstats - reset/setup configuration of contract
-    boidToken_c.push_action(
-        'initstats',   
-        {}, [boid_token])
+    initStaking()
 
-    # insert - ad hoc way to give accounts boid power
-    #boid_stake.get_info()
-    boidToken_c.push_action(
-        'setnewbp',
-        {
-            'acct': acct1,
-            'boidpower': 10
-        }, [boid_token, acct1])
-    boidToken_c.push_action(
-        'setnewbp',
-        {
-            'acct': acct2,
-            'boidpower': '10000'
-        }, [boid_token, acct2])
-    print(getBoidpowers(boidToken_c.table('boidpowers', boid_token)))
+    stakeColumns = ['Week', 'Balance', 'Staked', 'StakePeriod', 'Boidpower']
+    stakeDf = pd.DataFrame(columns = stakeColumns)
+
+    setBoidpower(acct1, 10)
+    setBoidpower(acct2, 10000)
 
     # Run staking tests with acct1 and acct2
-    stake(acct1, '100.0000 BOID', STAKE_MONTHLY)
-    stake(acct2, '100.0000 BOID', STAKE_QUARTERLY)
-    print(boidToken_c.table("accounts", acct1))
-    print(boidToken_c.table("accounts", acct2))
+    stake(acct1, '100000.0000 BOID', STAKE_MONTHLY)
+    stake(acct2, '100000.0000 BOID', STAKE_QUARTERLY)
+    print(getBalance(boidToken_c.table("accounts", acct1)))
+    print(getBoidpowers(boidToken_c.table('boidpowers', boid_token)))
+
+    numWeeks = 1
+    for i in range(numWeeks):
+        time.sleep(WEEK_WAIT)
+
+        claim(acct1)
+        claim(acct2)
+        print(getBalance(boidToken_c.table("accounts", acct1)))
+        print(getStakeParams(boidToken_c.table('stakes',boid_token)))
 
     unstake(acct1)
     unstake(acct2)
-    print(boidToken_c.table("accounts", acct1))
-    print(boidToken_c.table("accounts", acct2))
+    print(getBalance(boidToken_c.table("accounts", acct1)))
 
-    #print(getBalance(boidStake_c.table("accounts", acct1)))
-    #print(getBalance(boidStake_c.table("accounts", acct2)))
-
-    #print(getStakeParams(boidStake_c.table('stakes',boid_stake)))
 
     # stop the testnet and exit python
     eosf.stop()
