@@ -7,7 +7,7 @@
 #include <math.h>
 #include <inttypes.h>
 
-void boidtoken::create(account_name issuer, asset maximum_supply)
+void boidtoken::create(name issuer, asset maximum_supply)
 {
     // accounts perform actions
     // some accounts shouldnt be able to perform specific actions
@@ -23,8 +23,8 @@ void boidtoken::create(account_name issuer, asset maximum_supply)
 
     // assert we didn't already put some amount of tokens
     // (of type sym) into the contract
-    stats statstable(_self, sym.name());  // get stats table from EOS database (and declare local version of it)
-    auto existing = statstable.find(sym.name());  // and see if sym is in the stats table
+    stats statstable(_self, sym.code().raw());  // get stats table from EOS database (and declare local version of it)
+    auto existing = statstable.find(sym.code().raw());  // and see if sym is in the stats table
     eosio_assert(existing == statstable.end(), "stake with symbol already exists");
 
     // set table so that sym tokens can be issued (given to accounts)
@@ -41,13 +41,13 @@ void boidtoken::create(account_name issuer, asset maximum_supply)
  *    -- Max supply from contract-local stats table
  *    -- Max supply not necessarily total token supply over entire economy
  */
-void boidtoken::issue(account_name to, asset quantity, string memo)
+void boidtoken::issue(name to, asset quantity, string memo)
 {
     auto sym = quantity.symbol;
     eosio_assert(sym.is_valid(), "invalid symbol name");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
 
-    auto sym_name = sym.name();
+    auto sym_name = sym.code().raw();
     stats statstable(_self, sym_name);
     auto existing = statstable.find(sym_name);
     eosio_assert(existing != statstable.end(), "stake with symbol does not exist, create stake before issue");
@@ -68,7 +68,7 @@ void boidtoken::issue(account_name to, asset quantity, string memo)
 
     if (to != st.issuer)
     {
-        SEND_INLINE_ACTION(*this, transfer, {st.issuer, N(active)}, {st.issuer, to, quantity, memo});
+        SEND_INLINE_ACTION(*this, transfer, {st.issuer, "active"_n}, {st.issuer, to, quantity, memo});
     }
 }
 
@@ -76,14 +76,14 @@ void boidtoken::issue(account_name to, asset quantity, string memo)
  *  - Token type must be same as type to-be-staked via this contract
  *  - Both accounts of transfer must be valid
  */
-void boidtoken::transfer(account_name from, account_name to, asset quantity, string memo)
+void boidtoken::transfer(name from, name to, asset quantity, string memo)
 {
     eosio_assert(from != to, "cannot transfer to self");
     require_auth(from);
     eosio_assert(is_account(to), "to account does not exist");
-    auto sym = quantity.symbol.name();
-    stats statstable(_self, sym);
-    const auto &st = statstable.get(sym);
+    auto sym = quantity.symbol.code();
+    stats statstable(_self, sym.raw());
+    const auto &st = statstable.get(sym.raw());
 
     require_recipient(from);
     require_recipient(to);
@@ -100,10 +100,10 @@ void boidtoken::transfer(account_name from, account_name to, asset quantity, str
 /* Specify overflow account for holding overflow.
  * Overflow is defined as unclaimed or excess tokens.
  */
-void boidtoken::setoverflow(account_name _overflow)
+void boidtoken::setoverflow(name _overflow)
 {
     require_auth(_self);
-    config_table c_t(_self, _self);
+    config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     if (c_itr == c_t.end())
     {   c_t.emplace(_self, [&](auto &c) {
@@ -121,7 +121,7 @@ void boidtoken::setoverflow(account_name _overflow)
  */
 void boidtoken::running(uint8_t on_switch){
     require_auth (_self);
-    config_table c_t (_self, _self);
+    config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
     if (c_itr == c_t.end()) {
         c_t.emplace (_self, [&](auto &c) {
@@ -142,23 +142,23 @@ void boidtoken::running(uint8_t on_switch){
  *  - Specify amount staked 
  *    -- Token type must be same as type to-be-staked via this contract
  */
-void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset _staked)
+void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
 {
     require_auth(_stake_account);
     require_auth(_self);
-    config_table c_t (_self, _self);
+    config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
-    stake_table s_t(_self, _self);
+    stake_table s_t(_self, _self.value);
     eosio_assert(c_itr->running != 0,"staking is currently disabled.");
     eosio_assert(is_account(_stake_account), "to account does not exist");
-    auto sym = _staked.symbol.name();
-    stats statstable(_self, sym);
-    const auto &st = statstable.get(sym);
+    auto sym = _staked.symbol.code();
+    stats statstable(_self, sym.raw());
+    const auto &st = statstable.get(sym.raw());
     eosio_assert(_staked.is_valid(), "invalid quantity");
     eosio_assert(_staked.amount > 0, "must transfer positive quantity");
     eosio_assert(_staked.symbol == st.supply.symbol, "symbol precision mismatch");
     eosio_assert(_stake_period >= 1 && _stake_period <= 2, "Invalid stake period.");
-    auto itr = s_t.find(_stake_account);
+    auto itr = s_t.find(_stake_account.value);
     eosio_assert(itr == s_t.end(), "Account already has a stake. Must unstake first.");
 
     sub_balance(_stake_account, _staked);
@@ -191,7 +191,7 @@ void boidtoken::stake(account_name _stake_account, uint8_t _stake_period, asset 
 
 /* Claim token-staking bonus for specified account
  */
-void boidtoken::claim(account_name _stake_account)
+void boidtoken::claim(name _stake_account)
 {
     require_auth(_stake_account);
 
@@ -201,24 +201,24 @@ void boidtoken::claim(account_name _stake_account)
     asset my_shares;
     asset payout;
 
-    config_table c_t(_self, _self);
+    config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     eosio_assert(c_itr->running != 0,"staking contract is currently disabled.");
     total_shares = c_itr->total_shares;
     total_payout = c_itr->total_payout;
     pay_per_share = c_itr->interest_share;
 
-    stake_table s_t(_self, _self);
-    auto itr = s_t.find(_stake_account);
+    stake_table s_t(_self, _self.value);
+    auto itr = s_t.find(_stake_account.value);
     s_t.modify(itr, 0, [&](auto &s)
     {
         eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
         uint32_t boidpower = get_boidpower(s.stake_account);
         uint16_t multiplier;
         uint32_t wait;
-        ///***************          MONTHLY         ****************************//
+
         if (itr->stake_period == MONTHLY)
-        { 
+        {
           multiplier = MONTH_MULTIPLIERX100;
           wait = MONTH_WAIT;
         } else if (itr->stake_period == QUARTERLY)
@@ -237,7 +237,7 @@ void boidtoken::claim(account_name _stake_account)
 
         payout  = asset{
             static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),
-            string_to_symbol(4, "BOID")};
+            symbol("BOID", 4)};
 
         add_balance(_stake_account, payout, _stake_account);
         s.stake_due = now() + WEEK_WAIT;
@@ -248,14 +248,14 @@ void boidtoken::claim(account_name _stake_account)
 /* Unstake tokens from specified account
  *  - Deduct staked amount from contract config table
  */
-void boidtoken::unstake(account_name _stake_account)
+void boidtoken::unstake(name _stake_account)
 {
   require_auth(_stake_account);
-  stake_table s_t(_self, _self);
-  auto itr = s_t.find(_stake_account);
+  stake_table s_t(_self, _self.value);
+  auto itr = s_t.find(_stake_account.value);
   add_balance(itr->stake_account, itr->staked, itr->stake_account);
 
-  config_table c_t(_self, _self);
+  config_table c_t(_self, _self.value);
   auto c_itr = c_t.find(0);
   eosio_assert(c_itr->running != 0,"staking contract is currently disabled.");
   c_t.modify(c_itr, _self, [&](auto &c) {                                     // bookkeeping on the config table to keep the staked amounts correct
@@ -273,10 +273,10 @@ void boidtoken::unstake(account_name _stake_account)
 
 /* Add bonus to config table
  */
-void boidtoken::addbonus(account_name _sender, asset _bonus)
+void boidtoken::addbonus(name _sender, asset _bonus)
 {
     require_auth(_sender);
-    config_table c_t(_self, _self);
+    config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     if (c_itr == c_t.end())
     {
@@ -298,7 +298,7 @@ void boidtoken::addbonus(account_name _sender, asset _bonus)
 void boidtoken::rembonus()
 {
   require_auth(_self);
-  config_table c_t(_self, _self);
+  config_table c_t(_self, _self.value);
   auto c_itr = c_t.find(0);
   transfer(_self, c_itr->overflow, c_itr->bonus, "transfering excess bonus to unclaimed");
   print("Transfered to Overflow: ", c_itr->bonus, "\n");
@@ -311,10 +311,10 @@ void boidtoken::rembonus()
  */
 void boidtoken::initstats(){
   require_auth (_self);
-  asset returntokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-  asset cleartokens = asset{static_cast<int64_t>(0.0000), string_to_symbol(4, "BOID")};
-  asset interesttokens = asset{static_cast<int64_t>(1.0000), string_to_symbol(4, "BOID")};
-  config_table c_t (_self, _self);
+  asset returntokens = asset{static_cast<int64_t>(0.0000), symbol("BOID", 4)};
+  asset cleartokens = asset{static_cast<int64_t>(0.0000), symbol("BOID", 4)};
+  asset interesttokens = asset{static_cast<int64_t>(1.0000), symbol("BOID", 4)};
+  config_table c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   c_t.modify(c_itr, _self, [&](auto &c) {
     returntokens = c.bonus;
@@ -334,11 +334,11 @@ void boidtoken::initstats(){
   }
 }
 
-void boidtoken::setnewbp(account_name acct, uint32_t boidpower) {
+void boidtoken::setnewbp(name acct, uint32_t boidpower) {
   require_auth(_self);
-  boidpowers bps(_self,_self);
+  boidpowers bps(_self,_self.value);
 
-  auto bp_acct = bps.find(acct);
+  auto bp_acct = bps.find(acct.value);
   if (bp_acct == bps.end())
   {
       bps.emplace(acct, [&](auto &a) {
@@ -362,10 +362,10 @@ void boidtoken::setparams(uint16_t monthly, uint16_t quarterly) {
 
 /* Subtract value from specified account
  */
-void boidtoken::sub_balance(account_name owner, asset value)
+void boidtoken::sub_balance(name owner, asset value)
 {
-    accounts from_acnts(_self, owner);
-    const auto &from = from_acnts.get(value.symbol.name(), "no balance object found");
+    accounts from_acnts(_self, owner.value);
+    const auto &from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
     eosio_assert(from.balance.amount >= value.amount, "overdrawn balance");
 
     if (from.balance.amount == value.amount){
@@ -380,10 +380,10 @@ void boidtoken::sub_balance(account_name owner, asset value)
 
 /* Add value to specified account
  */
-void boidtoken::add_balance(account_name owner, asset value, account_name ram_payer)
+void boidtoken::add_balance(name owner, asset value, name ram_payer)
 {
-    accounts to_acnts(_self, owner);
-    auto to = to_acnts.find(value.symbol.name());
+    accounts to_acnts(_self, owner.value);
+    auto to = to_acnts.find(value.symbol.code().raw());
     if (to == to_acnts.end())
     {
         to_acnts.emplace(ram_payer, [&](auto &a) {
@@ -400,6 +400,6 @@ void boidtoken::add_balance(account_name owner, asset value, account_name ram_pa
 
 //TODO
 /*
-void boidtoken::sub_stake(account_name owner, asset value);
-void boidtoken::add_stake(account_name owner, asset value);
+void boidtoken::sub_stake(name owner, asset value);
+void boidtoken::add_stake(name owner, asset value);
 */

@@ -6,9 +6,6 @@
 
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
-//#include <eosio.token/eosio.token.hpp>
-//#include <eosio.token.hpp>
-//#include </home/boid/eos/contracts/eosio.token/eosio.token.hpp>
 #include </home/boid/eosio.contracts/eosio.token/include/eosio.token/eosio.token.hpp>
 #include <string>
 //#include <vector>
@@ -25,12 +22,11 @@ using eosio::const_mem_fun;
 // first
 // BOID tokens would be staked for another token, such as EOS
 class [[eosio::contract("boid.token")]] boidtoken : public contract
-//class boidtoken : public contract
 {
   public:
     using contract::contract;
 
-    //boidtoken(name self) : contract(self) {}
+    // boidtoken(name self) : contract(self) {}
 
     /** \brief Add specific token to token-staking stats table.
      *
@@ -38,7 +34,8 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
      *  - Set token max supply in table
      *  - Set authorized token issuer in table
      */
-    ACTION create(name issuer, asset maximum_supply);
+    // @abi action
+    void create(name issuer, asset maximum_supply);
 
     /** \brief Issuer issues tokens to a specified account
      *
@@ -47,14 +44,16 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
      *    -- Max supply from contract-local stats table
      *    -- Max supply not necessarily total token supply over entire economy
      */
-    ACTION issue(name to, asset quantity, string memo);
+    // @abi action
+    void issue(name to, asset quantity, string memo);
 
     /** \brief Transfer tokens from one account to another
      *
      *  - Token type must be same as type to-be-staked via this contract
      *  - Both accounts of transfer must be valid
      */
-    ACTION transfer(name from, name to, asset quantity, string memo);
+    // @abi action
+    void transfer(name from, name to, asset quantity, string memo);
 
     /** \brief Specify overflow account for holding overflow.
      *
@@ -65,7 +64,8 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
 
     /** \brief Specify contract run state to contract config table.
      */
-    ACTION running(uint8_t on_switch);
+    // @abi action
+    void running(uint8_t on_switch);
 
     /** \brief Stake tokens with a specified account
      *
@@ -76,43 +76,64 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
      *  - Specify amount staked 
      *    -- Token type must be same as type to-be-staked via this contract
      */
-    ACTION stake (name _stake_account, uint8_t  _stake_period, asset _staked ) ;
+    // @abi action
+    void stake (name _stake_account, uint8_t  _stake_period, asset _staked ) ;
 
     /** \brief Claim token-staking bonus for specified account
      */
-    ACTION claim(const name _stake_account);
+    // @abi action
+    void claim(const name _stake_account);
 
     /** \brief Unstake tokens from specified account
      *
+     *  - Return stored escrow to contract account
      *  - Deduct staked amount from contract config table
      */
-    ACTION unstake (const name _stake_account);
+    // @abi action
+    void unstake (const name _stake_account);
+
+    /** \brief Check result of running payout
+     *
+     * Debugging action
+     */
+    // @abi action
+    void checkrun();
 
     /** \brief Add bonus to config table
      */
-    ACTION addbonus (name _sender, asset _bonus);
+    // @abi action
+    void addbonus (name _sender, asset _bonus);
 
     /** \brief Transfer unclaimed bonus to overflow account
      */
-    ACTION rembonus ();
+    // @abi action
+    void rembonus ();
+
+    /** \brief Payout staked token bonuses
+     */
+    // @abi action
+    void runpayout();
 
     /** \brief Initialize config table
      */
-    ACTION initstats();
+    // @abi action
+    void initstats();
 
     /** \brief Set new boidpower
      */
-    ACTION setnewbp(name acct, uint32_t boidpower);
+    // @abi action
+    void setnewbp(name acct, uint32_t boidpower);
 
     /** \brief Set new stake rates
      *  @param monthly      Monthly bonus percentage
      *  @param quarterly    Quarterly bonus percentage 
      */
-    ACTION setparams(uint16_t monthly, uint16_t quarterly);
+    // @abi action
+    void setbonuses(uint16_t monthly, uint16_t quarterly);
 
     /** \brief Get current boidpower of some account in accounts table
      */
-    inline uint32_t get_boidpower(name owner) const;
+    uint32_t get_boidpower(name owner) const;
 
     /** \brief Get BOID token supply
      */
@@ -131,8 +152,7 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
                                              //!< Reward per coin =
                                              //0.0001*max(boidpower/1000,1)
     uint32_t  STAKE_REWARD_DIVISOR = 10000;
-    uint16_t  STAKE_BOIDPOWER_DIVISOR = 10;
-    uint16_t  STAKE_BOIDPOWER_CHECK_MULTIPLIER = 1000;
+    uint16_t  STAKE_BOIDPOWER_DIVISOR = 1000;
 
     uint16_t        MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
     uint16_t        QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
@@ -148,19 +168,23 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
 //    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
 //    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
 
-    TABLE config {
+    // @abi table configs i64
+    struct config {
         uint64_t        config_id;
         uint8_t         running;
-        name            overflow;
+        name    overflow;
         uint32_t        active_accounts;
         asset           staked_monthly;
         asset           staked_quarterly;
         asset           total_staked;
+        asset           total_escrowed_monthly;
+        asset           total_escrowed_quarterly;
         uint64_t        total_shares;
         asset           base_payout;
         asset           bonus;
         asset           total_payout;
         asset           interest_share;
+        asset           unclaimed_tokens;
         asset           spare_a1;
         asset           spare_a2;
         uint64_t        spare_i1;
@@ -170,17 +194,18 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
 
         EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)
         (staked_monthly)(staked_quarterly)(total_staked)
-        (total_shares)(base_payout)
-        (bonus)(total_payout)(interest_share)
+        (total_escrowed_monthly)(total_escrowed_quarterly)(total_shares)(base_payout)
+        (bonus)(total_payout)(interest_share)(unclaimed_tokens)
         (spare_a1)(spare_a2)(spare_i1)(spare_i2));
     };
 
     typedef eosio::multi_index<"configs"_n, config> config_table;
 
-    TABLE account
+    // @abi table accounts i64
+    struct account
     {
         asset balance;
-
+        
         uint64_t primary_key() const { return balance.symbol.code().raw(); }
 
         EOSLIB_SERIALIZE (account, (balance));
@@ -188,7 +213,8 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
 
     typedef eosio::multi_index<"accounts"_n, account> accounts;
 
-    TABLE boidpower
+    // @abi table boidpowers i64
+    struct boidpower
     {
       name acct;
       uint32_t quantity;
@@ -200,21 +226,24 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
 
     typedef eosio::multi_index<"boidpowers"_n, boidpower> boidpowers;
 
-    TABLE stake_row {
-        name            stake_account;
+    // @abi table stakes i64    
+    struct stake_row {
+        name    stake_account;
         uint8_t         stake_period;
         asset           staked;
         uint32_t        stake_date;
         uint32_t        stake_due;
+        asset           escrow;
 
         name        primary_key () const { return stake_account; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due));
+        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due)(escrow));
     };
 
    typedef eosio::multi_index<"stakes"_n, stake_row> stake_table;
 
-    TABLE currencystat
+    // @abi table stat i64
+    struct currencystat
     {
         asset supply;  // curent number of BOID tokens
         asset max_supply;  // max number of BOID tokens
@@ -246,6 +275,7 @@ class [[eosio::contract("boid.token")]] boidtoken : public contract
     };
 };
 
+
 asset boidtoken::get_supply(symbol_code sym) const
 {
     stats statstable(_self, sym.raw());
@@ -256,21 +286,12 @@ asset boidtoken::get_supply(symbol_code sym) const
 
 asset boidtoken::get_balance(name owner, symbol_code sym) const
 {
-  //symbol_code symbol(S(4,BOID));
-  accounts accountstable(_self, owner.value);
-  const auto& ac = accountstable.get(sym.raw());
-  return ac.balance;
+  symbol_code symbol(S(4,BOID));
+  auto t = eosio::token("eosio.token"_n);
+  const auto balance = t.get_balance("owner"_n, symbol_code("BOID"));
+  return balance;
 }
 
-uint32_t boidtoken::get_boidpower(name owner) const
-{
-  boidpowers bps(_self, _self.value);
-  auto itr = bps.find(owner.value);
-  if (itr != bps.end()) {
-    return itr->quantity;
-  }
-  return 0;
-}
+//   EOSIO_ABI( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp)(setbonuses))
+EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(checkrun)(addbonus)(rembonus)(runpayout)(initstats)(setnewbp))
 
-//EOSIO_ABI(    boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(addbonus)(rembonus)(initstats)(setnewbp)(setparams))
-EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(addbonus)(rembonus)(initstats)(setnewbp)(setparams))
