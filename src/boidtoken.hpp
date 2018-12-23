@@ -121,8 +121,7 @@ CONTRACT boidtoken : public contract
     uint16_t  STAKE_REWARD_RATIO = 10; //!< Require boidpower/boidstake >= 10 to qualify for staking rewards
                                              //!< Reward per coin =
                                              //0.0001*max(boidpower/1000,1)
-    uint32_t  STAKE_REWARD_DIVISOR = 10000;
-    uint16_t  STAKE_BOIDPOWER_DIVISOR = 10;
+    uint16_t  STAKE_BOIDPOWER_DIVISOR = 100;
     uint16_t  STAKE_BOIDPOWER_CHECK_MULTIPLIER = 1000;
 
     uint16_t        MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly

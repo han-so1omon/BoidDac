@@ -218,9 +218,6 @@ void boidtoken::claim(name _stake_account)
 	uint8_t token_precision_inv_exp = itr->staked.symbol.precision();
 	int64_t boidpower_bonus_ratio = boidpower  * pow(10,token_precision_inv_exp) / itr->staked.amount;
 
-//        asset boidpower_asset = asset{static_cast<int64_t>(1.0000), symbol("BOID", 4)};
-        asset boidpower_asset = asset(boidpower, symbol("BOID" , 4));
-
         print("boidpower = ");
         print(boidpower);
         print("\nitr->staked.amount = ");
@@ -246,8 +243,7 @@ void boidtoken::claim(name _stake_account)
         my_shares = ((multiplier * itr->staked) / 100);
         if (boidpower_bonus_ratio > STAKE_REWARD_RATIO)
         {
-          my_shares += (((boidpower/STAKE_BOIDPOWER_DIVISOR) * itr->staked)
-                        / STAKE_REWARD_DIVISOR);
+          my_shares += (((boidpower/STAKE_BOIDPOWER_DIVISOR) * itr->staked));
             print("adding bonus");
         } else {
             print("not adding bonus");
