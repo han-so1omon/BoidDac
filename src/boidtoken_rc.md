@@ -16,7 +16,7 @@ ENTIRE AGREEMENT.
 This contract contains the entire agreement of the parties, for all described actions, and there are no other promises or conditions in any other agreement whether oral or written concerning the subject matter of this Contract. This contract supersedes any prior written or oral agreements between the parties.
 
 BINDING CONSTITUTION:
-All the the action described in this contract are subject to the EDNA-DAC constitution as held atÂ https://edna.life/constitution , as well a the EOSIO Constitution held at https://github.com/EOS-Mainnet/governance/blob/master/eosio.system/eosio.system-clause-constitution-rc.md
+All the actions described in this contract are subject to the BOID-DAC constitution as held atÂhttps://boid.com/constitution, as well a the EOSIO Constitution held at https://github.com/EOS-Mainnet/governance/blob/master/eosio.system/eosio.system-clause-constitution-rc.md
 This includes, but is not limited to membership terms and conditions, dispute resolution and severability.
 
 ### Actions, Inputs and Input Types
@@ -27,17 +27,14 @@ The table below contains the `actions`, `inputs` and `input types` for the `{{ b
 |:--|:--|:--|
 | `{{ create }}` | `{{ issuer }}`<br/>`{{ maximum_supply }}` | `{{ name }}`<br/>`{{ asset }}` |
 | `{{ issue }}` | `{{ to }}`<br/>`{{ quantity }}`<br/>`{{ memo }}` | `{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |
-| `{{ stake }}` | `{{ _stake_account }}`<br/>`{{ _stake_period }}`<br/>`{{ _staked }}` | `{{ name }}`<br/>`{{ uint8 }}`<br/>`{{ asset }}` |
-| `{{ unstake }}` | `{{ _stake_account }}` | `{{ name }}` |
+| `{{ stake }}` | `{{ _stake_account }}`<br/>`{{ _stake_period }}`<br/>`{{ _staked }}` | `{{ name }}`<br/>`{{ uint8_t }}`<br/>`{{ asset }}` |
+| `{{ unstake }}` | `{{ _stake_account }}` | `{{ const name }}` |
 | `{{ transfer }}` | `{{ from }}`<br/>`{{ to }}`<br/>`{{ quantity }}`<br/>`{{ memo }}` | `{{ name }}`<br/>`{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |
 | `{{ setoverflow }}` | `{{ _overflow }}` | `{{ name }}` |
-| `{{ addbonus }}` | `{{ _sender }}`<br/>`{{ _bonus }}` | `{{ name }}`<br/>`{{ asset }}` |
-| `{{ runpayout }}` | `{{ runpayout }}` | `{{ runpayout }}` |
-| `{{ running }}` | `{{ on_switch }}` | `{{ uint8 }}` |
-| `{{ claim }}` | `{{ claim }}` | `{{ claim }}` |
-| `{{ checkrun }}` | `{{ checkrun }}` | `{{ checkrun }}` |
-| `{{ rembonus }}` | `{{ rembonus }}` | `{{ rembonus }}` |
-| `{{ initstats }}` | `{{ initstats }}` | `{{ initstats }}` |
-
+| `{{ running }}` | `{{ on_switch }}` | `{{ uint8_t }}` |
+| `{{ claim }}` | `{{ _stake_account }}` | `{{ const name }}` |
+| `{{ initstats }}` | `{{  }}` | `{{  }}` |
+| `{{ setnewbp }}` | `{{ acct }}`<br/>`{{ boidpower }}` | `{{ name }}`<br/>`{{ uint32_t }}` |
+| `{{ setparams }}` | `{{ monthly }}`<br/>`{{ quarterly }}` | `{{ uint16_t }}`<br/>`{{ uint16_t }}` |
 
 

@@ -47,9 +47,9 @@ void boidtoken::issue(name to, asset quantity, string memo)
     eosio_assert(sym.is_valid(), "invalid symbol name");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
 
-    auto sym_name = sym.code().raw();
-    stats statstable(_self, sym_name);
-    auto existing = statstable.find(sym_name);
+    auto sym_name = sym.code();
+    stats statstable(_self, sym_name.raw());
+    auto existing = statstable.find(sym_name.raw());
     eosio_assert(existing != statstable.end(), "stake with symbol does not exist, create stake before issue");
     const auto &st = *existing;
 
@@ -60,7 +60,7 @@ void boidtoken::issue(name to, asset quantity, string memo)
     eosio_assert(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
     eosio_assert(quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
-    statstable.modify(st, 0, [&](auto &s) {
+    statstable.modify(st, _self, [&](auto &s) {
         s.supply += quantity;
     });
 
@@ -210,10 +210,26 @@ void boidtoken::claim(name _stake_account)
 
     stake_table s_t(_self, _self.value);
     auto itr = s_t.find(_stake_account.value);
-    s_t.modify(itr, 0, [&](auto &s)
+    s_t.modify(itr, _stake_account, [&](auto &s)
     {
         eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
-        uint32_t boidpower = get_boidpower(s.stake_account);
+//        uint32_t boidpower = get_boidpower(s.stake_account);
+        int64_t boidpower = (int64_t)get_boidpower(s.stake_account);
+	uint8_t token_precision_inv_exp = itr->staked.symbol.precision();
+	int64_t boidpower_bonus_ratio = boidpower  * pow(10,token_precision_inv_exp) / itr->staked.amount;
+
+//        asset boidpower_asset = asset{static_cast<int64_t>(1.0000), symbol("BOID", 4)};
+        asset boidpower_asset = asset(boidpower, symbol("BOID" , 4));
+
+        print("boidpower = ");
+        print(boidpower);
+        print("\nitr->staked.amount = ");
+        print(itr->staked.amount);
+        print("\n(boidpower / itr->staked.amount * 10^token_precision_inv_exp) = ");
+	print(boidpower_bonus_ratio);
+        print("\nqualifies for bonus? ");
+	print(boidpower_bonus_ratio > STAKE_REWARD_RATIO ? "yes!" : "NO");
+	print("\n");
         uint16_t multiplier;
         uint32_t wait;
 
@@ -228,16 +244,19 @@ void boidtoken::claim(name _stake_account)
         }
 
         my_shares = ((multiplier * itr->staked) / 100);
-        if (STAKE_BOIDPOWER_CHECK_MULTIPLIER * (boidpower / itr->staked.amount)
-            > STAKE_REWARD_RATIO)
+        if (boidpower_bonus_ratio > STAKE_REWARD_RATIO)
         {
           my_shares += (((boidpower/STAKE_BOIDPOWER_DIVISOR) * itr->staked)
                         / STAKE_REWARD_DIVISOR);
+            print("adding bonus");
+        } else {
+            print("not adding bonus");
         }
 
-        payout  = asset{
+        payout = asset{
             static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),
-            symbol("BOID", 4)};
+            symbol("BOID", 4)
+        };
 
         add_balance(_stake_account, payout, _stake_account);
         s.stake_due = now() + WEEK_WAIT;
@@ -269,42 +288,6 @@ void boidtoken::unstake(name _stake_account)
     }
   });
   s_t.erase(itr);
-}
-
-/* Add bonus to config table
- */
-void boidtoken::addbonus(name _sender, asset _bonus)
-{
-    require_auth(_sender);
-    config_table c_t(_self, _self.value);
-    auto c_itr = c_t.find(0);
-    if (c_itr == c_t.end())
-    {
-        c_t.emplace(_self, [&](auto &c) {
-            c.bonus = _bonus;
-        });
-    }
-    else
-    {
-        c_t.modify(c_itr, _self, [&](auto &c) {
-              c.bonus += _bonus;
-        });
-    }
-    sub_balance(_sender, _bonus);
-}
-
-/* Transfer unclaimed bonus to overflow account
- */
-void boidtoken::rembonus()
-{
-  require_auth(_self);
-  config_table c_t(_self, _self.value);
-  auto c_itr = c_t.find(0);
-  transfer(_self, c_itr->overflow, c_itr->bonus, "transfering excess bonus to unclaimed");
-  print("Transfered to Overflow: ", c_itr->bonus, "\n");
-  c_t.modify(c_itr, _self, [&](auto &c) {
-  c.bonus -= c.bonus;
-  });
 }
 
 /* Initialize config table
@@ -348,7 +331,7 @@ void boidtoken::setnewbp(name acct, uint32_t boidpower) {
   }
   else
   {
-      bps.modify(bp_acct, 0, [&](auto &a) {
+      bps.modify(bp_acct, acct, [&](auto &a) {
           a.quantity = boidpower;
       });
   }
@@ -367,7 +350,12 @@ void boidtoken::sub_balance(name owner, asset value)
     accounts from_acnts(_self, owner.value);
     const auto &from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
     eosio_assert(from.balance.amount >= value.amount, "overdrawn balance");
-
+    print("balance not overdrawn\n");
+    print("balance.amount = ");
+    print(from.balance.amount);
+    print("\namount being withdrawn = ");
+    print(value.amount);
+    print("\n");
     if (from.balance.amount == value.amount){
         from_acnts.erase(from);
     }
@@ -392,7 +380,7 @@ void boidtoken::add_balance(name owner, asset value, name ram_payer)
     }
     else
     {
-        to_acnts.modify(to, 0, [&](auto &a) {
+        to_acnts.modify(to, owner, [&](auto &a) {
             a.balance += value;
         });
     }

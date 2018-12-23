@@ -7,19 +7,39 @@ import subprocess
 import time
 import numpy as np
 import pandas as pd
+pd.set_option('display.width', 500)
+
+
+################################# Test variables #########################################
+
+TEST_DURATION   = 52  # measured in weeks
+INIT_BOIDTOKENS = 10  # initial boid tokens given to each account (must be less than 1/4th of max supply (1000000000 BOID))
+INIT_BOIDPOWER  = 30  # initial boid power given to each account
+INIT_BOIDSTAKE  = 2.0230  # initial boid tokens staked by each account (must be <= INIT_BOIDTOKENS)
+
+############# Must also modify in boidtoken.hpp ##############
+# TESTING Speeds Only
+WEEK_WAIT    = 1
+MONTH_WAIT   = 1 * 30
+QUARTER_WAIT = 1 * 30 * 4
+MONTH_MULTIPLIERX100   = 150  # Reward for staking monthly
+QUARTER_MULTIPLIERX100 = 200  # Reward for staking quarterly
+MONTHLY   = 1
+QUARTERLY = 2
+##############################################################
+STAKE_PERIODS = [MONTHLY, QUARTERLY]
+STAKE_PERIOD_STRINGS = ['Month', 'Quarter']
 
 BOID_TOKEN_CONTRACT_PATH = \
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            '..'))
+     os.path.abspath(
+         os.path.join(
+             os.path.dirname(os.path.abspath(__file__)),
+             '..'))
 
-STAKE_MONTHLY = '1'
-STAKE_QUARTERLY = '2'
 
-WEEK_WAIT = 1 * 7
-MONTH_WAIT = 1 * 7 * 30
-QUARTER_WAIT = 1 * 7 * 30 * 4
+##########################################################################################
+
+
 
 # @param account  The account to set/delete a permission authority for
 # @param permission  The permission name to set/delete an authority for
@@ -98,8 +118,8 @@ def initStaking():
         }, [boid_token])
     # initstats - reset/setup configuration of contract
     boidToken_c.push_action(
-        'initstats',   
-        {}, [boid_token])
+        'initstats',
+        '{}', [boid_token])
 
 def setBoidpower(acct, bp):
     boidToken_c.push_action(
@@ -132,12 +152,71 @@ def getBoidpowers(x):
         ret[x.json['rows'][i]['acct']] = x.json['rows'][i]['quantity']
     return ret
 
+def get_state(contract, contract_owner, accts, dfs, p=False):
+
+    for account_num, acct in enumerate(accts):
+        account = 'account%d' % (account_num + 1)
+        acct_balance = getBalance(contract.table("accounts", acct))
+        stake_params = getStakeParams(contract.table('stakes',contract_owner))
+        staked_tokens = float(stake_params[account]['staked'].split()[0]) \
+            if account in stake_params.keys() else 0.0
+        bps = getBoidpowers(contract.table('boidpowers', contract_owner))
+        acct_bp = bps[account] if account in bps.keys() else 0.0
+        dfs[account_num] = dfs[account_num].append({
+            'boid_power': acct_bp,
+            'staked_boid_tokens': staked_tokens,
+            'unstaked_boid_tokens': acct_balance,
+            'total_boid_tokens': acct_balance + staked_tokens
+        }, ignore_index=True)
+
+        if p: print('%s_balance = %f' % (acct, acct_balance))
+        if p: print('stake params %s' % stake_params)
+        if p: print('%s_bp = %f' % (acct, acct_bp))
+
+    return dfs
+
+def get_percentage_change(dfs):
+    for df in dfs:
+        df['stake_ROI'] = \
+            100 * (df['total_boid_tokens'] / df['total_boid_tokens'][0] - 1.0)
+    return dfs
+
+def print_acct_dfs(dfs):
+
+    for i, (df, stake_period) in enumerate(zip(dfs, STAKE_PERIOD_STRINGS)):
+        print('------------------------------ acct%d --- 1 %s stake -----------------------------' % ((i + 1), stake_period))
+        print(df)
+        print('-------------------------------------------------------------------------------------')
+
+
+
 if __name__ == '__main__':
 
+    # determine if we want to
+    # save the test data to a csv
+    # build the contracts
     parser = argparse.ArgumentParser()
-    parser.add_argument("-b","--build", action="store_true",
-                        help="build new contract abis")
+    parser.add_argument(
+        "-s","--save",
+        dest="save",
+        help="save test data to csv file location SAVE (default SAVE = results)")
+    parser.add_argument(
+        "-b","--build",
+        action="store_true",
+        help="build new contract ABIs")
     args = parser.parse_args()
+
+    # verify valid save location
+    if args.save:
+        save_loc = os.path.join(
+            BOID_TOKEN_CONTRACT_PATH,
+            'tests',
+            args.save)
+        if not os.path.exists(save_loc):
+            print('invalid save location:')
+            print(save_loc)
+            print('location does not exist')
+            sys.exit()
 
     # start single-node local testnet
     eosf.reset()
@@ -148,17 +227,27 @@ if __name__ == '__main__':
     w = eosf.wallet.Wallet()
     eosf.create_master_account('master')
 
-    # Create 7 accounts: eosio_token, eos, boid, boid_stake, boid_power, acct1, acct2
-    eosf.create_account(
-        'boid_token', master, account_name='boid.token')
-    eosf.create_account(
-        'boid', master, account_name='boid')
-    eosf.create_account(
-        'boid_power', master, account_name='boid.power')
-    eosf.create_account(
-        'acct1', master, account_name='account1')
-    eosf.create_account(
-        'acct2', master, account_name='account2')
+    # Create accounts: boid_token, boid
+    eosf.create_account('boid_token', master, account_name='boid.token')
+    eosf.create_account('boid',       master, account_name='boid')
+
+    # acct1 does monthly stakes and acct2 does quarterly stakes
+    eosf.create_account('acct1',      master, account_name='account1')
+    eosf.create_account('acct2',      master, account_name='account2')
+    accts = [acct1, acct2]
+
+    # data frames to hold account state
+    acct_df_columns = [
+        'boid_power',
+        'staked_boid_tokens',
+        'unstaked_boid_tokens',
+        'total_boid_tokens']
+    dfs = [
+        pd.DataFrame(columns=acct_df_columns),
+        pd.DataFrame(columns=acct_df_columns)]
+
+    stakeColumns = ['Week', 'Balance', 'Staked', 'StakePeriod', 'Boidpower']
+    stakeDf = pd.DataFrame(columns = stakeColumns)
 
     # make build directory if it does not exist
     build_dir = os.path.join(BOID_TOKEN_CONTRACT_PATH, 'build')
@@ -166,43 +255,17 @@ if __name__ == '__main__':
         os.mkdir(build_dir)
 
     # create reference to the token staking contract
-    boidToken_c = eosf.Contract(
-        boid_token, BOID_TOKEN_CONTRACT_PATH)
-
-    # build the token staking contract
+    # build and deploy the contracts on the testnet
+    boidToken_c = eosf.Contract(boid_token, BOID_TOKEN_CONTRACT_PATH)
     if args.build:
         boidToken_c.build()
-
-    # deploy the token staking contract on the testnet
     boidToken_c.deploy()
 
-    # Allow boid.stake to transfer BOiD tokens from eosio.token contract
-    '''
-    xferKey = eosf.wallet.cleos.CreateKey('xfer')
-    w.import_key(xferKey.key_private)
-    setAccountPermission(
-            boid_stake.name, 'xfer',
-            #xferKey.key_public, 'active')
-            #transferPermission(xferKey.key_public,eosio_token.name),
-            transferPermission(xferKey.key_public,boid_stake.name),
-            'active')
-    setActionPermission(boid_stake.name, eosio_token.name, 'transfer', 'xfer')
-
-
-    setAccountPermission(
-            acct1.name, 'active',
-            transferPermission(acct1.active_key.key_public, boid_stake.name),
-            'owner')
-    '''
 
     ############# now we can call functions ##############
     ########## (aka actions) from the contract! ##########
 
-    # Set up master as issuer of EOS and boid as issuer of BOID
-    # account.push_action(
-    #		action_name,
-    #		action_arguments_in_json,
-    #		account_whose_permission_is_needed)
+    # Set up boid account as issuer of BOID
     boidToken_c.push_action(
         'create',
         {
@@ -210,49 +273,48 @@ if __name__ == '__main__':
             'maximum_supply': '1000000000.0000 BOID'
         }, [boid_token])
 
-    # Distribute initial quantities of EOS & BOID
-    boidToken_c.push_action(
-        'issue',
-        {
-            'to': acct1,
-            'quantity': '1000000.0000 BOID',
-            'memo': 'memo'
-        }, [boid])
-    boidToken_c.push_action(
-        'issue',
-        {
-            'to': acct2,
-            'quantity': '2000000.0000 BOID',
-            'memo': 'memo'
-        }, [boid])
+    # Distribute initial quantities of BOID
+    for acct in accts:
+        boidToken_c.push_action(
+            'issue',
+            {
+                'to': acct,
+                'quantity': '%.4f BOID' % INIT_BOIDTOKENS,
+                'memo': 'memo'
+            }, [boid])
 
-    initStaking()
+    # stake BOID tokens of accts
+    initStaking()  # setup
+    for acct in accts:  # set bp for accounts
+        setBoidpower(acct, INIT_BOIDPOWER)
+    for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake
+        stake(acct, '%.4f BOID' % INIT_BOIDSTAKE, str(stake_period))
 
-    stakeColumns = ['Week', 'Balance', 'Staked', 'StakePeriod', 'Boidpower']
-    stakeDf = pd.DataFrame(columns = stakeColumns)
-
-    setBoidpower(acct1, 10)
-    setBoidpower(acct2, 10000)
-
-    # Run staking tests with acct1 and acct2
-    stake(acct1, '100000.0000 BOID', STAKE_MONTHLY)
-    stake(acct2, '100000.0000 BOID', STAKE_QUARTERLY)
-    print(getBalance(boidToken_c.table("accounts", acct1)))
-    print(getBoidpowers(boidToken_c.table('boidpowers', boid_token)))
-
-    numWeeks = 1
-    for i in range(numWeeks):
+    # run test over time
+    dfs = get_state(boidToken_c, boid_token, accts, dfs)
+    for t in range(TEST_DURATION):
         time.sleep(WEEK_WAIT)
+        print('week %d' % (t+1))
+        for i, acct in enumerate(accts):
+            print('acct %d' % (i+1))
+            claim(acct)
+        dfs = get_state(boidToken_c, boid_token, accts, dfs)
+    dfs = get_percentage_change(dfs)
 
-        claim(acct1)
-        claim(acct2)
-        print(getBalance(boidToken_c.table("accounts", acct1)))
-        print(getStakeParams(boidToken_c.table('stakes',boid_token)))
+    # unstake the staked tokens of each account
+    for acct in accts:
+        unstake(acct)
 
-    unstake(acct1)
-    unstake(acct2)
-    print(getBalance(boidToken_c.table("accounts", acct1)))
-
+    # output test results, and save them to csv files if prompted
+    print_acct_dfs(dfs)
+    if args.save:
+        save_loc = os.path.join(
+            BOID_TOKEN_CONTRACT_PATH,
+            'tests',
+             args.save)
+        for acct, df in zip(accts, dfs):
+            file_loc = os.path.join(save_loc, acct.name + '_df')
+            df.to_csv(file_loc)
 
     # stop the testnet and exit python
     eosf.stop()
