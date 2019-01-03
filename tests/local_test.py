@@ -1,6 +1,5 @@
 import eosfactory.eosf as eosf
-import sys
-import os
+import sys, os
 import json
 import argparse
 import subprocess
@@ -8,22 +7,20 @@ import time
 import numpy as np
 import pandas as pd
 pd.set_option('display.width', 500)
-
+pd.set_option("display.max_rows",10)
 
 ################################# Test variables #########################################
 
-TEST_DURATION   = 52  # measured in weeks
-INIT_BOIDTOKENS = 10  # initial boid tokens given to each account (must be less than 1/4th of max supply (1000000000 BOID))
-INIT_BOIDPOWER  = 30  # initial boid power given to each account
-INIT_BOIDSTAKE  = 2.0230  # initial boid tokens staked by each account (must be <= INIT_BOIDTOKENS)
+TEST_DURATION   = 5  # measured in weeks
+INIT_BOIDTOKENS = 10000000  # initial boid tokens given to each account (must be less than 1/4th of max supply (1000000000 BOID))
+INIT_BOIDPOWER  = 230000.5  # initial boid power given to each account
+INIT_BOIDSTAKE  = 200000  # initial boid tokens staked by each account (must be <= INIT_BOIDTOKENS)
 
 ############# Must also modify in boidtoken.hpp ##############
 # TESTING Speeds Only
 WEEK_WAIT    = 1
 MONTH_WAIT   = 1 * 30
 QUARTER_WAIT = 1 * 30 * 4
-MONTH_MULTIPLIERX100   = 150  # Reward for staking monthly
-QUARTER_MULTIPLIERX100 = 200  # Reward for staking quarterly
 MONTHLY   = 1
 QUARTERLY = 2
 ##############################################################
@@ -91,7 +88,7 @@ def stake(acct, amount, stake_period):
             '_stake_account': acct,
             '_stake_period': stake_period,
             '_staked': amount
-        }, permission=[acct, boid_token]
+        }, permission=[acct]
     )
 
 def claim(acct):
@@ -99,7 +96,7 @@ def claim(acct):
         'claim',
         {
             '_stake_account': acct
-        }, permission = [acct]
+        }, permission = [boid_token] #, forceUnique=1)
     )
 
 def unstake(acct):
@@ -107,7 +104,7 @@ def unstake(acct):
         'unstake',
         {
             '_stake_account': acct,
-        }, permission=[acct, boid_token]
+        }, permission=[boid_token]
     )
 
 def initStaking():
@@ -116,10 +113,18 @@ def initStaking():
         {
             'on_switch': '1',
         }, [boid_token])
+    stakebreak('1')
     # initstats - reset/setup configuration of contract
     boidToken_c.push_action(
         'initstats',
         '{}', [boid_token])
+
+def stakebreak(on_switch):
+    boidToken_c.push_action(  # stakebreak - activate/deactivate staking for users
+        'stakebreak',
+        {
+            'on_switch': on_switch,
+        }, [boid_token])
 
 def setBoidpower(acct, bp):
     boidToken_c.push_action(
@@ -177,8 +182,9 @@ def get_state(contract, contract_owner, accts, dfs, p=False):
 
 def get_percentage_change(dfs):
     for df in dfs:
+        stake_revenue = df['unstaked_boid_tokens'] - df['unstaked_boid_tokens'][0]
         df['stake_ROI'] = \
-            100 * (df['total_boid_tokens'] / df['total_boid_tokens'][0] - 1.0)
+            100 * (stake_revenue / df['staked_boid_tokens'][0])
     return dfs
 
 def print_acct_dfs(dfs):
@@ -198,25 +204,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-s","--save",
-        dest="save",
-        help="save test data to csv file location SAVE (default SAVE = results)")
+        action="store_true",
+        help="save test data to csv file in ./results")
     parser.add_argument(
         "-b","--build",
         action="store_true",
         help="build new contract ABIs")
     args = parser.parse_args()
-
-    # verify valid save location
-    if args.save:
-        save_loc = os.path.join(
-            BOID_TOKEN_CONTRACT_PATH,
-            'tests',
-            args.save)
-        if not os.path.exists(save_loc):
-            print('invalid save location:')
-            print(save_loc)
-            print('location does not exist')
-            sys.exit()
 
     # start single-node local testnet
     eosf.reset()
@@ -227,9 +221,8 @@ if __name__ == '__main__':
     w = eosf.wallet.Wallet()
     eosf.create_master_account('master')
 
-    # Create accounts: boid_token, boid
+    # Create contract owner account: boid_token
     eosf.create_account('boid_token', master, account_name='boid.token')
-    eosf.create_account('boid',       master, account_name='boid')
 
     # acct1 does monthly stakes and acct2 does quarterly stakes
     eosf.create_account('acct1',      master, account_name='account1')
@@ -245,9 +238,6 @@ if __name__ == '__main__':
     dfs = [
         pd.DataFrame(columns=acct_df_columns),
         pd.DataFrame(columns=acct_df_columns)]
-
-    stakeColumns = ['Week', 'Balance', 'Staked', 'StakePeriod', 'Boidpower']
-    stakeDf = pd.DataFrame(columns = stakeColumns)
 
     # make build directory if it does not exist
     build_dir = os.path.join(BOID_TOKEN_CONTRACT_PATH, 'build')
@@ -265,15 +255,16 @@ if __name__ == '__main__':
     ############# now we can call functions ##############
     ########## (aka actions) from the contract! ##########
 
-    # Set up boid account as issuer of BOID
+
+    # Set up boid_token account as issuer of BOID
     boidToken_c.push_action(
         'create',
         {
-            'issuer': boid,
+            'issuer': boid_token,
             'maximum_supply': '1000000000.0000 BOID'
         }, [boid_token])
 
-    # Distribute initial quantities of BOID
+    # issue initial quantities of BOID
     for acct in accts:
         boidToken_c.push_action(
             'issue',
@@ -281,24 +272,38 @@ if __name__ == '__main__':
                 'to': acct,
                 'quantity': '%.4f BOID' % INIT_BOIDTOKENS,
                 'memo': 'memo'
-            }, [boid])
+            }, [boid_token])
 
     # stake BOID tokens of accts
     initStaking()  # setup
     for acct in accts:  # set bp for accounts
         setBoidpower(acct, INIT_BOIDPOWER)
     for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake
+        print(888888)
         stake(acct, '%.4f BOID' % INIT_BOIDSTAKE, str(stake_period))
+    stakebreak('0')  # disable staking, stakebreak is over
+
+    # test setparams
+    boidToken_c.push_action('setmonth', {'month_stake_roi':'1.2'}, [boid_token])
+    boidToken_c.push_action('setquarter', {'quarter_stake_roi':'1.5'}, [boid_token])
+    boidToken_c.push_action('setbpratio', {'bp_bonus_ratio':'0.0002'}, [boid_token])
+    boidToken_c.push_action('setbpmult', {'bp_bonus_multiplier':'0.000002'}, [boid_token])
+    boidToken_c.push_action('setbpmax', {'bp_bonus_max':'55000.0'}, [boid_token])
+    boidToken_c.push_action('setminstake', {'min_stake':'1000.4'}, [boid_token])
 
     # run test over time
     dfs = get_state(boidToken_c, boid_token, accts, dfs)
     for t in range(TEST_DURATION):
+#        if t+1 > 1:  # testing exit
+#            eosf.stop()
+#            sys.exit()
         time.sleep(WEEK_WAIT)
-        print('week %d' % (t+1))
+        print('\n/-------------------- week %d --------------------------------\\' % (t+1))
         for i, acct in enumerate(accts):
             print('acct %d' % (i+1))
             claim(acct)
         dfs = get_state(boidToken_c, boid_token, accts, dfs)
+        print('\\--------------------- week %d ---------------------------------/' % (t+1))
     dfs = get_percentage_change(dfs)
 
     # unstake the staked tokens of each account
@@ -311,7 +316,7 @@ if __name__ == '__main__':
         save_loc = os.path.join(
             BOID_TOKEN_CONTRACT_PATH,
             'tests',
-             args.save)
+            'results')
         for acct, df in zip(accts, dfs):
             file_loc = os.path.join(save_loc, acct.name + '_df')
             df.to_csv(file_loc)

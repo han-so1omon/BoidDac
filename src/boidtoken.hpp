@@ -8,7 +8,7 @@
 #include <eosiolib/eosio.hpp>
 //#include <eosio.token/eosio.token.hpp>
 //#include </home/boid/eos/contracts/eosio.token/eosio.token.hpp>
-#include </home/boid/eosio.contracts/eosio.token/include/eosio.token/eosio.token.hpp>
+#include </home/boid/eosio.contracts/eosio.token/include/eosio.token/eosio.token.hpp>  // docker image
 #include <string>
 //#include <vector>
 #include <set>
@@ -20,12 +20,9 @@ using std::string;
 using std::set;
 using eosio::const_mem_fun;
 
-// FIXME this contract should accept existing tokens and not have to issue them
-// first
+// FIXME this contract should accept existing tokens and not have to issue them first
 // BOID tokens would be staked for another token, such as EOS
 CONTRACT boidtoken : public contract
-//class [[eosio::contract("boid.token")]] boidtoken : public contract
-//class boidtoken : public contract
 {
   public:
     using contract::contract;
@@ -66,24 +63,28 @@ CONTRACT boidtoken : public contract
      */
     ACTION running(uint8_t on_switch);
 
+    /** \brief enable/disable staking and unstaking for users with stake break equals true/false respectively.
+     */
+    ACTION stakebreak(uint8_t on_switch);
+
     /** \brief Stake tokens with a specified account
      *
      *  - Add account to stake table or add amount staked to existing account
      *  - Specify staking period
      *    -- Stake period must be valid staking period offered by this contract
      *    -- Daily or weekly
-     *  - Specify amount staked 
+     *  - Specify amount staked
      *    -- Token type must be same as type to-be-staked via this contract
      */
-    ACTION stake(name _stake_account, uint8_t  _stake_period, asset _staked ) ;
+    ACTION stake(name _stake_account, uint8_t _stake_period, asset _staked);
 
-    /** \brief Claim token-staking bonus for specified account
+    /** \brief Claim token-staking bonus for specified staked account
      */
     ACTION claim(const name _stake_account);
 
-    /** \brief Unstake tokens from specified account
+    /** \brief Unstake tokens for specified _stake_account
      *
-     *  - Deduct staked amount from contract config table
+     *  - Unstake tokens for specified _stake_account
      */
     ACTION unstake(const name _stake_account);
 
@@ -93,17 +94,43 @@ CONTRACT boidtoken : public contract
 
     /** \brief Set new boidpower
      */
-    ACTION setnewbp(name acct, uint32_t boidpower);
+    ACTION setnewbp(const name acct, const float boidpower);
+
+    /** \brief Set new month stake roi
+     */
+    ACTION setmonth(const float month_stake_roi);
+
+    /** \brief Set new quarter stake roi
+     */
+    ACTION setquarter(const float quarter_stake_roi);
+
+    /** \brief Set new bp bonus ratio
+     */
+    ACTION setbpratio(const float bp_bonus_ratio);
+
+    /** \brief Set new bp bonus multiplier
+     */
+    ACTION setbpmult(const float bp_bonus_multiplier);
+
+    /** \brief Set new bp bonus max
+     */
+    ACTION setbpmax(const float bp_bonus_max);
+
+    /** \brief Set new minimum stake amount
+     */
+    ACTION setminstake(const float min_stake);
+
+
 
     /** \brief Set new stake rates
-     *  @param monthly      Monthly bonus percentage
-     *  @param quarterly    Quarterly bonus percentage 
+     *  @param month_stake_roi
+     *  @param quarter_stake_roi
      */
-    ACTION setparams(uint16_t monthly, uint16_t quarterly);
+    // ACTION setparams(float month_stake_roi, float quarter_stake_roi);
 
     /** \brief Get current boidpower of some account in accounts table
      */
-    inline uint32_t get_boidpower(name owner) const;
+    inline float get_boidpower(name owner) const;
 
     /** \brief Get BOID token supply
      */
@@ -115,54 +142,65 @@ CONTRACT boidtoken : public contract
 
   private:
 
-    // Reward qualifications options
-    // 1) Require boidpower/boidstake >= 10 to qualify for staking rewards
-    // 2) Reward per coin = 0.0001*max(boidpower/1000,1)
-    uint16_t  STAKE_REWARD_RATIO = 10; //!< Require boidpower/boidstake >= 10 to qualify for staking rewards
-                                             //!< Reward per coin =
-                                             //0.0001*max(boidpower/1000,1)
-    uint16_t  STAKE_BOIDPOWER_DIVISOR = 100;
-    uint16_t  STAKE_BOIDPOWER_CHECK_MULTIPLIER = 1000;
+    float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BONUS_BOIDPOWER_RATIO to qualify for boidpower bonus
+    float     BP_BONUS_MULTIPLIER = 0.000001;  // bonus is boidpower * BP_BONUS_MULTIPLIER * boidstaked
+    float     BP_BONUS_MAX = 50000.0;  // bonus is hardcapped at BP_BONUS_MAX
+    float     MIN_STAKE = 100000.0;  // minimum amount of boidtokens a user can stake
 
-    uint16_t        MONTH_MULTIPLIERX100 = 150; //!< Reward for staking monthly
-    uint16_t        QUARTER_MULTIPLIERX100 = 200; //!< Reward for staking quarterly
-    const int64_t   BASE_WEEKLY = 200000000;
+    float     NUM_PAYOUTS_PER_MONTH = 4;  // payout on a weekly basis
+
+    float     MONTH_STAKE_ROI = 0.50;  // percentage Return On Investment for a 1 month stake over a 1 month period
+    float     QUARTER_STAKE_ROI = 0.75;  // percentage Return on Investment for a 1 quarter stake over a 1 month period
+    // note: the roi for both staking periods is slightly different because add_balance can only add uint_t
+    // payouts because the payout is an asset type from the eosiolib which stores a uint64_t value
+    float     MONTH_MULTIPLIERX100   = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;    // multiplier in actual reward equation
+    float     QUARTER_MULTIPLIERX100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;  // multiplier in actual reward equation
 
     const uint8_t   MONTHLY = 1;
     const uint8_t   QUARTERLY = 2;
 
-    const uint32_t  WEEK_WAIT =    (1);   // TESTING Speed Only
-    const uint32_t  MONTH_WAIT =   (1 * 30);  // TESTING Speed Only
-    const uint32_t  QUARTER_WAIT = (1 * 30 * 4);  // TESTING Speed Only
-
-//    const uint32_t  DAY_WAIT =    (60 * 60 * 24 * 1);
-//    const uint32_t  WEEK_WAIT =    (60 * 60 * 24 * 7);
+    // testing speeds (measured in seconds)
+    const uint32_t  WEEK_WAIT =    (1);
+    const uint32_t  MONTH_WAIT =   (1 * 30);
+    const uint32_t  QUARTER_WAIT = (1 * 30 * 4);
+/*
+    // actual speeds (measured in seconds)
+    const uint32_t  WEEK_WAIT =    (7  * 24 * 60 * 60);
+    const uint32_t  MONTH_WAIT =   (30 * 24 * 60 * 60);
+    const uint32_t  QUARTER_WAIT = (90 * 24 * 60 * 60);
+*/
 
     TABLE config {
         uint64_t        config_id;
         uint8_t         running;
+        uint8_t         stakebreak;  // toggle ability to stake
         name            overflow;
+        asset           bonus;
+
+        // bookkeeping:
         uint32_t        active_accounts;
         asset           staked_monthly;
         asset           staked_quarterly;
         asset           total_staked;
-        uint64_t        total_shares;
-        asset           base_payout;
-        asset           bonus;
-        asset           total_payout;
-        asset           interest_share;
-        asset           spare_a1;
-        asset           spare_a2;
-        uint64_t        spare_i1;
-        uint64_t        spare_i2;
+
+	// staking reward equation vars:
+        float           month_stake_roi;
+        float           quarter_stake_roi;
+        float           month_multiplierx100;
+        float           quarter_multiplierx100;
+        float           bp_bonus_ratio;
+        float           bp_bonus_multiplier;
+        float           bp_bonus_max;
+        float           min_stake;
 
         uint64_t    primary_key() const { return config_id; }
 
-        EOSLIB_SERIALIZE (config, (config_id)(running)(overflow)(active_accounts)
-        (staked_monthly)(staked_quarterly)(total_staked)
-        (total_shares)(base_payout)
-        (bonus)(total_payout)(interest_share)
-        (spare_a1)(spare_a2)(spare_i1)(spare_i2));
+        EOSLIB_SERIALIZE (config,
+          (config_id)(running)(stakebreak)(overflow)(bonus)
+          (active_accounts)(staked_monthly)(staked_quarterly)
+          (total_staked)(month_stake_roi)(quarter_stake_roi)
+          (month_multiplierx100)(quarter_multiplierx100)
+          (bp_bonus_ratio)(bp_bonus_multiplier)(bp_bonus_max)(min_stake));
     };
 
     typedef eosio::multi_index<"configs"_n, config> config_table;
@@ -180,7 +218,7 @@ CONTRACT boidtoken : public contract
     TABLE boidpower
     {
       name acct;
-      uint32_t quantity;
+      float quantity;
 
       uint64_t primary_key() const { return acct.value; }
 
@@ -201,10 +239,10 @@ CONTRACT boidtoken : public contract
         EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due));
     };
 
-   typedef eosio::multi_index<"stakes"_n, stake_row> stake_table;
+    typedef eosio::multi_index<"stakes"_n, stake_row> stake_table;
 
     TABLE currencystat {
-        asset supply;  // curent number of BOID tokens
+        asset supply;  // current number of BOID tokens
         asset max_supply;  // max number of BOID tokens
         name issuer;  // name of the account that issues BOID tokens
 
@@ -249,7 +287,7 @@ asset boidtoken::get_balance(name owner, symbol_code sym) const
   return ac.balance;
 }
 
-uint32_t boidtoken::get_boidpower(name owner) const
+float boidtoken::get_boidpower(name owner) const
 {
   boidpowers bps(_self, _self.value);
   auto itr = bps.find(owner.value);
@@ -259,5 +297,6 @@ uint32_t boidtoken::get_boidpower(name owner) const
   return 0;
 }
 
-//EOSIO_ABI(    boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
-EOSIO_DISPATCH( boidtoken,(create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
+//EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
+EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(setoverflow)(running)(stakebreak)(stake)(claim)(unstake)(initstats)(setnewbp)(setmonth)(setquarter)(setbpratio)(setbpmax)(setminstake))
+

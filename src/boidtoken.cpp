@@ -6,6 +6,8 @@
 #include "boidtoken.hpp"
 #include <math.h>
 #include <inttypes.h>
+//#include <cstdlib>
+#include <stdio.h>
 
 void boidtoken::create(name issuer, asset maximum_supply)
 {
@@ -13,7 +15,7 @@ void boidtoken::create(name issuer, asset maximum_supply)
     // some accounts shouldnt be able to perform specific actions
     // the caller of the action must equal _self
     // _self is the owner of the contract
-    require_auth(_self);
+    require_auth( _self );
 
     // verify valid symbol and max supply is within range of 0 to (1LL<<62)-1
     auto sym = maximum_supply.symbol;
@@ -24,10 +26,10 @@ void boidtoken::create(name issuer, asset maximum_supply)
     // assert we didn't already put some amount of tokens
     // (of type sym) into the contract
     stats statstable(_self, sym.code().raw());  // get stats table from EOS database (and declare local version of it)
-    auto existing = statstable.find(sym.code().raw());  // and see if sym is in the stats table
+    auto existing = statstable.find(sym.code().raw());  // and see if sym is already in it
     eosio_assert(existing == statstable.end(), "stake with symbol already exists");
 
-    // set table so that sym tokens can be issued (given to accounts)
+    // set table so that sym tokens can be issued
     statstable.emplace(_self, [&](auto &s) {
         s.supply.symbol = maximum_supply.symbol;
         s.max_supply = maximum_supply;
@@ -35,7 +37,7 @@ void boidtoken::create(name issuer, asset maximum_supply)
     });
 }
 
-/* Issuer issues tokens to a specified account
+/* Issuer gives tokens to a specified account
  *  - Specified token must be in stats table
  *  - Specified quantity must be less than max supply of token to be issued
  *    -- Max supply from contract-local stats table
@@ -47,9 +49,8 @@ void boidtoken::issue(name to, asset quantity, string memo)
     eosio_assert(sym.is_valid(), "invalid symbol name");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
 
-    auto sym_name = sym.code();
-    stats statstable(_self, sym_name.raw());
-    auto existing = statstable.find(sym_name.raw());
+    stats statstable(_self, sym.code().raw());
+    auto existing = statstable.find(sym.code().raw());
     eosio_assert(existing != statstable.end(), "stake with symbol does not exist, create stake before issue");
     const auto &st = *existing;
 
@@ -68,7 +69,12 @@ void boidtoken::issue(name to, asset quantity, string memo)
 
     if (to != st.issuer)
     {
-        SEND_INLINE_ACTION(*this, transfer, {st.issuer, "active"_n}, {st.issuer, to, quantity, memo});
+        SEND_INLINE_ACTION(
+            *this,
+            transfer,
+            {st.issuer, "active"_n},
+            {st.issuer, to, quantity, memo}
+        );
     }
 }
 
@@ -79,11 +85,11 @@ void boidtoken::issue(name to, asset quantity, string memo)
 void boidtoken::transfer(name from, name to, asset quantity, string memo)
 {
     eosio_assert(from != to, "cannot transfer to self");
-    require_auth(from);
+    require_auth( from );
     eosio_assert(is_account(to), "to account does not exist");
-    auto sym = quantity.symbol.code();
-    stats statstable(_self, sym.raw());
-    const auto &st = statstable.get(sym.raw());
+    auto sym = quantity.symbol;
+    stats statstable(_self, sym.code().raw());
+    const auto &st = statstable.get(sym.code().raw());
 
     require_recipient(from);
     require_recipient(to);
@@ -102,11 +108,12 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
  */
 void boidtoken::setoverflow(name _overflow)
 {
-    require_auth(_self);
+    require_auth( _self );
     config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     if (c_itr == c_t.end())
-    {   c_t.emplace(_self, [&](auto &c) {
+    {
+        c_t.emplace(_self, [&](auto &c) {
             c.overflow = _overflow;
         });
     }
@@ -120,10 +127,11 @@ void boidtoken::setoverflow(name _overflow)
 /* Specify contract run state to contract config table.
  */
 void boidtoken::running(uint8_t on_switch){
-    require_auth (_self);
+    require_auth( _self );
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
-    if (c_itr == c_t.end()) {
+    if (c_itr == c_t.end())
+    {
         c_t.emplace (_self, [&](auto &c) {
             c.running = on_switch;
         });
@@ -134,58 +142,92 @@ void boidtoken::running(uint8_t on_switch){
     }
 }
 
+void boidtoken::stakebreak(uint8_t on_switch)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    print("BEFORE c_itr->stakebreak = "); print((int)c_itr->stakebreak); print("\n");
+    if (c_itr == c_t.end())
+    {
+        c_t.emplace (_self, [&](auto &c) {
+            c.stakebreak = on_switch;
+        });
+    } else {
+        c_t.modify(c_itr, _self, [&](auto &c) {
+            c.stakebreak = on_switch;
+        });
+    }
+    print("AFTER c_itr->stakebreak = "); print((int)c_itr->stakebreak); print("\n");
+}
+
+
 /* Stake tokens with a specified account
  *  - Add account to stake table or add amount staked to existing account
  *  - Specify staking period
  *    -- Stake period must be valid staking period offered by this contract
  *    -- Monthly or Quarterly
- *  - Specify amount staked 
+ *  - Specify amount staked
  *    -- Token type must be same as type to-be-staked via this contract
  */
 void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
 {
-    require_auth(_stake_account);
-    require_auth(_self);
+    require_auth( _stake_account );
+
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
-    stake_table s_t(_self, _self.value);
-    eosio_assert(c_itr->running != 0,"staking is currently disabled.");
+    eosio_assert(c_itr->running != 0, "staking contract is currently disabled.");
+    print("c_itr->stakebreak = "); print((int)c_itr->stakebreak); print("\n");
+    eosio_assert(c_itr->stakebreak != 0, "staking is only available during the steak break, not mid-season.");
     eosio_assert(is_account(_stake_account), "to account does not exist");
-    auto sym = _staked.symbol.code();
-    stats statstable(_self, sym.raw());
-    const auto &st = statstable.get(sym.raw());
+
+    auto sym = _staked.symbol;
+    stats statstable(_self, sym.code().raw());
+    const auto &st = statstable.get(sym.code().raw());
     eosio_assert(_staked.is_valid(), "invalid quantity");
     eosio_assert(_staked.amount > 0, "must transfer positive quantity");
+
+    // minumum stake amount
+    uint8_t token_precision = sym.precision();
+    float tokens_to_stake = (float)_staked.amount / pow(10, token_precision);
+    string str = std::to_string(c_itr->min_stake);
+    str = str.substr(0, str.find('.') + 1 + token_precision);
+    const char * min_stake_str = (
+        "must stake at least " +
+        str + " BOID tokens").c_str();
+    eosio_assert(tokens_to_stake >= c_itr->min_stake, min_stake_str);
+
     eosio_assert(_staked.symbol == st.supply.symbol, "symbol precision mismatch");
     eosio_assert(_stake_period >= 1 && _stake_period <= 2, "Invalid stake period.");
+    stake_table s_t(_self, _self.value);
     auto itr = s_t.find(_stake_account.value);
     eosio_assert(itr == s_t.end(), "Account already has a stake. Must unstake first.");
-
-    sub_balance(_stake_account, _staked);
 
     s_t.emplace(_stake_account, [&](auto &s) {
         s.stake_account = _stake_account;
         s.stake_period = _stake_period;
         s.staked = _staked;
         if (_stake_period == MONTHLY) {
-          s.stake_due = now() + WEEK_WAIT;
-          s.stake_date = now() + MONTH_WAIT;
+            s.stake_due = now() + WEEK_WAIT;
+            s.stake_date = now() + MONTH_WAIT;
         }
         else if (_stake_period == QUARTERLY) {
-          s.stake_due = now() + WEEK_WAIT;
-          s.stake_date = now() + QUARTER_WAIT;
+            s.stake_due = now() + WEEK_WAIT;
+            s.stake_date = now() + QUARTER_WAIT;
         }
     });
     c_t.modify(c_itr, _self, [&](auto &c) {
         c.active_accounts += 1;
         c.total_staked.amount += _staked.amount;
         if (_stake_period == MONTHLY) {
-          c.staked_monthly.amount += _staked.amount;
+            c.staked_monthly.amount += _staked.amount;
         }
         else if (_stake_period == QUARTERLY) {
-          c.staked_quarterly.amount += _staked.amount;
+            c.staked_quarterly.amount += _staked.amount;
         }
     });
+
+    sub_balance(_stake_account, _staked);
 }
 
 
@@ -193,151 +235,239 @@ void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
  */
 void boidtoken::claim(name _stake_account)
 {
-    require_auth(_stake_account);
-
-    uint64_t total_shares;
-    asset total_payout;
-    asset pay_per_share;
-    asset my_shares;
-    asset payout;
-
+    require_auth( _self );
     config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
-    eosio_assert(c_itr->running != 0,"staking contract is currently disabled.");
-    total_shares = c_itr->total_shares;
-    total_payout = c_itr->total_payout;
-    pay_per_share = c_itr->interest_share;
-
+    eosio_assert(c_itr->running != 0, "staking contract is currently disabled.");
+    eosio_assert(c_itr->stakebreak == 0, "currently in stake break, cannot claim during stake break, only during season");
     stake_table s_t(_self, _self.value);
-    auto itr = s_t.find(_stake_account.value);
-    s_t.modify(itr, _stake_account, [&](auto &s)
+    auto s_itr = s_t.find(_stake_account.value);
+    eosio_assert(s_itr->stake_due <= now(), "You are current on all available claims");
+    auto sym = c_itr->bonus.symbol;
+    uint8_t token_precision = sym.precision();
+    float boidpower, staked_tokens, boidpower_bonus_ratio;
+//    float total_tokens, percent_staked;
+    float multiplier, payout_tokens;
+    asset payout;
+    uint32_t wait;
+
+    // staking bonus
+    if (s_itr->stake_period == MONTHLY)
     {
-        eosio_assert(itr->stake_due <= now(), "You are current on all available claims");
-//        uint32_t boidpower = get_boidpower(s.stake_account);
-        int64_t boidpower = (int64_t)get_boidpower(s.stake_account);
-	uint8_t token_precision_inv_exp = itr->staked.symbol.precision();
-	int64_t boidpower_bonus_ratio = boidpower  * pow(10,token_precision_inv_exp) / itr->staked.amount;
-
-        print("boidpower = ");
-        print(boidpower);
-        print("\nitr->staked.amount = ");
-        print(itr->staked.amount);
-        print("\n(boidpower / itr->staked.amount * 10^token_precision_inv_exp) = ");
-	print(boidpower_bonus_ratio);
-        print("\nqualifies for bonus? ");
-	print(boidpower_bonus_ratio > STAKE_REWARD_RATIO ? "yes!" : "NO");
-	print("\n");
-        uint16_t multiplier;
-        uint32_t wait;
-
-        if (itr->stake_period == MONTHLY)
-        {
-          multiplier = MONTH_MULTIPLIERX100;
-          wait = MONTH_WAIT;
-        } else if (itr->stake_period == QUARTERLY)
-        {
-          multiplier = QUARTER_MULTIPLIERX100;
-          wait = QUARTER_WAIT;
-        }
-
-        my_shares = ((multiplier * itr->staked) / 100);
-        if (boidpower_bonus_ratio > STAKE_REWARD_RATIO)
-        {
-          my_shares += (((boidpower/STAKE_BOIDPOWER_DIVISOR) * itr->staked));
-            print("adding bonus");
-        } else {
-            print("not adding bonus");
-        }
-
-        payout = asset{
-            static_cast<int64_t>((my_shares.amount * pay_per_share.amount)/10000),
-            symbol("BOID", 4)
-        };
-
-        add_balance(_stake_account, payout, _stake_account);
-        s.stake_due = now() + WEEK_WAIT;
+        multiplier = c_itr->month_multiplierx100 / 100.0;
+        wait = MONTH_WAIT;
+    }
+    else if (s_itr->stake_period == QUARTERLY)
+    {
+        multiplier = c_itr->quarter_multiplierx100 / 100.0;
+        wait = QUARTER_WAIT;
+    }
+    staked_tokens = (s_itr->staked.amount / pow(10, token_precision));
+    payout_tokens = multiplier * staked_tokens;
+    // boidpower bonus
+    boidpower = get_boidpower(_stake_account);
+    boidpower_bonus_ratio = boidpower / staked_tokens;
+    if (boidpower_bonus_ratio >= c_itr->bp_bonus_ratio)
+    {
+        payout_tokens += fmin(
+            boidpower * c_itr->bp_bonus_multiplier * staked_tokens,
+            c_itr->bp_bonus_max);
+/*
+        total_tokens = staked_tokens + get_balance(_staked_account, sym);
+        percent_staked = staked_tokens / total_tokens;
+        payout_tokens += fmin(
+            (boidpower_bonus_ratio / c_itr->bp_bonus_ratio) * percent_staked * payout_tokens,
+            c_itr->bp_bonus_max);
+*/
+    }
+    payout = asset{
+        static_cast<int64_t>(payout_tokens * pow(10, token_precision)),
+        sym
+    };
+    issue(_stake_account, payout, "stake payout");
+    s_t.modify(s_itr, _stake_account, [&](auto &s) {
+        s.stake_due  = now() + WEEK_WAIT;
         s.stake_date = now() + wait;
     });
 }
 
-/* Unstake tokens from specified account
- *  - Deduct staked amount from contract config table
+/* Unstake tokens for specified _stake_account
+ *  - Unstake tokens for specified _stake_account
  */
 void boidtoken::unstake(name _stake_account)
 {
-  require_auth(_stake_account);
-  stake_table s_t(_self, _self.value);
-  auto itr = s_t.find(_stake_account.value);
-  add_balance(itr->stake_account, itr->staked, itr->stake_account);
+    config_table c_t(_self, _self.value);
+    auto c_itr = c_t.find(0);
+    eosio_assert(c_itr->running != 0, "staking contract is currently disabled.");
+    if (c_itr->stakebreak != 0) {
+        require_auth( _stake_account );
+    } else {
+        require_auth( _self );
+    }
+    stake_table s_t(_self, _self.value);
+    auto s_itr = s_t.find(_stake_account.value);
 
-  config_table c_t(_self, _self.value);
-  auto c_itr = c_t.find(0);
-  eosio_assert(c_itr->running != 0,"staking contract is currently disabled.");
-  c_t.modify(c_itr, _self, [&](auto &c) {                                     // bookkeeping on the config table to keep the staked amounts correct
-    c.active_accounts -= 1;
-    c.total_staked.amount -= itr->staked.amount;
-    if ((itr->stake_period == MONTHLY)) {
-      c.staked_monthly.amount -= itr->staked.amount;
-    }
-    else if ((itr->stake_period == QUARTERLY)) {
-      c.staked_quarterly.amount -= itr->staked.amount;
-    }
-  });
-  s_t.erase(itr);
+    // bookkeeping on the config table to keep the staked amounts correct
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.active_accounts -= 1;
+        c.total_staked.amount -= s_itr->staked.amount;
+        if (s_itr->stake_period == MONTHLY)
+        {
+            c.staked_monthly.amount -= s_itr->staked.amount;
+        }
+        else if (s_itr->stake_period == QUARTERLY)
+        {
+            c.staked_quarterly.amount -= s_itr->staked.amount;
+        }
+    });
+    // move staked tokens back to the unstaked account
+    // and erase staked account from stake table
+    add_balance(
+        _stake_account,
+        s_itr->staked,
+        _stake_account);
+    s_t.erase(s_itr);
 }
 
 /* Initialize config table
  */
 void boidtoken::initstats(){
-  require_auth (_self);
-  asset returntokens = asset{static_cast<int64_t>(0.0000), symbol("BOID", 4)};
-  asset cleartokens = asset{static_cast<int64_t>(0.0000), symbol("BOID", 4)};
-  asset interesttokens = asset{static_cast<int64_t>(1.0000), symbol("BOID", 4)};
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    asset returntokens = asset{0, symbol("BOID", 4)};
+    asset cleartokens = asset{0, symbol("BOID", 4)};
+    c_t.modify(c_itr, _self, [&](auto &c) {
+
+        c.running = 0;
+        c.stakebreak = 0;
+
+        returntokens = c.bonus;
+        c.bonus = cleartokens;
+        c.staked_monthly = cleartokens;
+        c.staked_quarterly = cleartokens;
+        c.total_staked = cleartokens;
+        c.active_accounts = 0;
+
+        c.month_stake_roi = MONTH_STAKE_ROI;
+        c.quarter_stake_roi = QUARTER_STAKE_ROI;
+        c.month_multiplierx100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
+        c.quarter_multiplierx100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
+        c.bp_bonus_ratio = BP_BONUS_RATIO;
+        c.bp_bonus_multiplier = BP_BONUS_MULTIPLIER;
+        c.bp_bonus_max = BP_BONUS_MAX;
+        c.min_stake = MIN_STAKE;
+    });
+    if (returntokens.amount > 0)
+    {
+        transfer(_self, c_itr->overflow, returntokens, "returned reset tokens"); // Send returned tokens to th$
+        print("returned to overflow, should not have been there: ", returntokens, "\n" );
+    }
+}
+
+void boidtoken::setnewbp(name acct, float boidpower) {
+    require_auth( _self );
+    boidpowers bps(_self, _self.value);
+    auto bp_acct = bps.find(acct.value);
+    print("A3");
+    if (bp_acct == bps.end())
+    {
+    print("B3");
+        bps.emplace(acct, [&](auto &a) {
+            a.acct = acct;
+            a.quantity = boidpower;
+        });
+    }
+    else
+    {
+    print("C3");
+        bps.modify(bp_acct, acct, [&](auto &a) {
+            a.quantity = boidpower;
+        });
+    }
+    print("D3");
+}
+
+void boidtoken::setmonth(float month_stake_roi)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.month_stake_roi = month_stake_roi;
+        c.month_multiplierx100 = month_stake_roi / NUM_PAYOUTS_PER_MONTH;
+    });
+}
+
+void boidtoken::setquarter(float quarter_stake_roi)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.quarter_stake_roi = quarter_stake_roi;
+        c.quarter_multiplierx100 = quarter_stake_roi / NUM_PAYOUTS_PER_MONTH;
+    });
+}
+
+void boidtoken::setbpratio(float bp_bonus_ratio)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.bp_bonus_ratio = bp_bonus_ratio;
+    });
+}
+
+void boidtoken::setbpmult(float bp_bonus_multiplier)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.bp_bonus_multiplier = bp_bonus_multiplier;
+    });
+}
+
+void boidtoken::setbpmax(float bp_bonus_max)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.bp_bonus_max = bp_bonus_max;
+    });
+}
+
+void boidtoken::setminstake(float min_stake)
+{
+    require_auth( _self );
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.min_stake = min_stake;
+    });
+}
+
+
+
+/*
+void boidtoken::setparams(float month_stake_roi, float quarter_stake_roi) {
+  require_auth( _self );
   config_table c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   c_t.modify(c_itr, _self, [&](auto &c) {
-    returntokens = c.bonus;
-    c.bonus = cleartokens;
-    c.staked_monthly = cleartokens;
-    c.staked_quarterly = cleartokens;
-    c.total_staked = cleartokens;
-    c.active_accounts = 0;
-    c.total_shares = 0;
-    c.base_payout = cleartokens;
-    c.total_payout = cleartokens;
-    c.interest_share = interesttokens;
+    c.month_stake_roi = month_stake_roi;
+    c.quarter_stake_roi = quarter_stake_roi;
+    c.month_multiplierx100 = month_stake_roi / NUM_PAYOUTS_PER_MONTH;
+    c.quarter_multiplierx100 = quarter_stake_roi / NUM_PAYOUTS_PER_MONTH;
+    c.bp_bonus_ratio = BP_BONUS_RATIO;
+    c.bp_bonus_divisor = BP_BONUS_DIVISOR;
   });
-  if(returntokens.amount > 0){
-    transfer(_self, c_itr->overflow, returntokens, "returned reset tokens"); // Send returned tokens to the overflow account
-    print("returned to overflow, should not have been there: ", returntokens, "\n" );
-  }
 }
+*/
 
-void boidtoken::setnewbp(name acct, uint32_t boidpower) {
-  require_auth(_self);
-  boidpowers bps(_self,_self.value);
-
-  auto bp_acct = bps.find(acct.value);
-  if (bp_acct == bps.end())
-  {
-      bps.emplace(acct, [&](auto &a) {
-          a.acct = acct;
-          a.quantity = boidpower;
-      });
-  }
-  else
-  {
-      bps.modify(bp_acct, acct, [&](auto &a) {
-          a.quantity = boidpower;
-      });
-  }
-}
-
-void boidtoken::setparams(uint16_t monthly, uint16_t quarterly) {
-  require_auth(_self);
-  MONTH_MULTIPLIERX100 = monthly;
-  QUARTER_MULTIPLIERX100 = quarterly;
-}
 
 /* Subtract value from specified account
  */
@@ -346,16 +476,14 @@ void boidtoken::sub_balance(name owner, asset value)
     accounts from_acnts(_self, owner.value);
     const auto &from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
     eosio_assert(from.balance.amount >= value.amount, "overdrawn balance");
-    print("balance not overdrawn\n");
-    print("balance.amount = ");
-    print(from.balance.amount);
-    print("\namount being withdrawn = ");
-    print(value.amount);
-    print("\n");
-    if (from.balance.amount == value.amount){
+    stake_table s_t(_self, _self.value);
+    auto itr = s_t.find(owner.value);
+    if (from.balance.amount == value.amount && itr == s_t.end()) {
+        // only erase the 'from' account if its account is 0 and it has no stake
         from_acnts.erase(from);
     }
-    else {
+    else
+    {
         from_acnts.modify(from, owner, [&](auto &a) {
             a.balance -= value;
         });
@@ -387,3 +515,4 @@ void boidtoken::add_balance(name owner, asset value, name ram_payer)
 void boidtoken::sub_stake(name owner, asset value);
 void boidtoken::add_stake(name owner, asset value);
 */
+
