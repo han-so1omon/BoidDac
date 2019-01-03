@@ -108,16 +108,16 @@ def unstake(acct):
     )
 
 def initStaking():
+    # initstats - reset/setup configuration of contract
+    boidToken_c.push_action(
+        'initstats',
+        '{}', [boid_token])
     boidToken_c.push_action(  # running - sets payouts to on
         'running',
         {
             'on_switch': '1',
         }, [boid_token])
     stakebreak('1')
-    # initstats - reset/setup configuration of contract
-    boidToken_c.push_action(
-        'initstats',
-        '{}', [boid_token])
 
 def stakebreak(on_switch):
     boidToken_c.push_action(  # stakebreak - activate/deactivate staking for users
@@ -275,13 +275,11 @@ if __name__ == '__main__':
             }, [boid_token])
 
     # stake BOID tokens of accts
-    initStaking()  # setup
     for acct in accts:  # set bp for accounts
         setBoidpower(acct, INIT_BOIDPOWER)
+    initStaking()  # setup
     for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake
-        print(888888)
         stake(acct, '%.4f BOID' % INIT_BOIDSTAKE, str(stake_period))
-    stakebreak('0')  # disable staking, stakebreak is over
 
     # test setparams
     boidToken_c.push_action('setmonth', {'month_stake_roi':'1.2'}, [boid_token])
@@ -290,6 +288,7 @@ if __name__ == '__main__':
     boidToken_c.push_action('setbpmult', {'bp_bonus_multiplier':'0.000002'}, [boid_token])
     boidToken_c.push_action('setbpmax', {'bp_bonus_max':'55000.0'}, [boid_token])
     boidToken_c.push_action('setminstake', {'min_stake':'1000.4'}, [boid_token])
+    stakebreak('0')  # disable staking, stakebreak is over
 
     # run test over time
     dfs = get_state(boidToken_c, boid_token, accts, dfs)

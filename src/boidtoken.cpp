@@ -147,7 +147,6 @@ void boidtoken::stakebreak(uint8_t on_switch)
     require_auth( _self );
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
-    print("BEFORE c_itr->stakebreak = "); print((int)c_itr->stakebreak); print("\n");
     if (c_itr == c_t.end())
     {
         c_t.emplace (_self, [&](auto &c) {
@@ -158,7 +157,6 @@ void boidtoken::stakebreak(uint8_t on_switch)
             c.stakebreak = on_switch;
         });
     }
-    print("AFTER c_itr->stakebreak = "); print((int)c_itr->stakebreak); print("\n");
 }
 
 
@@ -177,7 +175,6 @@ void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
     eosio_assert(c_itr->running != 0, "staking contract is currently disabled.");
-    print("c_itr->stakebreak = "); print((int)c_itr->stakebreak); print("\n");
     eosio_assert(c_itr->stakebreak != 0, "staking is only available during the steak break, not mid-season.");
     eosio_assert(is_account(_stake_account), "to account does not exist");
 
@@ -331,13 +328,14 @@ void boidtoken::unstake(name _stake_account)
 
 /* Initialize config table
  */
-void boidtoken::initstats(){
+void boidtoken::initstats()
+{
     require_auth( _self );
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
     asset returntokens = asset{0, symbol("BOID", 4)};
     asset cleartokens = asset{0, symbol("BOID", 4)};
-    c_t.modify(c_itr, _self, [&](auto &c) {
+    c_t.emplace( _self, [&](auto &c) {
 
         c.running = 0;
         c.stakebreak = 0;
@@ -372,7 +370,7 @@ void boidtoken::setnewbp(name acct, float boidpower) {
     print("A3");
     if (bp_acct == bps.end())
     {
-    print("B3");
+        print("B3");
         bps.emplace(acct, [&](auto &a) {
             a.acct = acct;
             a.quantity = boidpower;
@@ -380,7 +378,7 @@ void boidtoken::setnewbp(name acct, float boidpower) {
     }
     else
     {
-    print("C3");
+        print("C3");
         bps.modify(bp_acct, acct, [&](auto &a) {
             a.quantity = boidpower;
         });
