@@ -7,14 +7,16 @@ import time
 import numpy as np
 import pandas as pd
 pd.set_option('display.width', 500)
-pd.set_option("display.max_rows",10)
+pd.set_option('display.max_rows',10)
+pd.set_option('display.float_format', '{:.3f}'.format)
+#pd.options.display.float_format = '${:,.2f}'.format
 
 ################################# Test variables #########################################
 
-TEST_DURATION   = 5  # measured in weeks
+TEST_DURATION   = 8  # measured in weeks
 INIT_BOIDTOKENS = 10000000  # initial boid tokens given to each account (must be less than 1/4th of max supply (1000000000 BOID))
-INIT_BOIDPOWER  = 230000.5  # initial boid power given to each account
-INIT_BOIDSTAKE  = 200000  # initial boid tokens staked by each account (must be <= INIT_BOIDTOKENS)
+INIT_BOIDPOWER  = 1000000.0  # 2300.5  # initial boid power given to each account
+INIT_BOIDSTAKE  = 10000000.0  # initial boid tokens staked by each account (must be <= INIT_BOIDTOKENS)
 
 ############# Must also modify in boidtoken.hpp ##############
 # TESTING Speeds Only
@@ -166,7 +168,7 @@ def get_state(contract, contract_owner, accts, dfs, p=False):
         staked_tokens = float(stake_params[account]['staked'].split()[0]) \
             if account in stake_params.keys() else 0.0
         bps = getBoidpowers(contract.table('boidpowers', contract_owner))
-        acct_bp = bps[account] if account in bps.keys() else 0.0
+        acct_bp = float(bps[account]) if account in bps.keys() else 0.0
         dfs[account_num] = dfs[account_num].append({
             'boid_power': acct_bp,
             'staked_boid_tokens': staked_tokens,
@@ -180,19 +182,26 @@ def get_state(contract, contract_owner, accts, dfs, p=False):
 
     return dfs
 
-def get_percentage_change(dfs):
+def get_stake_roi(dfs):
     for df in dfs:
         stake_revenue = df['unstaked_boid_tokens'] - df['unstaked_boid_tokens'][0]
         df['stake_ROI'] = \
             100 * (stake_revenue / df['staked_boid_tokens'][0])
     return dfs
 
+def get_total_roi(dfs):
+    for df in dfs:
+        df['total_ROI'] = \
+            100 * (df['total_boid_tokens'] / df['total_boid_tokens'][0] - 1.0)
+    return dfs
+
 def print_acct_dfs(dfs):
 
     for i, (df, stake_period) in enumerate(zip(dfs, STAKE_PERIOD_STRINGS)):
-        print('------------------------------ acct%d --- 1 %s stake -----------------------------' % ((i + 1), stake_period))
+        df.index.name = 'week'
+        print('------------------------------------ acct%d ---- 1 %s stake -----------------------------------' % ((i + 1), stake_period))
         print(df)
-        print('-------------------------------------------------------------------------------------')
+        print('---------------------------------------------------------------------------------------------------')
 
 
 
@@ -274,20 +283,18 @@ if __name__ == '__main__':
                 'memo': 'memo'
             }, [boid_token])
 
-    # stake BOID tokens of accts
     for acct in accts:  # set bp for accounts
         setBoidpower(acct, INIT_BOIDPOWER)
     initStaking()  # setup
-    for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake
+#    # test setters
+#    boidToken_c.push_action('setmonth', {'month_stake_roi':'1.2'}, [boid_token])
+#    boidToken_c.push_action('setquarter', {'quarter_stake_roi':'1.5'}, [boid_token])
+#    boidToken_c.push_action('setbpratio', {'bp_bonus_ratio':'0.0002'}, [boid_token])
+#    boidToken_c.push_action('setbpmult', {'bp_bonus_multiplier':'0.000002'}, [boid_token])
+#    boidToken_c.push_action('setbpmax', {'bp_bonus_max':'55000.0'}, [boid_token])
+#    boidToken_c.push_action('setminstake', {'min_stake':'5000.0'}, [boid_token])
+    for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake boid tokens
         stake(acct, '%.4f BOID' % INIT_BOIDSTAKE, str(stake_period))
-
-    # test setparams
-    boidToken_c.push_action('setmonth', {'month_stake_roi':'1.2'}, [boid_token])
-    boidToken_c.push_action('setquarter', {'quarter_stake_roi':'1.5'}, [boid_token])
-    boidToken_c.push_action('setbpratio', {'bp_bonus_ratio':'0.0002'}, [boid_token])
-    boidToken_c.push_action('setbpmult', {'bp_bonus_multiplier':'0.000002'}, [boid_token])
-    boidToken_c.push_action('setbpmax', {'bp_bonus_max':'55000.0'}, [boid_token])
-    boidToken_c.push_action('setminstake', {'min_stake':'1000.4'}, [boid_token])
     stakebreak('0')  # disable staking, stakebreak is over
 
     # run test over time
@@ -303,7 +310,8 @@ if __name__ == '__main__':
             claim(acct)
         dfs = get_state(boidToken_c, boid_token, accts, dfs)
         print('\\--------------------- week %d ---------------------------------/' % (t+1))
-    dfs = get_percentage_change(dfs)
+    dfs = get_stake_roi(dfs)
+    dfs = get_total_roi(dfs)
 
     # unstake the staked tokens of each account
     for acct in accts:

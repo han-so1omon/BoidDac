@@ -108,9 +108,9 @@ CONTRACT boidtoken : public contract
      */
     ACTION setbpratio(const float bp_bonus_ratio);
 
-    /** \brief Set new bp bonus multiplier
+    /** \brief Set new bp bonus divisor
      */
-    ACTION setbpmult(const float bp_bonus_multiplier);
+    ACTION setbpdiv(const float bp_bonus_divisor);
 
     /** \brief Set new bp bonus max
      */
@@ -142,17 +142,15 @@ CONTRACT boidtoken : public contract
 
   private:
 
-    float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BONUS_BOIDPOWER_RATIO to qualify for boidpower bonus
-    float     BP_BONUS_MULTIPLIER = 0.000001;  // bonus is boidpower * BP_BONUS_MULTIPLIER * boidstaked
-    float     BP_BONUS_MAX = 50000.0;  // bonus is hardcapped at BP_BONUS_MAX
+    float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BP_BONUS_RATIO to qualify for boidpower bonus
+    float     BP_BONUS_DIVISOR = 1000000000.0; //0.000000001; //0.000001;  // bonus is boidpower * BP_BONUS_MULTIPLIER * boidstaked
+    float     BP_BONUS_MAX = 10000.0; //50000.0;  // bonus is hardcapped at BP_BONUS_MAX
     float     MIN_STAKE = 100000.0;  // minimum amount of boidtokens a user can stake
 
     float     NUM_PAYOUTS_PER_MONTH = 4;  // payout on a weekly basis
 
     float     MONTH_STAKE_ROI = 0.50;  // percentage Return On Investment for a 1 month stake over a 1 month period
     float     QUARTER_STAKE_ROI = 0.75;  // percentage Return on Investment for a 1 quarter stake over a 1 month period
-    // note: the roi for both staking periods is slightly different because add_balance can only add uint_t
-    // payouts because the payout is an asset type from the eosiolib which stores a uint64_t value
     float     MONTH_MULTIPLIERX100   = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;    // multiplier in actual reward equation
     float     QUARTER_MULTIPLIERX100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;  // multiplier in actual reward equation
 
@@ -189,7 +187,7 @@ CONTRACT boidtoken : public contract
         float           month_multiplierx100;
         float           quarter_multiplierx100;
         float           bp_bonus_ratio;
-        float           bp_bonus_multiplier;
+        float           bp_bonus_divisor;
         float           bp_bonus_max;
         float           min_stake;
 
@@ -200,7 +198,7 @@ CONTRACT boidtoken : public contract
           (active_accounts)(staked_monthly)(staked_quarterly)
           (total_staked)(month_stake_roi)(quarter_stake_roi)
           (month_multiplierx100)(quarter_multiplierx100)
-          (bp_bonus_ratio)(bp_bonus_multiplier)(bp_bonus_max)(min_stake));
+          (bp_bonus_ratio)(bp_bonus_divisor)(bp_bonus_max)(min_stake));
     };
 
     typedef eosio::multi_index<"configs"_n, config> config_table;
@@ -227,7 +225,7 @@ CONTRACT boidtoken : public contract
 
     typedef eosio::multi_index<"boidpowers"_n, boidpower> boidpowers;
 
-    TABLE stake_row {
+    TABLE stakerow {
         name            stake_account;
         uint8_t         stake_period;
         asset           staked;
@@ -236,10 +234,10 @@ CONTRACT boidtoken : public contract
 
         uint64_t        primary_key () const { return stake_account.value; }
 
-        EOSLIB_SERIALIZE (stake_row, (stake_account)(stake_period)(staked)(stake_date)(stake_due));
+        EOSLIB_SERIALIZE (stakerow, (stake_account)(stake_period)(staked)(stake_date)(stake_due));
     };
 
-    typedef eosio::multi_index<"stakes"_n, stake_row> stake_table;
+    typedef eosio::multi_index<"stakes"_n, stakerow> staketable;
 
     TABLE currencystat {
         asset supply;  // current number of BOID tokens
@@ -259,8 +257,8 @@ CONTRACT boidtoken : public contract
     void add_balance(name owner, asset value, name ram_payer);
 
     //TODO
-    void sub_stake(name owner, asset value);
-    void add_stake(name owner, asset value);
+//    void sub_stake(name owner, asset value);
+//    void add_stake(name owner, asset value);
 
   public:
     struct transfer_args
