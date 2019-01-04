@@ -157,16 +157,17 @@ CONTRACT boidtoken : public contract
     const uint8_t   MONTHLY = 1;
     const uint8_t   QUARTERLY = 2;
 
+/*
     // testing speeds (measured in seconds)
     const uint32_t  WEEK_WAIT =    (1);
     const uint32_t  MONTH_WAIT =   (1 * 30);
     const uint32_t  QUARTER_WAIT = (1 * 30 * 4);
-/*
+*/
     // actual speeds (measured in seconds)
     const uint32_t  WEEK_WAIT =    (7  * 24 * 60 * 60);
     const uint32_t  MONTH_WAIT =   (30 * 24 * 60 * 60);
     const uint32_t  QUARTER_WAIT = (90 * 24 * 60 * 60);
-*/
+
 
     TABLE config {
         uint64_t        config_id;
