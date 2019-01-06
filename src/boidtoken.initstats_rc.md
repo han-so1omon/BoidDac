@@ -6,7 +6,7 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 The `{{ initstats }}` action... 
 
-INTENT: The intent of `{{ initstats }}` is initialize the contract by placing "0.0000 BOID" in two fields of the config table, and zeros in the config fields of the same table that track user participation amounts and staked account counts. It is intended to be executed once after the initial deployment of the contract and before executing the running action to enable contract staking functions. It could also serve to reset the contract for use under a different stake table in the event of some sort of unforeseen contract failure. Execution is restricted to owner only permissions.
+INTENT: The intent of `{{ initstats }}` is for the owner to initialize the parameters that influence the staking rewards equation and to initialize the values that track user participation amounts and staked account counts. It is intended to be executed once after the initial deployment of the contract and before executing the running action to enable contract staking functions. It could also serve to reset the contract for use under a different stake table in the event of some sort of unforeseen contract failure. Execution is restricted to owner only permissions.
 
 TERM: This action lasts for the duration of the processing of the contract.
 

@@ -264,14 +264,16 @@ void boidtoken::claim(name _stake_account)
     // boidpower bonus
     boidpower = get_boidpower(_stake_account);
     boidpower_bonus_ratio = boidpower / staked_tokens;
-    print("\nboidpower_bonus_ratio = "); print(boidpower_bonus_ratio); print("\n");
-    print("c_itr->bp_bonus_ratio = "); print(c_itr->bp_bonus_ratio); print("\n");
+//    print("\nboidpower_bonus_ratio = "); print(boidpower_bonus_ratio); print("\n");
+//    print("c_itr->bp_bonus_ratio = "); print(c_itr->bp_bonus_ratio); print("\n");
     if (boidpower_bonus_ratio >= c_itr->bp_bonus_ratio)
     {
+/*
         print("\nboidpower = "); print(boidpower); print("\n");
         print("c_itr->bp_bonus_divisor = "); print(c_itr->bp_bonus_divisor); print("\n");
         print("staked_tokens = "); print(staked_tokens); print("\n");
         print("payout_tokens += fmin("); print(boidpower * c_itr->bp_bonus_divisor * staked_tokens); print(", "); print(c_itr->bp_bonus_max); print(")\n");
+*/
         payout_tokens += fmin(
             (boidpower * staked_tokens) / c_itr->bp_bonus_divisor,
             c_itr->bp_bonus_max);
@@ -345,7 +347,7 @@ void boidtoken::initstats()
 
     if (c_itr == c_t.end())
     {
-    c_t.emplace( _self, [&](auto &c) {
+      c_t.emplace( _self, [&](auto &c) {
 
         c.running = 0;
         c.stakebreak = 0;
@@ -365,11 +367,11 @@ void boidtoken::initstats()
         c.bp_bonus_divisor = BP_BONUS_DIVISOR;
         c.bp_bonus_max = BP_BONUS_MAX;
         c.min_stake = MIN_STAKE;
-    });
+      });
     }
     else
     {
-    c_t.modify(c_itr, _self, [&](auto &c) {
+      c_t.modify(c_itr, _self, [&](auto &c) {
 
         c.running = 0;
         c.stakebreak = 0;
@@ -389,7 +391,7 @@ void boidtoken::initstats()
         c.bp_bonus_divisor = BP_BONUS_DIVISOR;
         c.bp_bonus_max = BP_BONUS_MAX;
         c.min_stake = MIN_STAKE;
-    });
+      });
     }
     if (returntokens.amount > 0)
     {
@@ -402,10 +404,10 @@ void boidtoken::setnewbp(name acct, float boidpower) {
     require_auth( _self );
     boidpowers bps(_self, _self.value);
     auto bp_acct = bps.find(acct.value);
-    print("A3");
+//    print("A3");
     if (bp_acct == bps.end())
     {
-        print("B3");
+//        print("B3");
         bps.emplace(acct, [&](auto &a) {
             a.acct = acct;
             a.quantity = boidpower;
@@ -413,12 +415,12 @@ void boidtoken::setnewbp(name acct, float boidpower) {
     }
     else
     {
-        print("C3");
+//        print("C3");
         bps.modify(bp_acct, acct, [&](auto &a) {
             a.quantity = boidpower;
         });
     }
-    print("D3");
+//    print("D3");
 }
 
 void boidtoken::setmonth(float month_stake_roi)
@@ -482,24 +484,6 @@ void boidtoken::setminstake(float min_stake)
         c.min_stake = min_stake;
     });
 }
-
-
-
-/*
-void boidtoken::setparams(float month_stake_roi, float quarter_stake_roi) {
-  require_auth( _self );
-  config_table c_t (_self, _self.value);
-  auto c_itr = c_t.find(0);
-  c_t.modify(c_itr, _self, [&](auto &c) {
-    c.month_stake_roi = month_stake_roi;
-    c.quarter_stake_roi = quarter_stake_roi;
-    c.month_multiplierx100 = month_stake_roi / NUM_PAYOUTS_PER_MONTH;
-    c.quarter_multiplierx100 = quarter_stake_roi / NUM_PAYOUTS_PER_MONTH;
-    c.bp_bonus_ratio = BP_BONUS_RATIO;
-    c.bp_bonus_divisor = BP_BONUS_DIVISOR;
-  });
-}
-*/
 
 
 /* Subtract value from specified account

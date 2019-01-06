@@ -6,7 +6,7 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 The `{{ unstake }}` action... 
 
-INTENT: The intent of `{{ unstake }}` is to allow users to move staked tokens from their staked tokens to their unstaked tokens.
+INTENT: The intent of `{{ unstake }}` is to allow users to move all staked tokens from their staked tokens to their unstaked tokens. Users have permission to unstake during the stakebreak only. During the season only the owner can unstake.
 
 TERM: This action lasts for the duration of the processing of the contract.
 

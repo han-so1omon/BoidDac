@@ -6,7 +6,7 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 The `{{ claim }}` action... 
 
-INTENT: The intent of `{{ claim }}` is to allow users to move token awards from escrow to the staked token storage in the stakes table and to update the users next period stake amount. The users next payout is based on the additional tokens deposited by the system this action also serves to demark the line when the tokens move under user ownership and no longer subject to forfeiture for early withdrawal from the stake period. User participation is required for this action due to the BP-imposed timeout for transactions over 250ms, which will not allow a contract-driven global claim function to be fully executed when over 100 users have staked to the system.
+INTENT: The intent of `{{ claim }}` is to allow the owner to issue staking rewards to all accounts with staked boidtokens.
 
 TERM: This action lasts for the duration of the processing of the contract.
 
@@ -16,4 +16,4 @@ The `{{ claim }}` action requires the following `inputs` and `input types`:
 
 | Action | Input | Input Type |
 |:--|:--|:--|
-| `{{ claim }}` | `{{ _stake_accountVar }}` | `{{ name }}` |
+| `{{ claim }}` | `{{ _stake_account }}` | `{{ name }}` |

@@ -121,13 +121,6 @@ CONTRACT boidtoken : public contract
     ACTION setminstake(const float min_stake);
 
 
-
-    /** \brief Set new stake rates
-     *  @param month_stake_roi
-     *  @param quarter_stake_roi
-     */
-    // ACTION setparams(float month_stake_roi, float quarter_stake_roi);
-
     /** \brief Get current boidpower of some account in accounts table
      */
     inline float get_boidpower(name owner) const;
@@ -143,7 +136,7 @@ CONTRACT boidtoken : public contract
   private:
 
     float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BP_BONUS_RATIO to qualify for boidpower bonus
-    float     BP_BONUS_DIVISOR = 1000000000.0; //0.000000001; //0.000001;  // bonus is boidpower * BP_BONUS_MULTIPLIER * boidstaked
+    float     BP_BONUS_DIVISOR = 1000000000.0; //0.000000001; //0.000001;  // boidpower bonus = (boidpower * boidstaked) / BP_BONUS_DIVISOR
     float     BP_BONUS_MAX = 10000.0; //50000.0;  // bonus is hardcapped at BP_BONUS_MAX
     float     MIN_STAKE = 100000.0;  // minimum amount of boidtokens a user can stake
 
@@ -240,7 +233,7 @@ CONTRACT boidtoken : public contract
 
     typedef eosio::multi_index<"stakes"_n, stakerow> staketable;
 
-    TABLE currencystat {
+    TABLE currency_stat {
         asset supply;  // current number of BOID tokens
         asset max_supply;  // max number of BOID tokens
         name issuer;  // name of the account that issues BOID tokens
@@ -249,10 +242,10 @@ CONTRACT boidtoken : public contract
         uint64_t primary_key() const { return supply.symbol.code().raw(); }
 
         // serialize database format to EOSIO blockchain database format
-        EOSLIB_SERIALIZE (currencystat, (supply)(max_supply)(issuer));
+        EOSLIB_SERIALIZE (currency_stat, (supply)(max_supply)(issuer));
     };
 
-    typedef eosio::multi_index<"stat"_n, currencystat> stats;
+    typedef eosio::multi_index<"stat"_n, currency_stat> stats;
 
     void sub_balance(name owner, asset value);
     void add_balance(name owner, asset value, name ram_payer);

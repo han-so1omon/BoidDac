@@ -35,6 +35,9 @@ The table below contains the `actions`, `inputs` and `input types` for the `{{ b
 | `{{ claim }}` | `{{ _stake_account }}` | `{{ const name }}` |
 | `{{ initstats }}` | `{{  }}` | `{{  }}` |
 | `{{ setnewbp }}` | `{{ acct }}`<br/>`{{ boidpower }}` | `{{ name }}`<br/>`{{ uint32_t }}` |
-| `{{ setparams }}` | `{{ monthly }}`<br/>`{{ quarterly }}` | `{{ uint16_t }}`<br/>`{{ uint16_t }}` |
-
-
+| `{{ setmonth }}` | `{{ month }}` | `{{ float }}` |
+| `{{ setquarter }}` | `{{ quarter }}` | `{{ float }}` |
+| `{{ setbpratio }}` | `{{ bp_bonus_ratio }}` | `{{ float }}` |
+| `{{ setbpdiv }}` | `{{ bp_bonus_divisor }}` | `{{ float }}` |
+| `{{ setbpmax }}` | `{{ bp_bonus_max }}` | `{{ float }}` |
+| `{{ setminstake }}` | `{{ min_stake }}` | `{{ float }}` |

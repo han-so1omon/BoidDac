@@ -6,7 +6,7 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 The `{{ create }}` action... 
 
-INTENT: The intent of `{{ create }}` is to action... Original unmodified from EOSIO delivered eosio.token contract That Ricardian Contract applies here.
+INTENT: The intent of `{{ create }}` is for the owner to specify which account has the ability to mint and issue BOID tokens to other accounts. The owner also must specify the maximum number of BOID tokens that can ever be minted.
 
 TERM: This action lasts for the duration of the processing of the contract.
 
@@ -16,4 +16,4 @@ The `{{ create }}` action requires the following `inputs` and `input types`:
 
 | Action | Input | Input Type |
 |:--|:--|:--|
-| `{{ create }}` | `{{ _senderVar }}`<br/>`{{ _bonusVar }}` | `{{ name }}`<br/>`{{ asset }}` |
+| `{{ create }}` | `{{ issuer }}`<br/>`{{ maximum_supply }}` | `{{ name }}`<br/>`{{ asset }}` |

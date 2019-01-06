@@ -4,8 +4,11 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 ### Description
 
-The `{{ issue }}` action... Original unmodified from EOSIO delivered eosio.token contract That Ricardian Contract applies here
+The `{{ issue }}` action...
 
+INTENT: The intent of `{{ issue }}` is to allow the issuer, specified by the owner in the create action, to mint BOID tokens and send them to an account.
+
+TERM: This action lasts for the duration of the processing of the contract.
 
 ### Inputs and Input Types
 
@@ -13,4 +16,4 @@ The `{{ issue }}` action requires the following `inputs` and `input types`:
 
 | Action | Input | Input Type |
 |:--|:--|:--|
-| `{{ issue }}` | `{{ toVar }}`<br/>`{{ quantityVar }}`<br/>`{{ memoVar }}` | `{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |
+| `{{ issue }}` | `{{ to }}`<br/>`{{ quantity }}`<br/>`{{ memo }}` | `{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |

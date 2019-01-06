@@ -6,7 +6,7 @@ This Contract is legally binding and can be used in the event of a dispute. Disp
 
 The `{{ running }}` action... 
 
-INTENT: The intent of `{{ running }}` is to allow users to move token awards from escrow to the staked token storage in the stakes table and to update the users next period stake amount. The users next payout is based on the additional tokens deposited by the system this action also serves to demark the line when the tokens move under user ownership and no longer subject to forfeiture for early withdrawal from the stake period. User participation is required for this action due to the BP-imposed timeout for transactions over 250ms, which will not allow a contract-driven global claim function to be fully executed when over 100 users have staked to the system.
+INTENT: The intent of `{{ running }}` is to allow users to stake, claim, and unstake BOID tokens.
 
 TERM: This action lasts for the duration of the processing of the contract.
 
