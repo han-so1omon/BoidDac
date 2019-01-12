@@ -6,7 +6,6 @@
 #include "boidtoken.hpp"
 #include <math.h>
 #include <inttypes.h>
-//#include <cstdlib>
 #include <stdio.h>
 
 void boidtoken::create(name issuer, asset maximum_supply)
@@ -51,7 +50,7 @@ void boidtoken::issue(name to, asset quantity, string memo)
 
     stats statstable(_self, sym.code().raw());
     auto existing = statstable.find(sym.code().raw());
-    eosio_assert(existing != statstable.end(), "stake with symbol does not exist, create stake before issue");
+    eosio_assert(existing != statstable.end(), "symbol does not exist, create token with symbol before issuing said token");
     const auto &st = *existing;
 
     require_auth(st.issuer);
@@ -65,15 +64,15 @@ void boidtoken::issue(name to, asset quantity, string memo)
         s.supply += quantity;
     });
 
-    add_balance(st.issuer, quantity, st.issuer);
+    add_balance(st.issuer, quantity, st.issuer, true);
 
     if (to != st.issuer)
     {
         SEND_INLINE_ACTION(
             *this,
             transfer,
-            {st.issuer, "active"_n},
-            {st.issuer, to, quantity, memo}
+            {{st.issuer, "active"_n}},
+            {st.issuer, to, quantity, memo},
         );
     }
 }
@@ -99,8 +98,8 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
     eosio_assert(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
 
-    sub_balance(from, quantity);
-    add_balance(to, quantity, from);
+    sub_balance(from, quantity, to, false);
+    add_balance(to, quantity, to, false);
 }
 
 /* Specify overflow account for holding overflow.
@@ -200,6 +199,17 @@ void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
     auto itr = s_t.find(_stake_account.value);
     eosio_assert(itr == s_t.end(), "Account already has a stake. Must unstake first.");
 
+    boidpowers bps(_self, _self.value);
+    auto bp_acct = bps.find(_stake_account.value);
+    if (bp_acct == bps.end())  // if the account isn't in the boidpower table
+    {
+        // they need to pay for their row in the boidpowers table
+        bps.emplace(_stake_account, [&](auto &a) {
+            a.acct = _stake_account;
+            a.quantity = 0.0;
+        });
+    }  // else if they do have boidpower, just leave it the way it is
+
     s_t.emplace(_stake_account, [&](auto &s) {
         s.stake_account = _stake_account;
         s.stake_period = _stake_period;
@@ -224,7 +234,8 @@ void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
         }
     });
 
-    sub_balance(_stake_account, _staked);
+    // user pays for RAM if they are'nt already
+    sub_balance(_stake_account, _staked, _stake_account, true);
 }
 
 
@@ -290,7 +301,16 @@ void boidtoken::claim(name _stake_account)
         static_cast<int64_t>(payout_tokens * pow(10, token_precision)),
         symbol("BOID", 4)
     };
-    issue(_stake_account, payout, "stake payout");
+    stats statstable(_self, sym.code().raw());
+    auto existing = statstable.find(sym.code().raw());
+    eosio_assert(existing != statstable.end(), "symbol does not exist, create token with symbol before issuing said token");
+    const auto &st = *existing;
+    SEND_INLINE_ACTION(
+        *this,
+        issue,
+        {st.issuer, "active"_n},
+        {_stake_account, payout, "stake payout"}
+    );
     s_t.modify(s_itr, _stake_account, [&](auto &s) {
         s.stake_due  = now() + WEEK_WAIT;
         s.stake_date = now() + wait;
@@ -331,7 +351,8 @@ void boidtoken::unstake(name _stake_account)
     add_balance(
         _stake_account,
         s_itr->staked,
-        _stake_account);
+        _stake_account,
+        true);
     s_t.erase(s_itr);
 }
 
@@ -407,7 +428,7 @@ void boidtoken::setnewbp(name acct, float boidpower) {
 //    print("A3");
     if (bp_acct == bps.end())
     {
-//        print("B3");
+        print("B3");
         bps.emplace(acct, [&](auto &a) {
             a.acct = acct;
             a.quantity = boidpower;
@@ -488,7 +509,7 @@ void boidtoken::setminstake(float min_stake)
 
 /* Subtract value from specified account
  */
-void boidtoken::sub_balance(name owner, asset value)
+void boidtoken::sub_balance(name owner, asset value, name ram_payer, bool change_payer)
 {
     accounts from_acnts(_self, owner.value);
     const auto &from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
@@ -501,7 +522,13 @@ void boidtoken::sub_balance(name owner, asset value)
     }
     else
     {
-        from_acnts.modify(from, owner, [&](auto &a) {
+        name payer;
+        if (change_payer) {
+            payer = ram_payer;
+        } else {
+            payer = same_payer;
+        }
+        from_acnts.modify(from, payer, [&](auto &a) {
             a.balance -= value;
         });
     }
@@ -509,10 +536,11 @@ void boidtoken::sub_balance(name owner, asset value)
 
 /* Add value to specified account
  */
-void boidtoken::add_balance(name owner, asset value, name ram_payer)
+void boidtoken::add_balance(name owner, asset value, name ram_payer, bool change_payer)
 {
     accounts to_acnts(_self, owner.value);
     auto to = to_acnts.find(value.symbol.code().raw());
+
     if (to == to_acnts.end())
     {
         to_acnts.emplace(ram_payer, [&](auto &a) {
@@ -521,15 +549,15 @@ void boidtoken::add_balance(name owner, asset value, name ram_payer)
     }
     else
     {
-        to_acnts.modify(to, owner, [&](auto &a) {
+        name payer;
+        if (change_payer) {
+            payer = ram_payer;
+        } else {
+            payer = same_payer;
+        }
+        to_acnts.modify(to, payer, [&](auto &a) {
             a.balance += value;
         });
     }
 }
-
-//TODO
-/*
-void boidtoken::sub_stake(name owner, asset value);
-void boidtoken::add_stake(name owner, asset value);
-*/
 

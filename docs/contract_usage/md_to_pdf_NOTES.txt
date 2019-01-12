@@ -1,0 +1,12 @@
+
+
+Required library installations:
+sudo apt-get install texlive
+sudo apt-get install pandoc
+sudo apt-get install texlive-latex-extra
+
+Create .pdf from .md file:
+pandoc <filename.md> -o <filename.pdf>
+
+Open pdf:
+xdg-open <filename.pdf>

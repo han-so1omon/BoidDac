@@ -247,21 +247,17 @@ CONTRACT boidtoken : public contract
 
     typedef eosio::multi_index<"stat"_n, currency_stat> stats;
 
-    void sub_balance(name owner, asset value);
-    void add_balance(name owner, asset value, name ram_payer);
+    void sub_balance(name owner, asset value, name ram_payer, bool change_payer);
+    void add_balance(name owner, asset value, name ram_payer, bool change_payer);
 
-    //TODO
-//    void sub_stake(name owner, asset value);
-//    void add_stake(name owner, asset value);
-
-  public:
-    struct transfer_args
-    {
-        name from;
-        name to;
-        asset quantity;
-        string memo;
-    };
+    public:
+        struct transfer_args
+        {
+            name from;
+            name to;
+            asset quantity;
+            string memo;
+        };
 };
 
 asset boidtoken::get_supply(symbol_code sym) const

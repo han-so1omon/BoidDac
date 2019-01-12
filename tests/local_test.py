@@ -283,6 +283,38 @@ if __name__ == '__main__':
                 'memo': 'memo'
             }, [boid_token])
 
+    boidToken_c.push_action(
+            'transfer',
+            {
+                'from': acct1,
+                'to': acct2,
+                'quantity': '1000.0000 BOID',
+                'memo': 'memo',
+                'a': '0'  # 0: from->payer
+            }, [acct1])
+    boidToken_c.push_action(
+            'transfer',
+            {
+                'from': acct2,
+                'to': acct1,
+                'quantity': '500.0000 BOID',
+                'memo': 'memo',
+                'a': '1'  # 1: to->payer
+            }, [acct2])
+    eosf.stop()
+    sys.exit()
+
+
+
+
+
+
+
+
+
+
+
+
     for acct in accts:  # set bp for accounts
         setBoidpower(acct, INIT_BOIDPOWER)
     initStaking()  # setup
