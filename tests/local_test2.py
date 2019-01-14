@@ -98,7 +98,7 @@ def claim(acct):
         'claim',
         {
             '_stake_account': acct
-        }, permission = [boid_token] #, forceUnique=1)
+        }, [boid_token]
     )
 
 def unstake(acct):
@@ -265,6 +265,7 @@ if __name__ == '__main__':
     ########## (aka actions) from the contract! ##########
 
 
+
     # Set up boid_token account as issuer of BOID
     boidToken_c.push_action(
         'create',
@@ -273,16 +274,65 @@ if __name__ == '__main__':
             'maximum_supply': '1000000000.0000 BOID'
         }, [boid_token])
 
-    # issue tokens to accts
+    print('\nISSUE')
+    print('\nissue tokens to issuer, issuer IS NOT in accounts table')
+    boidToken_c.push_action(
+        'issue',
+        {
+            'to': boid_token,
+            'quantity': '1000.0000 BOID',
+            'memo': 'memo'
+        }, [boid_token])
+
+    print('\nissue tokens to issuer, issuer IS in accounts table')
+    boidToken_c.push_action(
+        'issue',
+        {
+            'to': boid_token,
+            'quantity': '500.0000 BOID',
+            'memo': 'memo'
+        }, [boid_token])
+
+    print('\nissue tokens to accts, accts ARE NOT in accounts table')
     for acct in accts:
         boidToken_c.push_action(
             'issue',
             {
                 'to': acct,
-                'quantity': '%.4f BOID' % INIT_BOIDTOKENS,
+                'quantity': '1000.0000 BOID',
                 'memo': 'memo'
             }, [boid_token])
 
+    print('\nissue tokens to accts, accts ARE in accounts table')
+    for acct in accts:
+        boidToken_c.push_action(
+            'issue',
+            {
+                'to': acct,
+                'quantity': '500.0000 BOID',
+                'memo': 'memo'
+            }, [boid_token])
+
+    print('\nTRANSFER')
+    print('\nfrom DOES exist in accounts table, and it IS NOT paying for its own RAM')
+    print('to DOES exist is accounts table, and it IS NOT paying for its own RAM.')
+    boidToken_c.push_action(
+            'transfer',
+            {
+                'from': acct1,
+                'to': acct2,
+                'quantity': '100.0000 BOID',
+                'memo': 'memo'
+            }, [acct1])
+
+    for acct in accts:
+        boidToken_c.push_action(
+            'issue',
+            {
+                'to': acct,
+                'quantity': '%.4f BOID' % INIT_BOIDSTAKE,
+                'memo': 'memo'
+            }, [boid_token])
     for acct in accts:  # set bp for accounts
         setBoidpower(acct, INIT_BOIDPOWER)
     initStaking()  # setup
