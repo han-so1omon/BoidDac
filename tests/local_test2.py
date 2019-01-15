@@ -284,6 +284,14 @@ if __name__ == '__main__':
             'memo': 'memo'
         }, [boid_token])
 
+    print('\nSENDMESSAGE: broadcast message to blockchain')
+    boidToken_c.push_action(
+        'sendmessage',
+        {
+            'acct': boid_token,
+            'memo': 'meeeeeeesssssssssaaaaaaagggggggggeeeeeeeee'
+        }, [boid_token])
+
     print('\nissue tokens to issuer, issuer IS in accounts table')
     boidToken_c.push_action(
         'issue',

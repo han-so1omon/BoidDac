@@ -44,8 +44,7 @@ void boidtoken::create(name issuer, asset maximum_supply)
  */
 void boidtoken::issue(name to, asset quantity, string memo)
 {
-    print("issue\nto = ");
-    print(to.value); print("\n");
+    //print("issue\nto = "); print(to.value); print("\n");
     auto sym = quantity.symbol;
     eosio_assert(sym.is_valid(), "invalid symbol name");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
@@ -70,15 +69,13 @@ void boidtoken::issue(name to, asset quantity, string memo)
 
     if (to != st.issuer)
     {
-//        transfer(st.issuer, to, quantity, memo);
-
+        //transfer(st.issuer, to, quantity, memo);
         action(
             permission_level{st.issuer,"active"_n},
             get_self(),
             "transfer"_n,
             std::make_tuple(st.issuer, to, quantity, std::string(memo))
         ).send();
-//*/
     }
 }
 
@@ -88,7 +85,7 @@ void boidtoken::issue(name to, asset quantity, string memo)
  */
 void boidtoken::transfer(name from, name to, asset quantity, string memo)
 {
-    print("transfer\n");
+    // print("transfer\n");
     eosio_assert(from != to, "cannot transfer to self");
     require_auth( from );
     eosio_assert(is_account(to), "to account does not exist");
@@ -175,7 +172,7 @@ void boidtoken::stakebreak(uint8_t on_switch)
  */
 void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
 {
-    print("stake\n");
+    //print("stake\n");
     require_auth( _stake_account );
 
     config_table c_t (_self, _self.value);
@@ -245,29 +242,33 @@ void boidtoken::stake(name _stake_account, uint8_t _stake_period, asset _staked)
     sub_balance(_stake_account, _staked, _stake_account, true);
 }
 
+void boidtoken::sendmessage(name acct, string memo)
+{
+    require_auth(acct);
+}
 
 /* Claim token-staking bonus for specified account
  */
 void boidtoken::claim(name _stake_account)
 {
-    print("claim\n");
-//eosio_assert(false, "hi1");
+    // print("claim\n");
+
     config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     eosio_assert(c_itr->running != 0, "staking contract is currently disabled.");
     eosio_assert(c_itr->stakebreak == 0, "currently in stake break, cannot claim during stake break, only during season");
-//eosio_assert(false, "hi2");
+
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(_stake_account.value);
     eosio_assert(s_itr->stake_due <= now(), "You are current on all available claims");
-//eosio_assert(false, "hi3");
+
     auto sym = c_itr->bonus.symbol;
     stats statstable(_self, sym.code().raw());
     auto existing = statstable.find(sym.code().raw());
     eosio_assert(existing != statstable.end(), "symbol does not exist, create token with symbol before issuing said token");
     const auto &st = *existing;
     require_auth(st.issuer);
-//eosio_assert(false, "hi4");
+
     uint8_t token_precision = sym.precision();
     float boidpower, staked_tokens, boidpower_bonus_ratio;
 //    float total_tokens, percent_staked;
@@ -288,6 +289,7 @@ void boidtoken::claim(name _stake_account)
     }
     staked_tokens = (s_itr->staked.amount / pow(10, token_precision));
     payout_tokens = multiplier * staked_tokens;
+
     // boidpower bonus
     boidpower = get_boidpower(_stake_account);
     boidpower_bonus_ratio = boidpower / staked_tokens;
@@ -317,6 +319,7 @@ void boidtoken::claim(name _stake_account)
         static_cast<int64_t>(payout_tokens * pow(10, token_precision)),
         symbol("BOID", 4)
     };
+    // issue(_stake_account, payout, "stake payout");
     action(
         permission_level{st.issuer, "active"_n},
         get_self(),
@@ -334,7 +337,7 @@ void boidtoken::claim(name _stake_account)
  */
 void boidtoken::unstake(name _stake_account)
 {
-    print("unstake\n");
+    // print("unstake\n");
     config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     eosio_assert(c_itr->running != 0, "staking contract is currently disabled.");
@@ -442,7 +445,7 @@ void boidtoken::setnewbp(name acct, float boidpower) {
 //    print("A3");
     if (bp_acct == bps.end())
     {
-        print("B3");
+//        print("B3");
         bps.emplace(acct, [&](auto &a) {
             a.acct = acct;
             a.quantity = boidpower;
@@ -525,7 +528,7 @@ void boidtoken::setminstake(float min_stake)
  */
 void boidtoken::sub_balance(name owner, asset value, name ram_payer, bool change_payer)
 {
-    print("sub balance\nowner = "); print(owner.value); print("\n");
+    // print("sub balance\nowner = "); print(owner.value); print("\n");
     accounts from_acnts(_self, owner.value);
     const auto &from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
     eosio_assert(from.balance.amount >= value.amount, "overdrawn balance");
@@ -533,21 +536,21 @@ void boidtoken::sub_balance(name owner, asset value, name ram_payer, bool change
     auto itr = s_t.find(owner.value);
     if (from.balance.amount == value.amount && itr == s_t.end()) {
         // only erase the 'from' account if its account is 0 and it has no stake
-        print("erasing account: from");
+        // print("erasing account: from");
         from_acnts.erase(from);
     }
     else
     {
-        print("modify\npayer = ");
+        // print("modify\npayer = ");
         name payer;
         if (change_payer) {
             payer = ram_payer;
-            print("ram_payer = ");
+            // print("ram_payer = ");
         } else {
             payer = same_payer;
-            print("same_payer = ");
+            // print("same_payer = ");
         }
-        print(payer.value); print("\n");
+        // print(payer.value); print("\n");
         from_acnts.modify(from, payer, [&](auto &a) {
             a.balance -= value;
         });
@@ -558,41 +561,29 @@ void boidtoken::sub_balance(name owner, asset value, name ram_payer, bool change
  */
 void boidtoken::add_balance(name owner, asset value, name ram_payer, bool change_payer)
 {
-    print("add balance\nowner = "); print(owner.value); print("\n");
-//    print("accounts table\n");
-/*
-    accounts a(_self, _self);
-    for(auto itr = a.begin(); itr != a.end(); ++itr) {
-        print(itr->balance);
-    }
-
-    for(auto& i : a) {
-        i.
-    }
-*/
+    // print("add balance\nowner = "); print(owner.value); print("\n");
     accounts to_acnts(_self, owner.value);
     auto to = to_acnts.find(value.symbol.code().raw());
 
     if (to == to_acnts.end())
     {
-        print("emplace\n");
-        print("ram_payer = "); print(ram_payer.value); print("\n");
+        // print("emplace\nram_payer = "); print(ram_payer.value); print("\n");
         to_acnts.emplace(ram_payer, [&](auto &a) {
             a.balance = value;
         });
     }
     else
     {
-        print("modify\npayer = ");
+        // print("modify\npayer = ");
         name payer;
         if (change_payer) {
             payer = ram_payer;
-            print("ram_payer = ");
+            // print("ram_payer = ");
         } else {
             payer = same_payer;
-            print("same_payer = ");
+            // print("same_payer = ");
         }
-        print(payer.value); print("\n");
+        // print(payer.value); print("\n");
         to_acnts.modify(to, payer, [&](auto &a) {
             a.balance += value;
         });
