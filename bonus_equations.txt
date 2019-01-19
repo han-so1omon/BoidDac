@@ -1,0 +1,34 @@
+
+
+MONTH_STAKE_ROI = 0.50
+QUARTER_STAKE_ROI = 0.75
+NUM_PAYOUTS_PER_MONTH = 4
+MONTH_MULTIPLIERX100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH
+QUARTER_MULTIPLIERX100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH
+
+if month stake:
+	multiplier = MONTH_MULTIPLIERX100 / 100.0
+else if quarter stake:
+	multiplier = QUARTER_MULTIPLIERX100 / 100.0
+stake_bonus = multiplier * num_staked_tokens
+
+
+
+BP_BONUS_RATIO = 0.0001
+BP_BONUS_DIVISOR = 1000000.0
+BP_BONUS_MAX = 10000.0
+
+boidpower_bonus_ratio = boidpower / num_staked_tokens
+if boidpower_bonus_ratio >= BP_BONUS_RATIO:
+	boidpower_bonus = min(
+		(boidpower * num_staked_tokens) / BP_BONUS_DIVISOR,
+		BP_BONUS_MAX)
+else:
+	boidpower_bonus = 0.0
+
+
+
+total_bonus = stake_bonus + boidpower_bonus
+
+
+

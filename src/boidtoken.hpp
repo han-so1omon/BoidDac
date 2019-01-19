@@ -53,12 +53,6 @@ CONTRACT boidtoken : public contract
      */
     ACTION transfer(name from, name to, asset quantity, string memo);
 
-    /** \brief Specify overflow account for holding overflow.
-     *
-     * Overflow is defined as unclaimed or excess tokens.
-     */
-    ACTION setoverflow(name _overflow);
-
     /** \brief Specify contract run state to contract config table.
      */
     ACTION running(uint8_t on_switch);
@@ -141,7 +135,7 @@ CONTRACT boidtoken : public contract
   private:
 
     float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BP_BONUS_RATIO to qualify for boidpower bonus
-    float     BP_BONUS_DIVISOR = 1000000000.0; //0.000000001; //0.000001;  // boidpower bonus = (boidpower * boidstaked) / BP_BONUS_DIVISOR
+    float     BP_BONUS_DIVISOR = 1000000.0; //0.000000001; //0.000001;  // boidpower bonus = (boidpower * boidstaked) / BP_BONUS_DIVISOR
     float     BP_BONUS_MAX = 10000.0; //50000.0;  // bonus is hardcapped at BP_BONUS_MAX
     float     MIN_STAKE = 100000.0;  // minimum amount of boidtokens a user can stake
 
@@ -154,16 +148,15 @@ CONTRACT boidtoken : public contract
 
     const uint8_t   MONTHLY = 1;
     const uint8_t   QUARTERLY = 2;
-
 /*
     // testing speeds (measured in seconds)
-    const uint32_t  WEEK_WAIT =    (1);
-    const uint32_t  MONTH_WAIT =   (1 * 30);
+    const uint32_t  WEEK_WAIT    = (1);
+    const uint32_t  MONTH_WAIT   = (1 * 30);
     const uint32_t  QUARTER_WAIT = (1 * 30 * 4);
 */
     // actual speeds (measured in seconds)
-    const uint32_t  WEEK_WAIT =    (7  * 24 * 60 * 60);
-    const uint32_t  MONTH_WAIT =   (30 * 24 * 60 * 60);
+    const uint32_t  WEEK_WAIT    = (7  * 24 * 60 * 60);
+    const uint32_t  MONTH_WAIT   = (30 * 24 * 60 * 60);
     const uint32_t  QUARTER_WAIT = (90 * 24 * 60 * 60);
 
 
@@ -171,7 +164,6 @@ CONTRACT boidtoken : public contract
         uint64_t        config_id;
         uint8_t         running;
         uint8_t         stakebreak;  // toggle ability to stake
-        name            overflow;
         asset           bonus;
 
         // bookkeeping:
@@ -193,7 +185,7 @@ CONTRACT boidtoken : public contract
         uint64_t    primary_key() const { return config_id; }
 
         EOSLIB_SERIALIZE (config,
-          (config_id)(running)(stakebreak)(overflow)(bonus)
+          (config_id)(running)(stakebreak)(bonus)
           (active_accounts)(staked_monthly)(staked_quarterly)
           (total_staked)(month_stake_roi)(quarter_stake_roi)
           (month_multiplierx100)(quarter_multiplierx100)
@@ -290,6 +282,6 @@ float boidtoken::get_boidpower(name owner) const
   return 0;
 }
 
-//EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(setoverflow)(running)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
-EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(setoverflow)(running)(stakebreak)(stake)(claim)(unstake)(initstats)(setnewbp)(setmonth)(setquarter)(setbpratio)(setbpmax)(setminstake))
+//EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(running)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
+EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(running)(stakebreak)(stake)(claim)(unstake)(initstats)(setnewbp)(setmonth)(setquarter)(setbpratio)(setbpmax)(setminstake))
 

@@ -105,27 +105,6 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
     add_balance(to, quantity, from, false);
 }
 
-/* Specify overflow account for holding overflow.
- * Overflow is defined as unclaimed or excess tokens.
- */
-void boidtoken::setoverflow(name _overflow)
-{
-    require_auth( _self );
-    config_table c_t(_self, _self.value);
-    auto c_itr = c_t.find(0);
-    if (c_itr == c_t.end())
-    {
-        c_t.emplace(_self, [&](auto &c) {
-            c.overflow = _overflow;
-        });
-    }
-    else
-    {   c_t.modify(c_itr, _self, [&](auto &c) {
-            c.overflow = _overflow;
-        });
-    }
-}
-
 /* Specify contract run state to contract config table.
  */
 void boidtoken::running(uint8_t on_switch){
@@ -380,61 +359,53 @@ void boidtoken::initstats()
     require_auth( _self );
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
-    asset returntokens = asset{0, symbol("BOID", 4)};
     asset cleartokens = asset{0, symbol("BOID", 4)};
 
     if (c_itr == c_t.end())
     {
-      c_t.emplace( _self, [&](auto &c) {
+        c_t.emplace( _self, [&](auto &c) {
 
-        c.running = 0;
-        c.stakebreak = 0;
+            c.running = 0;
+            c.stakebreak = 0;
 
-        returntokens = c.bonus;
-        c.bonus = cleartokens;
-        c.staked_monthly = cleartokens;
-        c.staked_quarterly = cleartokens;
-        c.total_staked = cleartokens;
-        c.active_accounts = 0;
+            c.bonus = cleartokens;
+            c.staked_monthly = cleartokens;
+            c.staked_quarterly = cleartokens;
+            c.total_staked = cleartokens;
+            c.active_accounts = 0;
 
-        c.month_stake_roi = MONTH_STAKE_ROI;
-        c.quarter_stake_roi = QUARTER_STAKE_ROI;
-        c.month_multiplierx100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
-        c.quarter_multiplierx100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
-        c.bp_bonus_ratio = BP_BONUS_RATIO;
-        c.bp_bonus_divisor = BP_BONUS_DIVISOR;
-        c.bp_bonus_max = BP_BONUS_MAX;
-        c.min_stake = MIN_STAKE;
-      });
+            c.month_stake_roi = MONTH_STAKE_ROI;
+            c.quarter_stake_roi = QUARTER_STAKE_ROI;
+            c.month_multiplierx100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
+            c.quarter_multiplierx100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
+            c.bp_bonus_ratio = BP_BONUS_RATIO;
+            c.bp_bonus_divisor = BP_BONUS_DIVISOR;
+            c.bp_bonus_max = BP_BONUS_MAX;
+            c.min_stake = MIN_STAKE;
+        });
     }
     else
     {
-      c_t.modify(c_itr, _self, [&](auto &c) {
+        c_t.modify(c_itr, _self, [&](auto &c) {
 
-        c.running = 0;
-        c.stakebreak = 0;
+            c.running = 0;
+            c.stakebreak = 0;
 
-        returntokens = c.bonus;
-        c.bonus = cleartokens;
-        c.staked_monthly = cleartokens;
-        c.staked_quarterly = cleartokens;
-        c.total_staked = cleartokens;
-        c.active_accounts = 0;
+            c.bonus = cleartokens;
+            c.staked_monthly = cleartokens;
+            c.staked_quarterly = cleartokens;
+            c.total_staked = cleartokens;
+            c.active_accounts = 0;
 
-        c.month_stake_roi = MONTH_STAKE_ROI;
-        c.quarter_stake_roi = QUARTER_STAKE_ROI;
-        c.month_multiplierx100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
-        c.quarter_multiplierx100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
-        c.bp_bonus_ratio = BP_BONUS_RATIO;
-        c.bp_bonus_divisor = BP_BONUS_DIVISOR;
-        c.bp_bonus_max = BP_BONUS_MAX;
-        c.min_stake = MIN_STAKE;
-      });
-    }
-    if (returntokens.amount > 0)
-    {
-        transfer(_self, c_itr->overflow, returntokens, "returned reset tokens"); // Send returned tokens to th$
-        print("returned to overflow, should not have been there: ", returntokens, "\n" );
+            c.month_stake_roi = MONTH_STAKE_ROI;
+            c.quarter_stake_roi = QUARTER_STAKE_ROI;
+            c.month_multiplierx100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
+            c.quarter_multiplierx100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;
+            c.bp_bonus_ratio = BP_BONUS_RATIO;
+            c.bp_bonus_divisor = BP_BONUS_DIVISOR;
+            c.bp_bonus_max = BP_BONUS_MAX;
+            c.min_stake = MIN_STAKE;
+        });
     }
 }
 
