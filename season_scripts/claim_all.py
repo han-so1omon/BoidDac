@@ -4,13 +4,13 @@ from config import *
 from accounts import *
 
 # get all staked accounts
-accts = get_accounts()
-staked_accts = []
-print(len(accts))
-sys.exit()
-#for acct in accts:
+staked_accts = get_accounts(temp_filename=STAKED_ACCTS_FILE)
+print('staked_accts:')
+for acct in staked_accts:
+    print(acct)
 #    if ...:
 #        staked_accts.append(acct)
+sys.exit()
 
 # claim rewards for all staked accounts
 for acct in staked_accts():
