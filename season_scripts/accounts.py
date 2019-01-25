@@ -49,6 +49,7 @@ def get_accounts(limit=10000, temp_filename=ALL_ACCTS_FILE):
 		'curl --request POST --url ' + URL + '/v1/chain/get_table_by_scope' + \
 		' --data \'{\"code\":"%s", "table":"%s", ' % (OWNER, table) + \
 		'"limit":%d}\' > %s' % (limit, temp_filename)
+	print(cmd)
 	subprocess.run(cmd, shell=True)
 	accts_list = parse_accounts(temp_filename)
 	all_accts += accts_list
@@ -65,6 +66,7 @@ def get_accounts(limit=10000, temp_filename=ALL_ACCTS_FILE):
 			'curl --request POST --url ' + URL + '/v1/chain/get_table_by_scope' + \
 			' --data \'{\"code\":"%s", "table":"%s", ' % (OWNER, table) + \
 			'"lower_bound":"%s", "limit":%d}\' > %s' % (last_result, limit, temp_filename)
+		print(cmd)
 		subprocess.run(cmd, shell=True)
 		accts_list = parse_accounts(temp_filename)
 		if len(accts_list) == 1:
@@ -76,12 +78,61 @@ def get_accounts(limit=10000, temp_filename=ALL_ACCTS_FILE):
 	return all_accts
 
 
-# test getting all accounts
-all_accts = get_accounts(temp_filename=ALL_ACCTS_FILE)
-print('\nlen(all_accts) = %d\n' % len(all_accts))
+# # test getting all accounts
+# all_accts = get_accounts(temp_filename=ALL_ACCTS_FILE)
+# print('\nlen(all_accts) = %d\n' % len(all_accts))
 
 # test getting staked accounts
 staked_accts = get_accounts(temp_filename=STAKED_ACCTS_FILE)
 print('\nlen(staked_accts) = %d\n' % len(staked_accts))
 
 
+USER1 = "bbeeffdd1234"
+sym = "BOID"
+acct = USER1
+acct = "johnatboid11"
+#acct = "luke12341234"
+
+print('\n\nget_currency_balance')
+cmd = 'curl --request POST --url ' + URL + '/v1/chain/get_currency_balance' + \
+' --data \'{\"code\":"%s", "account":"%s", "symbol":"%s"}\'' % (OWNER, acct, sym)
+print(cmd)
+subprocess.run(cmd, shell=True)
+
+#scope = USER1
+#scope = "johnatboid11"
+#scope = "......24d5bo2"
+#scope = "luke12341234"
+scope = "boidcomtoken"
+# table = "accounts"
+# table = "stat"
+table = "stakes"
+print('\n\nget_table_rows')
+cmd = 'curl --request POST --url' + \
+' http://api.eosn.io/v1/chain/get_table_rows' + \
+' --data \'{"scope": "%s", "code":"%s",' % (scope, OWNER) + \
+' "table":"%s", "json":true}\'' % (table)
+print(cmd)
+subprocess.run(cmd, shell=True)
+print("\n")
+
+''' LOWER_BOUND = acct, and LIMIT = 1 DIDNT WORK
+#scope = USER1
+#scope = "johnatboid11"
+#scope = "......24d5bo2"
+#scope = "luke12341234"
+scope = "boidcomtoken"
+# table = "accounts"
+# table = "stat"
+table = "stakes"
+print('\n\nget_table_rows for just one account')
+#acct = "luke12341234"
+acct = "johnatboid11"
+cmd = 'curl --request POST --url' + \
+' http://api.eosn.io/v1/chain/get_table_rows' + \
+' --data \'{"scope": "%s", "code":"%s",' % (scope, OWNER) + \
+' "table":"%s", "json":true, "lower_bound":"%s", "limit":1}\'' % (table, acct)
+print(cmd)
+subprocess.run(cmd, shell=True)
+print("\n")
+'''

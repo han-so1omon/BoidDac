@@ -18,7 +18,7 @@ cmd = \
     'cleos --url ' + URL + \
     ' set contract ' + OWNER + ' ' + contract_dir + \
     ' boidtoken.wasm boidtoken.abi -p ' + OWNER +'@active'
-print('deploy cmd')
+print('deploy cmd:')
 print(cmd)
 subprocess.call(cmd, shell=True)
 
@@ -26,12 +26,7 @@ subprocess.call(cmd, shell=True)
 cmd = \
     'cleos --url ' + URL + \
     ' push action ' + OWNER + ' initstats \'{}\' -p ' + OWNER
-subprocess.call(cmd, shell=True)
-
-# set 'running' to 'on' in the contract
-cmd = \
-    'cleos --url ' + URL + \
-    ' push action ' + OWNER + \
-    ' running \'{"on_switch":"1"}\' -p ' + OWNER
+print('initstats cmd:')
+print(cmd)
 subprocess.call(cmd, shell=True)
 

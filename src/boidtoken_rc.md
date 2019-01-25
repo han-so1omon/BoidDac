@@ -27,16 +27,14 @@ The table below contains the `actions`, `inputs` and `input types` for the `{{ b
 |:--|:--|:--|
 | `{{ create }}` | `{{ issuer }}`<br/>`{{ maximum_supply }}` | `{{ name }}`<br/>`{{ asset }}` |
 | `{{ issue }}` | `{{ to }}`<br/>`{{ quantity }}`<br/>`{{ memo }}` | `{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |
-| `{{ stake }}` | `{{ _stake_account }}`<br/>`{{ _stake_period }}`<br/>`{{ _staked }}` | `{{ name }}`<br/>`{{ uint8_t }}`<br/>`{{ asset }}` |
+| `{{ stake }}` | `{{ _stake_account }}`<br/>`{{ _staked }}` | `{{ name }}`<br/>`{{ asset }}` |
+| `{{ stakebreak }}` | `{{ _stake_account }}`<br/>`{{ on_switch }}` | `{{ name }}`<br/>`{{ uint8_t }}` |
 | `{{ unstake }}` | `{{ _stake_account }}` | `{{ const name }}` |
 | `{{ transfer }}` | `{{ from }}`<br/>`{{ to }}`<br/>`{{ quantity }}`<br/>`{{ memo }}` | `{{ name }}`<br/>`{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |
 | `{{ setoverflow }}` | `{{ _overflow }}` | `{{ name }}` |
-| `{{ running }}` | `{{ on_switch }}` | `{{ uint8_t }}` |
-| `{{ claim }}` | `{{ _stake_account }}` | `{{ const name }}` |
 | `{{ initstats }}` | `{{  }}` | `{{  }}` |
 | `{{ setnewbp }}` | `{{ acct }}`<br/>`{{ boidpower }}` | `{{ name }}`<br/>`{{ uint32_t }}` |
-| `{{ setmonth }}` | `{{ month }}` | `{{ float }}` |
-| `{{ setquarter }}` | `{{ quarter }}` | `{{ float }}` |
+| `{{ setroi }}` | `{{ month_stake_roi }}` | `{{ float }}` |
 | `{{ setbpratio }}` | `{{ bp_bonus_ratio }}` | `{{ float }}` |
 | `{{ setbpdiv }}` | `{{ bp_bonus_divisor }}` | `{{ float }}` |
 | `{{ setbpmax }}` | `{{ bp_bonus_max }}` | `{{ float }}` |

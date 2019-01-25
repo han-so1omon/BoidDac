@@ -53,10 +53,6 @@ CONTRACT boidtoken : public contract
      */
     ACTION transfer(name from, name to, asset quantity, string memo);
 
-    /** \brief Specify contract run state to contract config table.
-     */
-    ACTION running(uint8_t on_switch);
-
     /** \brief enable/disable staking and unstaking for users with stake break equals true/false respectively.
      */
     ACTION stakebreak(uint8_t on_switch);
@@ -70,16 +66,15 @@ CONTRACT boidtoken : public contract
      *  - Specify amount staked
      *    -- Token type must be same as type to-be-staked via this contract
      */
-    ACTION stake(name _stake_account, uint8_t _stake_period, asset _staked);
+    ACTION stake(name _stake_account, asset _staked);
 
     /** \brief broadcast blockchain to message
      */
     ACTION sendmessage(name acct, string memo);
 
-
     /** \brief Claim token-staking bonus for specified staked account
      */
-    ACTION claim(const name _stake_account);
+    // ACTION claim(const name _stake_account);
 
     /** \brief Unstake tokens for specified _stake_account
      *
@@ -95,13 +90,13 @@ CONTRACT boidtoken : public contract
      */
     ACTION setnewbp(const name acct, const float boidpower);
 
-    /** \brief Set new month stake roi
+    /** \brief set auto restake
      */
-    ACTION setmonth(const float month_stake_roi);
+    ACTION setautostake(name _stake_account, uint8_t on_switch);
 
-    /** \brief Set new quarter stake roi
+    /** \brief Set new ROI percentage over 1 month period
      */
-    ACTION setquarter(const float quarter_stake_roi);
+    ACTION setroi(const float month_stake_roi);
 
     /** \brief Set new bp bonus ratio
      */
@@ -135,16 +130,14 @@ CONTRACT boidtoken : public contract
   private:
 
     float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BP_BONUS_RATIO to qualify for boidpower bonus
-    float     BP_BONUS_DIVISOR = 1000000.0; //0.000000001; //0.000001;  // boidpower bonus = (boidpower * boidstaked) / BP_BONUS_DIVISOR
-    float     BP_BONUS_MAX = 10000.0; //50000.0;  // bonus is hardcapped at BP_BONUS_MAX
+    float     BP_BONUS_DIVISOR = 1000000.0;  // boidpower bonus = (boidpower * boidstaked) / BP_BONUS_DIVISOR
+    float     BP_BONUS_MAX = 10000.0;  // bonus is hardcapped at BP_BONUS_MAX
     float     MIN_STAKE = 100000.0;  // minimum amount of boidtokens a user can stake
 
     float     NUM_PAYOUTS_PER_MONTH = 4;  // payout on a weekly basis
 
-    float     MONTH_STAKE_ROI = 0.50;  // percentage Return On Investment for a 1 month stake over a 1 month period
-    float     QUARTER_STAKE_ROI = 0.75;  // percentage Return on Investment for a 1 quarter stake over a 1 month period
-    float     MONTH_MULTIPLIERX100   = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;    // multiplier in actual reward equation
-    float     QUARTER_MULTIPLIERX100 = QUARTER_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;  // multiplier in actual reward equation
+    float     MONTH_STAKE_ROI = 0.50;  // percentage Return On Investment over a 1 month period for staking
+    float     MONTH_MULTIPLIERX100 = MONTH_STAKE_ROI / NUM_PAYOUTS_PER_MONTH;    // multiplier in actual reward equation
 
     const uint8_t   MONTHLY = 1;
     const uint8_t   QUARTERLY = 2;
@@ -162,34 +155,29 @@ CONTRACT boidtoken : public contract
 
     TABLE config {
         uint64_t        config_id;
-        uint8_t         running;
         uint8_t         stakebreak;  // toggle ability to stake
         asset           bonus;
 
         // bookkeeping:
         uint32_t        active_accounts;
-        asset           staked_monthly;
-        asset           staked_quarterly;
         asset           total_staked;
 
 	// staking reward equation vars:
         float           month_stake_roi;
-        float           quarter_stake_roi;
         float           month_multiplierx100;
-        float           quarter_multiplierx100;
         float           bp_bonus_ratio;
         float           bp_bonus_divisor;
         float           bp_bonus_max;
         float           min_stake;
+        uint32_t        payout_date;
 
         uint64_t    primary_key() const { return config_id; }
 
         EOSLIB_SERIALIZE (config,
-          (config_id)(running)(stakebreak)(bonus)
-          (active_accounts)(staked_monthly)(staked_quarterly)
-          (total_staked)(month_stake_roi)(quarter_stake_roi)
-          (month_multiplierx100)(quarter_multiplierx100)
-          (bp_bonus_ratio)(bp_bonus_divisor)(bp_bonus_max)(min_stake));
+          (config_id)(stakebreak)(bonus)(active_accounts)
+          (total_staked)(month_stake_roi)(month_multiplierx100)
+          (bp_bonus_ratio)(bp_bonus_divisor)(bp_bonus_max)
+          (min_stake)(payout_date));
     };
 
     typedef eosio::multi_index<"configs"_n, config> config_table;
@@ -218,14 +206,12 @@ CONTRACT boidtoken : public contract
 
     TABLE stakerow {
         name            stake_account;
-        uint8_t         stake_period;
         asset           staked;
-        uint32_t        stake_date;
-        uint32_t        stake_due;
+        bool            auto_stake;  // toggle if we want to unstake stake_account at end of season
 
         uint64_t        primary_key () const { return stake_account.value; }
 
-        EOSLIB_SERIALIZE (stakerow, (stake_account)(stake_period)(staked)(stake_date)(stake_due));
+        EOSLIB_SERIALIZE (stakerow, (stake_account)(staked)(auto_stake));
     };
 
     typedef eosio::multi_index<"stakes"_n, stakerow> staketable;
@@ -282,6 +268,21 @@ float boidtoken::get_boidpower(name owner) const
   return 0;
 }
 
-//EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(running)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
-EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(running)(stakebreak)(stake)(claim)(unstake)(initstats)(setnewbp)(setmonth)(setquarter)(setbpratio)(setbpmax)(setminstake))
+//EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
+EOSIO_DISPATCH(boidtoken,
+    (create)
+    (issue)
+    (transfer)
+    (stakebreak)
+    (stake)
+    // (claim)
+    (unstake)
+    (initstats)
+    (setnewbp)
+    (setroi)
+    (setbpratio)
+    (setbpdiv)
+    (setbpmax)
+    (setminstake)
+)
 

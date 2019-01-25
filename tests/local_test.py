@@ -21,20 +21,14 @@ INIT_BOIDSTAKE  = 10000000.0  # initial boid tokens staked by each account (must
 ############# Must also modify in boidtoken.hpp ##############
 # TESTING Speeds Only
 WEEK_WAIT    = 1
-MONTH_WAIT   = 1 * 30
-QUARTER_WAIT = 1 * 30 * 4
-MONTHLY   = 1
-QUARTERLY = 2
+
 ##############################################################
-STAKE_PERIODS = [MONTHLY, QUARTERLY]
-STAKE_PERIOD_STRINGS = ['Month', 'Quarter']
 
 BOID_TOKEN_CONTRACT_PATH = \
      os.path.abspath(
          os.path.join(
              os.path.dirname(os.path.abspath(__file__)),
              '..'))
-
 
 ##########################################################################################
 
@@ -44,8 +38,7 @@ BOID_TOKEN_CONTRACT_PATH = \
 # @param permission  The permission name to set/delete an authority for
 # @param authority  NULL, public key, JSON string, or filename defining the authority
 # @param parent  The permission name of this parents permission (Defaults to "active")
-def setAccountPermission(account, permission, authority, parent,
-        json=False, code=False):
+def setAccountPermission(account, permission, authority, parent, json=False, code=False):
     if json: json = '--json'
     else: json = ''
     if code: code = '--add-code'
@@ -59,8 +52,7 @@ def setAccountPermission(account, permission, authority, parent,
 # @param contract  The account that owns the code for the action
 # @param actionName  The type of the action
 # @param permissionName  The permission name required for executing the given action 
-def setActionPermission(
-        account, contract, actionName, permissionName):
+def setActionPermission(account, contract, actionName, permissionName):
     permissionCmd = \
             'cleos set action permission {0} {1} {2} {3} -p {0}@active'.format(
                         account, contract, actionName, permissionName)
@@ -83,13 +75,13 @@ transferPermission = lambda x,y:\
         ]\
     }}\''.format(x,y)
 
-def stake(acct, amount, stake_period):
+def stake(acct, amount, memo):
     boidToken_c.push_action(
         'stake',
         {
             '_stake_account': acct,
-            '_stake_period': stake_period,
-            '_staked': amount
+            '_staked': amount,
+            'memo': memo
         }, permission=[acct]
     )
 
@@ -101,12 +93,13 @@ def claim(acct):
         }, permission = [boid_token] #, forceUnique=1)
     )
 
-def unstake(acct):
+def unstake(acct, acct_perm, memo):
     boidToken_c.push_action(
         'unstake',
         {
             '_stake_account': acct,
-        }, permission=[boid_token]
+            'memo': memo
+        }, permission=[acct_perm]
     )
 
 def initStaking():
@@ -114,11 +107,6 @@ def initStaking():
     boidToken_c.push_action(
         'initstats',
         '{}', [boid_token])
-    boidToken_c.push_action(  # running - sets payouts to on
-        'running',
-        {
-            'on_switch': '1',
-        }, [boid_token])
     stakebreak('1')
 
 def stakebreak(on_switch):
@@ -136,7 +124,6 @@ def setBoidpower(acct, bp):
             'boidpower': bp
         }, [boid_token, acct])
 
-
 def getBalance(x):
     if len(x.json['rows']) > 0:
         return float(x.json['rows'][0]['balance'].split()[0])
@@ -148,7 +135,7 @@ def getStakeParams(x):
     for i in range(len(x.json['rows'])):
         ret[x.json['rows'][i]['stake_account']] = \
             {
-             'stake_period': x.json['rows'][i]['stake_period'],
+             'auto_stake': x.json['rows'][i]['auto_stake'],
              'staked': x.json['rows'][i]['staked']
             }
     return ret
@@ -161,13 +148,13 @@ def getBoidpowers(x):
 
 def get_state(contract, contract_owner, accts, dfs, p=False):
 
+    stake_params = getStakeParams(contract.table('stakes',contract_owner))
+    bps = getBoidpowers(contract.table('boidpowers', contract_owner))
     for account_num, acct in enumerate(accts):
         account = 'account%d' % (account_num + 1)
         acct_balance = getBalance(contract.table("accounts", acct))
-        stake_params = getStakeParams(contract.table('stakes',contract_owner))
         staked_tokens = float(stake_params[account]['staked'].split()[0]) \
             if account in stake_params.keys() else 0.0
-        bps = getBoidpowers(contract.table('boidpowers', contract_owner))
         acct_bp = float(bps[account]) if account in bps.keys() else 0.0
         dfs[account_num] = dfs[account_num].append({
             'boid_power': acct_bp,
@@ -288,45 +275,61 @@ if __name__ == '__main__':
     initStaking()  # setup
 #    # test setters
 #    boidToken_c.push_action('setmonth', {'month_stake_roi':'1.2'}, [boid_token])
-#    boidToken_c.push_action('setquarter', {'quarter_stake_roi':'1.5'}, [boid_token])
 #    boidToken_c.push_action('setbpratio', {'bp_bonus_ratio':'0.0002'}, [boid_token])
 #    boidToken_c.push_action('setbpmult', {'bp_bonus_multiplier':'0.000002'}, [boid_token])
 #    boidToken_c.push_action('setbpmax', {'bp_bonus_max':'55000.0'}, [boid_token])
 #    boidToken_c.push_action('setminstake', {'min_stake':'5000.0'}, [boid_token])
-    for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake boid tokens
-        stake(acct, '%.4f BOID' % INIT_BOIDSTAKE, str(stake_period))
+    
+    # stake boid tokens
+    stake(acct1, '%.4f BOID' % INIT_BOIDSTAKE, "memo")
+    boidToken_c.push_action(
+        'setautostake',
+        {
+            '_stake_account': acct1,
+            'on_switch': '1'
+        }, [acct1])
+    
+    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo1")
+    unstake(acct2, acct2, "memo1")
+    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo2")
+    unstake(acct2, acct2, "memo2")
+    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo3")
+
     stakebreak('0')  # disable staking, stakebreak is over
 
-    # run test over time
-    dfs = get_state(boidToken_c, boid_token, accts, dfs)
-    for t in range(TEST_DURATION):
-#        if t+1 > 1:  # testing exit
-#            eosf.stop()
-#            sys.exit()
-        time.sleep(WEEK_WAIT)
-        print('\n/-------------------- week %d --------------------------------\\' % (t+1))
-        for i, acct in enumerate(accts):
-            print('acct %d' % (i+1))
-            claim(acct)
-        dfs = get_state(boidToken_c, boid_token, accts, dfs)
-        print('\\--------------------- week %d ---------------------------------/' % (t+1))
-    dfs = get_stake_roi(dfs)
-    dfs = get_total_roi(dfs)
+#     # run test over time
+#     dfs = get_state(boidToken_c, boid_token, accts, dfs)
+#     for t in range(TEST_DURATION):
+# #        if t+1 > 1:  # testing exit
+# #            eosf.stop()
+# #            sys.exit()
+#         time.sleep(WEEK_WAIT)
+#         print('\n/-------------------- week %d --------------------------------\\' % (t+1))
+#         for i, acct in enumerate(accts):
+#             print('acct %d' % (i+1))
+#             claim(acct)
+#         dfs = get_state(boidToken_c, boid_token, accts, dfs)
+#         print('\\--------------------- week %d ---------------------------------/' % (t+1))
+#     dfs = get_stake_roi(dfs)
+#     dfs = get_total_roi(dfs)
 
     # unstake the staked tokens of each account
     for acct in accts:
-        unstake(acct)
+        unstake(acct, boid_token, "memo")
 
-    # output test results, and save them to csv files if prompted
-    print_acct_dfs(dfs)
-    if args.save:
-        save_loc = os.path.join(
-            BOID_TOKEN_CONTRACT_PATH,
-            'tests',
-            'results')
-        for acct, df in zip(accts, dfs):
-            file_loc = os.path.join(save_loc, acct.name + '_df')
-            df.to_csv(file_loc)
+    # end season
+    stakebreak('1')
+
+    # # output test results, and save them to csv files if prompted
+    # print_acct_dfs(dfs)
+    # if args.save:
+    #     save_loc = os.path.join(
+    #         BOID_TOKEN_CONTRACT_PATH,
+    #         'tests',
+    #         'results')
+    #     for acct, df in zip(accts, dfs):
+    #         file_loc = os.path.join(save_loc, acct.name + '_df')
+    #         df.to_csv(file_loc)
 
     # stop the testnet and exit python
     eosf.stop()
