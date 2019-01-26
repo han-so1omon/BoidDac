@@ -101,6 +101,21 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
     eosio_assert(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
 
+    // cannot transfer staked tokens
+    accounts from_acnts(_self, from.value);
+    const auto &f = from_acnts.get(sym.code().raw(), "no balance object found");
+    staketable s_t(_self, _self.value);
+    auto s_itr = s_t.find(from.value);
+    if (s_itr != s_t.end()) {
+        print("f.balance.amount = "); print(f.balance.amount); print("\n");
+        print("s_itr->staked.amount = "); print(s_itr->staked.amount); print("\n");
+        print("quantity.amount = "); print(quantity.amount); print("\n");
+        eosio_assert(f.balance.amount - s_itr->staked.amount >= quantity.amount,
+            "cannot transfer staked tokens");
+    } else {
+        print("no stake");
+    }
+
     sub_balance(from, quantity, from, false);
     add_balance(to, quantity, from, false);
 }
@@ -193,7 +208,12 @@ void boidtoken::stake(name _stake_account, asset _staked)
     });
 
     // user pays for RAM if they are'nt already
-    sub_balance(_stake_account, _staked, _stake_account, true);
+    sub_balance(
+        _stake_account,
+        asset{0, symbol("BOID", 4)},
+        _stake_account,
+        true);
+    // sub_balance(_stake_account, _staked, _stake_account, true);
 }
 
 void boidtoken::sendmessage(name acct, string memo)
@@ -295,13 +315,15 @@ void boidtoken::unstake(name _stake_account)
         c.active_accounts -= 1;
         c.total_staked.amount -= s_itr->staked.amount;
     });
+
     // move staked tokens back to the unstaked account
-    // and erase staked account from stake table
-    add_balance(
-        _stake_account,
-        s_itr->staked,
-        _stake_account,
-        true);
+    //add_balance(
+    //    _stake_account,
+    //    s_itr->staked,
+    //    _stake_account,
+    //    true);
+
+    // erase staked account from stake table
     s_t.erase(s_itr);
 }
 

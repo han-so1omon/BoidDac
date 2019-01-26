@@ -1,1 +1,0 @@
-{"rows":[{"code":"boidcomtoken","scope":"zzzzzzz11111","table":"accounts","payer":"gm2dqobxg4ge","count":1}],"more":""}

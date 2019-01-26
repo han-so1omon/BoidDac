@@ -29,10 +29,8 @@ def parse_accounts(temp_filename):
 	j = json.load(f)
 	rows = j['rows']
 	for row in rows:
-		print('row')
-		print(row)
+		print('row: %s' % row)
 		acct = row['scope']
-		print(acct)
 		accts_list.append(acct)
 	return accts_list
 
@@ -58,7 +56,7 @@ def get_accounts(limit=10000, temp_filename=ALL_ACCTS_FILE):
 	else:
 		return all_accts
 
-	# subsequent queris use the last result of the previous queri
+	# subsequent queries use the last_result of the previous queri
 	# as the lower_bound of the next queri
 	while True:
 		# print('last_result = ' + last_result)
@@ -78,20 +76,21 @@ def get_accounts(limit=10000, temp_filename=ALL_ACCTS_FILE):
 	return all_accts
 
 
-# # test getting all accounts
-# all_accts = get_accounts(temp_filename=ALL_ACCTS_FILE)
-# print('\nlen(all_accts) = %d\n' % len(all_accts))
+# test getting all accounts
+#all_accts = get_accounts(temp_filename=ALL_ACCTS_FILE)
+#print('\nlen(all_accts) = %d\n' % len(all_accts))
 
 # test getting staked accounts
 staked_accts = get_accounts(temp_filename=STAKED_ACCTS_FILE)
 print('\nlen(staked_accts) = %d\n' % len(staked_accts))
 
+#sys.exit()
 
 USER1 = "bbeeffdd1234"
 sym = "BOID"
 acct = USER1
-acct = "johnatboid11"
-#acct = "luke12341234"
+#acct = "johnatboid11"
+acct = "luke12341234"
 
 print('\n\nget_currency_balance')
 cmd = 'curl --request POST --url ' + URL + '/v1/chain/get_currency_balance' + \
@@ -103,13 +102,14 @@ subprocess.run(cmd, shell=True)
 #scope = "johnatboid11"
 #scope = "......24d5bo2"
 #scope = "luke12341234"
-scope = "boidcomtoken"
+scope = OWNER #"boidcomtoken"
 # table = "accounts"
 # table = "stat"
 table = "stakes"
+
 print('\n\nget_table_rows')
-cmd = 'curl --request POST --url' + \
-' http://api.eosn.io/v1/chain/get_table_rows' + \
+cmd = 'curl --request POST --url ' + URL + \
+'/v1/chain/get_table_rows' + \
 ' --data \'{"scope": "%s", "code":"%s",' % (scope, OWNER) + \
 ' "table":"%s", "json":true}\'' % (table)
 print(cmd)
@@ -128,8 +128,8 @@ table = "stakes"
 print('\n\nget_table_rows for just one account')
 #acct = "luke12341234"
 acct = "johnatboid11"
-cmd = 'curl --request POST --url' + \
-' http://api.eosn.io/v1/chain/get_table_rows' + \
+cmd = 'curl --request POST --url ' + URL + \
+'/v1/chain/get_table_rows' + \
 ' --data \'{"scope": "%s", "code":"%s",' % (scope, OWNER) + \
 ' "table":"%s", "json":true, "lower_bound":"%s", "limit":1}\'' % (table, acct)
 print(cmd)

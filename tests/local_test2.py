@@ -88,7 +88,6 @@ def stake(acct, amount, stake_period):
         'stake',
         {
             '_stake_account': acct,
-            '_stake_period': stake_period,
             '_staked': amount
         }, permission=[acct]
     )
@@ -114,11 +113,6 @@ def initStaking():
     boidToken_c.push_action(
         'initstats',
         '{}', [boid_token])
-    boidToken_c.push_action(  # running - sets payouts to on
-        'running',
-        {
-            'on_switch': '1',
-        }, [boid_token])
     stakebreak('1')
 
 def stakebreak(on_switch):
@@ -148,7 +142,7 @@ def getStakeParams(x):
     for i in range(len(x.json['rows'])):
         ret[x.json['rows'][i]['stake_account']] = \
             {
-             'stake_period': x.json['rows'][i]['stake_period'],
+             'auto_stake': x.json['rows'][i]['auto_stake'],
              'staked': x.json['rows'][i]['staked']
             }
     return ret
@@ -354,37 +348,6 @@ if __name__ == '__main__':
     for stake_period, acct in zip(STAKE_PERIODS, accts):  # stake boid tokens
         stake(acct, '%.4f BOID' % INIT_BOIDSTAKE, str(stake_period))
     stakebreak('0')  # disable staking, stakebreak is over
-
-    # run test over time
-    dfs = get_state(boidToken_c, boid_token, accts, dfs)
-    for t in range(TEST_DURATION):
-#        if t+1 > 1:  # testing exit
-#            eosf.stop()
-#            sys.exit()
-        time.sleep(WEEK_WAIT)
-        print('\n/-------------------- week %d --------------------------------\\' % (t+1))
-        for i, acct in enumerate(accts):
-            print('acct %d' % (i+1))
-            claim(acct)
-        dfs = get_state(boidToken_c, boid_token, accts, dfs)
-        print('\\--------------------- week %d ---------------------------------/' % (t+1))
-    dfs = get_stake_roi(dfs)
-    dfs = get_total_roi(dfs)
-
-    # unstake the staked tokens of each account
-    for acct in accts:
-        unstake(acct)
-
-    # output test results, and save them to csv files if prompted
-    print_acct_dfs(dfs)
-    if args.save:
-        save_loc = os.path.join(
-            BOID_TOKEN_CONTRACT_PATH,
-            'tests',
-            'results')
-        for acct, df in zip(accts, dfs):
-            file_loc = os.path.join(save_loc, acct.name + '_df')
-            df.to_csv(file_loc)
 
     # stop the testnet and exit python
     eosf.stop()
