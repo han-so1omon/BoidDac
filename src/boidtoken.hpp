@@ -7,8 +7,9 @@
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
 //#include <eosio.token/eosio.token.hpp>
+#include </home/luke/rooms/BOID/contracts/eosio.contracts/eosio.token/include/eosio.token/eosio.token.hpp>
 //#include </home/boid/eos/contracts/eosio.token/eosio.token.hpp>
-#include </home/boid/eosio.contracts/eosio.token/include/eosio.token/eosio.token.hpp>  // docker image
+//#include </home/boid/eosio.contracts/eosio.token/include/eosio.token/eosio.token.hpp>  // docker image
 #include <string>
 //#include <vector>
 #include <set>

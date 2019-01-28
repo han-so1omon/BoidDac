@@ -171,6 +171,10 @@ void boidtoken::stake(name _stake_account, asset _staked)
     eosio_assert(_staked.is_valid(), "invalid quantity");
     eosio_assert(_staked.amount > 0, "must transfer positive quantity");
 
+    // maximum stake amount
+    eosio_assert(_stake_account.balance.amount >= _staked.amount,
+        "staking more than available balance");
+
     // minumum stake amount
     uint8_t token_precision = sym.precision();
     float tokens_to_stake = (float)_staked.amount / pow(10, token_precision);
