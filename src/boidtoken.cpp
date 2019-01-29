@@ -157,7 +157,7 @@ void boidtoken::stakebreak(uint8_t on_switch)
  */
 void boidtoken::stake(name _stake_account, asset _staked)
 {
-    //print("stake\n");
+    print("stake\n");
     require_auth( _stake_account );
 
     config_table c_t (_self, _self.value);
@@ -216,7 +216,7 @@ void boidtoken::stake(name _stake_account, asset _staked)
         s_t.emplace(_stake_account, [&](auto &s) {
             s.stake_account = _stake_account;
             s.staked = _staked;
-            s.auto_stake = 1;
+            s.auto_stake = 0;
         });
     } else {  // account has staked already
         s_t.modify(s_itr, _stake_account, [&](auto &s) {
@@ -338,6 +338,7 @@ void boidtoken::unstake(name _stake_account, asset quantity)
     eosio_assert(sym == st.supply.symbol,
         "symbol precision mismatch");
 
+
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(_stake_account.value);
     eosio_assert(s_itr != s_t.end(), "stake account does not have any staked tokens");
@@ -427,18 +428,14 @@ void boidtoken::initstats()
     }
 }
 
-void boidtoken::setautostake(name _stake_account, uint8_t on_switch) {
-    print("heyo 1\n");
+void boidtoken::setautostake(name _stake_account, uint8_t on_switch)
+{
+    print("heyoooo");
     require_auth( _stake_account );
-    print("heyo 2\n");
     staketable s_t(_self, _self.value);
-    print("heyo 3\n");
     auto s_itr = s_t.find(_stake_account.value);
-    print("heyo 4\n");
     eosio_assert(s_itr != s_t.end(), "Account has not staked any tokens.");
-    print("heyo 5\n");
     s_t.modify(s_itr, _stake_account, [&](auto &a) {
-        print("hi\n");
         a.auto_stake = on_switch;
     });
 }

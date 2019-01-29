@@ -279,6 +279,7 @@ EOSIO_DISPATCH(boidtoken,
     (unstake)
     (initstats)
     (setnewbp)
+    (setautostake)
     (setroi)
     (setbpratio)
     (setbpdiv)
