@@ -81,7 +81,7 @@ CONTRACT boidtoken : public contract
      *
      *  - Unstake tokens for specified _stake_account
      */
-    ACTION unstake(const name _stake_account);
+    ACTION unstake(const name _stake_account, asset quantity);
 
     /** \brief Initialize config table
      */
@@ -163,7 +163,7 @@ CONTRACT boidtoken : public contract
         uint32_t        active_accounts;
         asset           total_staked;
 
-	// staking reward equation vars:
+        // staking reward equation vars:
         float           month_stake_roi;
         float           month_multiplierx100;
         float           bp_bonus_ratio;
@@ -193,14 +193,13 @@ CONTRACT boidtoken : public contract
 
     typedef eosio::multi_index<"accounts"_n, account> accounts;
 
-    TABLE boidpower
-    {
-      name acct;
-      float quantity;
+    TABLE boidpower {
+        name acct;
+        float quantity;
 
-      uint64_t primary_key() const { return acct.value; }
+        uint64_t primary_key() const { return acct.value; }
 
-      EOSLIB_SERIALIZE(boidpower, (acct)(quantity));
+        EOSLIB_SERIALIZE(boidpower, (acct)(quantity));
     };
 
     typedef eosio::multi_index<"boidpowers"_n, boidpower> boidpowers;
@@ -208,7 +207,7 @@ CONTRACT boidtoken : public contract
     TABLE stakerow {
         name            stake_account;
         asset           staked;
-        bool            auto_stake;  // toggle if we want to unstake stake_account at end of season
+        uint8_t         auto_stake;  // toggle if we want to unstake stake_account at end of season
 
         uint64_t        primary_key () const { return stake_account.value; }
 

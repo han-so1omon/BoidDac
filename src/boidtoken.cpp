@@ -165,30 +165,40 @@ void boidtoken::stake(name _stake_account, asset _staked)
     eosio_assert(c_itr->stakebreak != 0, "staking is only available during the season break, not mid-season.");
     eosio_assert(is_account(_stake_account), "stake account does not exist");
 
+    // verify valid and positive _stake amount
     auto sym = _staked.symbol;
     stats statstable(_self, sym.code().raw());
-    const auto &st = statstable.get(sym.code().raw());
     eosio_assert(_staked.is_valid(), "invalid quantity");
-    eosio_assert(_staked.amount > 0, "must transfer positive quantity");
+    eosio_assert(_staked.amount > 0, "must stake positive quantity");
+
+    // verify symbol and minimum stake amount
+    const auto &st = statstable.get(sym.code().raw());
+    eosio_assert(_staked.symbol == st.supply.symbol,
+        "symbol precision mismatch");
+    staketable s_t(_self, _self.value);
+    auto s_itr = s_t.find(_stake_account.value);
+    if(s_itr == s_t.end()) {  // Account hasn't staked yet
+        // minumum stake amount
+        uint8_t token_precision = sym.precision();
+        float tokens_to_stake = (float)_staked.amount / pow(10, token_precision);
+        string str = std::to_string(c_itr->min_stake);
+        str = str.substr(0, str.find('.') + 1 + token_precision);
+        const char * min_stake_str = (
+            "must stake a minimum stake of: " +
+            str + " BOID tokens").c_str();
+        eosio_assert(tokens_to_stake >= c_itr->min_stake, min_stake_str);
+    } // else the account has staked so we can be certain it is above the minimum
 
     // maximum stake amount
-    eosio_assert(_stake_account.balance.amount >= _staked.amount,
+    accounts accts(_self, _stake_account.value);
+    const auto &boid_acct = accts.get(_staked.symbol.code().raw(),
+        "no balance object found");
+    int64_t unstaked_tokens = boid_acct.balance.amount;
+    if (s_itr != s_t.end()) {  // if already staked
+        unstaked_tokens -= s_itr->staked.amount;
+    }
+    eosio_assert(unstaked_tokens >= _staked.amount,
         "staking more than available balance");
-
-    // minumum stake amount
-    uint8_t token_precision = sym.precision();
-    float tokens_to_stake = (float)_staked.amount / pow(10, token_precision);
-    string str = std::to_string(c_itr->min_stake);
-    str = str.substr(0, str.find('.') + 1 + token_precision);
-    const char * min_stake_str = (
-        "must stake a minimum stake of: " +
-        str + " BOID tokens").c_str();
-    eosio_assert(tokens_to_stake >= c_itr->min_stake, min_stake_str);
-
-    eosio_assert(_staked.symbol == st.supply.symbol, "symbol precision mismatch");
-    staketable s_t(_self, _self.value);
-    auto itr = s_t.find(_stake_account.value);
-    eosio_assert(itr == s_t.end(), "Account already has a stake. Must unstake first.");
 
     boidpowers bps(_self, _self.value);
     auto bp_acct = bps.find(_stake_account.value);
@@ -201,11 +211,20 @@ void boidtoken::stake(name _stake_account, asset _staked)
         });
     }  // else if they do have boidpower, just leave it the way it is
 
-    s_t.emplace(_stake_account, [&](auto &s) {
-        s.stake_account = _stake_account;
-        s.staked = _staked;
-        s.auto_stake = false;
-    });
+    // update stakes table
+    if(s_itr == s_t.end()) {  // account hasn't staked yet
+        s_t.emplace(_stake_account, [&](auto &s) {
+            s.stake_account = _stake_account;
+            s.staked = _staked;
+            s.auto_stake = 1;
+        });
+    } else {  // account has staked already
+        s_t.modify(s_itr, _stake_account, [&](auto &s) {
+            s.staked += _staked;
+        });
+    }
+
+    // book keeping
     c_t.modify(c_itr, _self, [&](auto &c) {
         c.active_accounts += 1;
         c.total_staked.amount += _staked.amount;
@@ -223,6 +242,7 @@ void boidtoken::stake(name _stake_account, asset _staked)
 void boidtoken::sendmessage(name acct, string memo)
 {
     require_auth(acct);
+    print(memo);
 }
 
 /* Claim token-staking bonus for specified account
@@ -300,9 +320,9 @@ void boidtoken::claim(name _stake_account)
 /* Unstake tokens for specified _stake_account
  *  - Unstake tokens for specified _stake_account
  */
-void boidtoken::unstake(name _stake_account)
+void boidtoken::unstake(name _stake_account, asset quantity)
 {
-    // print("unstake\n");
+    print("unstake\n");
     config_table c_t(_self, _self.value);
     auto c_itr = c_t.find(0);
     if (c_itr->stakebreak != 0) {
@@ -310,9 +330,33 @@ void boidtoken::unstake(name _stake_account)
     } else {
         require_auth( _self );
     }
+
+    // verify symbol
+    auto sym = quantity.symbol;
+    stats statstable(_self, sym.code().raw());
+    const auto &st = statstable.get(sym.code().raw());
+    eosio_assert(sym == st.supply.symbol,
+        "symbol precision mismatch");
+
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(_stake_account.value);
     eosio_assert(s_itr != s_t.end(), "stake account does not have any staked tokens");
+
+    print("s_itr->auto_stake = "); print(s_itr->auto_stake);
+
+    eosio_assert(quantity.is_valid(), "invalid quantity");
+    eosio_assert(quantity.amount > 0, "must unstake positive quantity");
+
+    // verify the unstake quantity either decreases the number of
+    // staked tokens to more than the minimum stake amount, or to zero
+    uint8_t token_precision = sym.precision();
+    uint64_t amount_after = float(s_itr->staked.amount - quantity.amount) / pow(10, token_precision);
+    string str = std::to_string(c_itr->min_stake);
+    str = str.substr(0, str.find('.') + 1 + token_precision);
+    const char * valid_unstake_str = (
+        "amount staked after unstaking must be zero or equal to or greater than " +
+        str + " BOID tokens").c_str();
+    eosio_assert(amount_after >= c_itr->min_stake || amount_after <= 0.0, valid_unstake_str);
 
     // bookkeeping on the config table to keep the staked amounts correct
     c_t.modify(c_itr, _self, [&](auto &c) {
@@ -326,9 +370,14 @@ void boidtoken::unstake(name _stake_account)
     //    s_itr->staked,
     //    _stake_account,
     //    true);
-
-    // erase staked account from stake table
-    s_t.erase(s_itr);
+    if (amount_after >= c_itr->min_stake) {
+        s_t.modify(s_itr, _stake_account, [&](auto &s) {
+            s.staked -= quantity;
+        });
+    } else {  // else its less than the min stake
+        // so erase the _staked_account from the stake table
+        s_t.erase(s_itr);
+    }
 }
 
 /* Initialize config table
@@ -379,11 +428,17 @@ void boidtoken::initstats()
 }
 
 void boidtoken::setautostake(name _stake_account, uint8_t on_switch) {
+    print("heyo 1\n");
     require_auth( _stake_account );
+    print("heyo 2\n");
     staketable s_t(_self, _self.value);
+    print("heyo 3\n");
     auto s_itr = s_t.find(_stake_account.value);
+    print("heyo 4\n");
     eosio_assert(s_itr != s_t.end(), "Account has not staked any tokens.");
-    s_t.modify(s_itr, _self, [&](auto &a) {
+    print("heyo 5\n");
+    s_t.modify(s_itr, _stake_account, [&](auto &a) {
+        print("hi\n");
         a.auto_stake = on_switch;
     });
 }
@@ -392,10 +447,10 @@ void boidtoken::setnewbp(name acct, float boidpower) {
     require_auth( _self );
     boidpowers bps(_self, _self.value);
     auto bp_acct = bps.find(acct.value);
-//    print("A3");
+    // print("A3");
     if (bp_acct == bps.end())
     {
-//        print("B3");
+        // print("B3");
         bps.emplace(acct, [&](auto &a) {
             a.acct = acct;
             a.quantity = boidpower;
@@ -403,12 +458,12 @@ void boidtoken::setnewbp(name acct, float boidpower) {
     }
     else
     {
-//        print("C3");
+        // print("C3");
         bps.modify(bp_acct, acct, [&](auto &a) {
             a.quantity = boidpower;
         });
     }
-//    print("D3");
+    // print("D3");
 }
 
 void boidtoken::setroi(float month_stake_roi)

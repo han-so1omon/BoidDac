@@ -93,23 +93,25 @@ def claim(acct):
         }, permission = [boid_token] #, forceUnique=1)
     )
 
-def unstake(acct, acct_perm, memo):
+def unstake(acct, quantity, memo, acct_perm):
     boidToken_c.push_action(
         'unstake',
         {
             '_stake_account': acct,
+            'quantity': quantity,
             'memo': memo
         }, permission=[acct_perm]
     )
 
 def initStaking():
-    # initstats - reset/setup configuration of contract
+    print('\ninitstats - reset/setup configuration of contract')
     boidToken_c.push_action(
         'initstats',
         '{}', [boid_token])
     stakebreak('1')
 
 def stakebreak(on_switch):
+    print('\nsetting stakebreak to %s' % on_switch)
     boidToken_c.push_action(  # stakebreak - activate/deactivate staking for users
         'stakebreak',
         {
@@ -122,7 +124,7 @@ def setBoidpower(acct, bp):
         {
             'acct': acct,
             'boidpower': bp
-        }, [boid_token, acct])
+        }, [boid_token])
 
 def getBalance(x):
     if len(x.json['rows']) > 0:
@@ -252,7 +254,7 @@ if __name__ == '__main__':
     ########## (aka actions) from the contract! ##########
 
 
-    # Set up boid_token account as issuer of BOID
+    print('\nCreate tokens and set boid_token account as issuer of BOID')
     boidToken_c.push_action(
         'create',
         {
@@ -260,7 +262,7 @@ if __name__ == '__main__':
             'maximum_supply': '1000000000.0000 BOID'
         }, [boid_token])
 
-    # issue tokens to accts
+    print('\nissue tokens to accts')
     for acct in accts:
         boidToken_c.push_action(
             'issue',
@@ -270,8 +272,6 @@ if __name__ == '__main__':
                 'memo': 'memo'
             }, [boid_token])
 
-    for acct in accts:  # set bp for accounts
-        setBoidpower(acct, INIT_BOIDPOWER)
     initStaking()  # setup
 #    # test setters
 #    boidToken_c.push_action('setmonth', {'month_stake_roi':'1.2'}, [boid_token])
@@ -280,22 +280,33 @@ if __name__ == '__main__':
 #    boidToken_c.push_action('setbpmax', {'bp_bonus_max':'55000.0'}, [boid_token])
 #    boidToken_c.push_action('setminstake', {'min_stake':'5000.0'}, [boid_token])
     
-    # stake boid tokens
-    stake(acct1, '%.4f BOID' % INIT_BOIDSTAKE, "memo")
+    print('\nStake boid tokens:')
+    stake(acct1, '%.4f BOID' % INIT_BOIDSTAKE, "memo1")
+
+    stake_params = getStakeParams(boidToken_c.table('stakes', boid_token))
+    print(stake_params)
     boidToken_c.push_action(
         'setautostake',
         {
             '_stake_account': acct1,
             'on_switch': '1'
         }, [acct1])
+    stake_params = getStakeParams(boidToken_c.table('stakes', boid_token))
+    print(stake_params)
     
-    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo1")
-    unstake(acct2, acct2, "memo1")
     stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo2")
-    unstake(acct2, acct2, "memo2")
-    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo3")
+    #### commented out b/c duplicate transaction error ####
+    # print(' ... test user unstake')
+    # unstake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo1", acct2)
+    # stake(acct2,   '%.4f BOID' % INIT_BOIDSTAKE, "memo2")
+    # unstake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo2", acct2)
+    # stake(acct2,   '%.4f BOID' % INIT_BOIDSTAKE, "memo3")
 
     stakebreak('0')  # disable staking, stakebreak is over
+
+    print('\nsetting boid power')
+    for acct in accts:  # set bp for accounts
+        setBoidpower(acct, INIT_BOIDPOWER)
 
 #     # run test over time
 #     dfs = get_state(boidToken_c, boid_token, accts, dfs)
@@ -314,8 +325,19 @@ if __name__ == '__main__':
 #     dfs = get_total_roi(dfs)
 
     # unstake the staked tokens of each account
+    print('\nunstaking accounts with auto_stake = 0')
+    stake_params = getStakeParams(boidToken_c.table('stakes',boid_token))
+    print(stake_params)
     for acct in accts:
-        unstake(acct, boid_token, "memo")
+        print(stake_params[str(acct)]['auto_stake'])
+        auto_stake = stake_params[str(acct)]['auto_stake']
+        if auto_stake == False:
+            unstake(
+                acct,
+                '%.4f BOID' % INIT_BOIDSTAKE,
+                "memo",
+                boid_token
+            )
 
     # end season
     stakebreak('1')
