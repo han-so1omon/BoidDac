@@ -107,14 +107,14 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(from.value);
     if (s_itr != s_t.end()) {
-        print("f.balance.amount = "); print(f.balance.amount); print("\n");
-        print("s_itr->staked.amount = "); print(s_itr->staked.amount); print("\n");
-        print("quantity.amount = "); print(quantity.amount); print("\n");
+        // print("f.balance.amount = "); print(f.balance.amount); print("\n");
+        // print("s_itr->staked.amount = "); print(s_itr->staked.amount); print("\n");
+        // print("quantity.amount = "); print(quantity.amount); print("\n");
         eosio_assert(f.balance.amount - s_itr->staked.amount >= quantity.amount,
             "cannot transfer staked tokens");
-    } else {
-        print("no stake");
-    }
+    } // else {
+    //     print("no stake");
+    // }
 
     sub_balance(from, quantity, from, false);
     add_balance(to, quantity, from, false);
@@ -342,8 +342,6 @@ void boidtoken::unstake(name _stake_account, asset quantity)
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(_stake_account.value);
     eosio_assert(s_itr != s_t.end(), "stake account does not have any staked tokens");
-
-    print("s_itr->auto_stake = "); print(s_itr->auto_stake);
 
     eosio_assert(quantity.is_valid(), "invalid quantity");
     eosio_assert(quantity.amount > 0, "must unstake positive quantity");

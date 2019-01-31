@@ -4,8 +4,8 @@
 # https://validate.eosnation.io/reports/endpoints.html
 
 ############ Jungle Testnet ###################
-#URL = 'https://jungle.eosio.cr:443'  # jungle test net
-URL = 'https://api.jungle.alohaeos.com'
+#URL = 'https://jungle.eosio.cr:443'
+URL = 'http://bp4-d3.eos42.io:8888'
 OWNER = 'we3i5kdsdo12' # EOS account that owns the boidtoken contract
 WALLET_PASSWORD = '/home/luke/rooms/BOID/jungle_testnet/wallet_password.txt'
 WALLET_NAME = 'testnet_wallet'

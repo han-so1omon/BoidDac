@@ -275,6 +275,7 @@ EOSIO_DISPATCH(boidtoken,
     (transfer)
     (stakebreak)
     (stake)
+    (sendmessage)
     // (claim)
     (unstake)
     (initstats)

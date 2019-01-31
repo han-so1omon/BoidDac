@@ -75,13 +75,12 @@ transferPermission = lambda x,y:\
         ]\
     }}\''.format(x,y)
 
-def stake(acct, amount, memo):
+def stake(acct, amount):
     boidToken_c.push_action(
         'stake',
         {
             '_stake_account': acct,
-            '_staked': amount,
-            'memo': memo
+            '_staked': amount
         }, permission=[acct]
     )
 
@@ -93,13 +92,12 @@ def claim(acct):
         }, permission = [boid_token] #, forceUnique=1)
     )
 
-def unstake(acct, quantity, memo, acct_perm):
+def unstake(acct, quantity, acct_perm):
     boidToken_c.push_action(
         'unstake',
         {
             '_stake_account': acct,
-            'quantity': quantity,
-            'memo': memo
+            'quantity': quantity
         }, permission=[acct_perm]
     )
 
@@ -281,7 +279,7 @@ if __name__ == '__main__':
 #    boidToken_c.push_action('setminstake', {'min_stake':'5000.0'}, [boid_token])
     
     print('\nStake boid tokens:')
-    stake(acct1, '%.4f BOID' % INIT_BOIDSTAKE, "memo1")
+    stake(acct1, '%.4f BOID' % INIT_BOIDSTAKE)
 
     stake_params = getStakeParams(boidToken_c.table('stakes', boid_token))
     print(stake_params)
@@ -294,13 +292,13 @@ if __name__ == '__main__':
     stake_params = getStakeParams(boidToken_c.table('stakes', boid_token))
     print(stake_params)
     
-    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo2")
+    stake(acct2, '%.4f BOID' % INIT_BOIDSTAKE)
     #### commented out b/c duplicate transaction error ####
     # print(' ... test user unstake')
-    # unstake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo1", acct2)
-    # stake(acct2,   '%.4f BOID' % INIT_BOIDSTAKE, "memo2")
-    # unstake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, "memo2", acct2)
-    # stake(acct2,   '%.4f BOID' % INIT_BOIDSTAKE, "memo3")
+    # unstake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, acct2)
+    # stake(acct2,   '%.4f BOID' % INIT_BOIDSTAKE)
+    # unstake(acct2, '%.4f BOID' % INIT_BOIDSTAKE, acct2)
+    # stake(acct2,   '%.4f BOID' % INIT_BOIDSTAKE)
 
     stakebreak('0')  # disable staking, stakebreak is over
 
@@ -335,7 +333,6 @@ if __name__ == '__main__':
             unstake(
                 acct,
                 '%.4f BOID' % INIT_BOIDSTAKE,
-                "memo",
                 boid_token
             )
 
