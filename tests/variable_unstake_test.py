@@ -63,6 +63,13 @@ def acct_has_staked_tokens(contract, acct):
     stake_params = getStakeParams(contract.table('stakes', master))
     return str(acct) in stake_params.keys()
 
+# return the number of staked tokens
+def num_staked_tokens(contract, acct):
+    stake_params = getStakeParams(contract.table('stakes', master))
+    if str(acct) in stake_params.keys():
+        return float(stake_params[str(acct)]['staked'].split()[0])
+    return 0.0
+
 # contract action calls
 def transfer(contract, from_acct, to_acct, quantity):
     contract.push_action(
@@ -177,12 +184,9 @@ if __name__ == '__main__':
     else:
         print('%s\'s balance is not completely unstaked ... unstaking' % master)
         while staked:
-            print(staked)
             unstake(contract, master, UNSTAKE3)
             staked = acct_has_staked_tokens(contract, master)
         print('%s\'s balance is completely unstaked\n' % master)
-
-    transfer(contract, alice, master, '1000.0000 BOID')
 
     # verify that master's balance = INIT_BALANCE
     balance = getBalance(contract.table("accounts", master))
@@ -255,13 +259,35 @@ if __name__ == '__main__':
     ################### unstaking tests ######################################
 
     # unstake an amount that would put the staked amount below the minimum staked threshhold
-    unstake(contract, master, UNSTAKE1)
+    try:
+        unstake(contract, master, UNSTAKE1)
+        print('TEST FAILED: accounts are not supposed to be able to')
+        print('unstake to less than the minimum staked threshhold')
+        sys.exit()
+    except: # Error as e:  # not sure what type of error
+        print('PASSED unstake below minimum stake\n')
 
     # unstake an amount that would put the staked amount above the minimum staked threshhold
-    unstake(contract, master, UNSTAKE2)
+    try:
+        unstake(contract, master, UNSTAKE2)
+        staked = num_staked_tokens(contract, master)
+        assert(staked == _STAKE3 + _STAKE5 - _UNSTAKE2)
+        print('PASSED valid unstake amount (above minimum stake threshhold)\n')
+    except:
+        print('TEST FAILED: accounts should be able to unstake')
+        print('(amounts above the minimum stake threshhold)\n')
+        sys.exit()
 
     # unstake an amount that would put the staked amount to zero
-    unstake(contract, master, UNSTAKE3)
+    try:
+        unstake(contract, master, UNSTAKE3)
+        staked = num_staked_tokens(contract, master)
+        assert(staked == 0.0)
+        print('PASSED valid unstake amount (above minimum stake threshhold)\n')
+    except:
+        print('TEST FAILED: accounts should be able to unstake')
+        print('(amounts above the minimum stake threshhold)\n')
+        sys.exit()
 
 
 

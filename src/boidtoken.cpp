@@ -338,7 +338,6 @@ void boidtoken::unstake(name _stake_account, asset quantity)
     eosio_assert(sym == st.supply.symbol,
         "symbol precision mismatch");
 
-
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(_stake_account.value);
     eosio_assert(s_itr != s_t.end(), "stake account does not have any staked tokens");
@@ -353,7 +352,7 @@ void boidtoken::unstake(name _stake_account, asset quantity)
     string str = std::to_string(c_itr->min_stake);
     str = str.substr(0, str.find('.') + 1 + token_precision);
     const char * valid_unstake_str = (
-        "amount staked after unstaking must be zero or equal to or greater than " +
+        "amount staked after unstaking must be zero or equal to or greater than the minimum stake of " +
         str + " BOID tokens").c_str();
     eosio_assert(amount_after >= c_itr->min_stake || amount_after <= 0.0, valid_unstake_str);
 
@@ -428,7 +427,6 @@ void boidtoken::initstats()
 
 void boidtoken::setautostake(name _stake_account, uint8_t on_switch)
 {
-    print("heyoooo");
     require_auth( _stake_account );
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(_stake_account.value);
@@ -438,7 +436,8 @@ void boidtoken::setautostake(name _stake_account, uint8_t on_switch)
     });
 }
 
-void boidtoken::setnewbp(name acct, float boidpower) {
+void boidtoken::setnewbp(name acct, float boidpower)
+{
     require_auth( _self );
     boidpowers bps(_self, _self.value);
     auto bp_acct = bps.find(acct.value);

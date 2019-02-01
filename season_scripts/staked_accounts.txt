@@ -1,1 +1,1 @@
-{"rows":[{"code":"we3i5kdsdo12","scope":"we3i5kdsdo12","table":"stakes","payer":"bbeeffdd1234","count":1}],"more":""}
+{"rows":[],"more":""}
