@@ -231,12 +231,14 @@ Permissions: only the OWNER has permission to claim staking rewards for accounts
 ####unstake(): End-users unstake BOID tokens
 ```
 cleos --url URL push action OWNER unstake \
-'{"_stake_account":"USER"}' -p USER
+'{"_stake_account":"USER", "quantity":"5000.0000 BOID"}' -p USER
 ```
 
 Arguments:
 
 "_stake_account": the account with staked tokens to unstake. Data type must be a string of a valid EOS account name. Example: "luke12341234"
+
+"quantity": the number of tokens to unstake. Data type must be a string with a float with the same level of precision and token symbol specified in the call to the Create action. Example: "5000.0000 BOID"
 
 Permissions: only the _stake_account has permission to unstake its tokens when the season is not happening. When the season is happening, only the OWNER has permission to unstake the _stake_account's tokens.
 

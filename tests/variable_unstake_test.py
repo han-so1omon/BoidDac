@@ -8,6 +8,12 @@ import argparse
 import numpy as np
 import pandas as pd
 
+''' NOTES:
+
+    run this with:
+        python variable_unstake_test.py myjungle -b
+
+    '''
 
 
 BOID_TOKEN_CONTRACT_PATH = \
