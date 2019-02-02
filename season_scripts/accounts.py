@@ -90,7 +90,8 @@ USER1 = "bbeeffdd1234"
 sym = "BOID"
 acct = USER1
 #acct = "johnatboid11"
-acct = "luke12341234"
+#acct = "luke12341234"
+acct = OWNER
 
 print('\n\nget_currency_balance')
 cmd = 'curl --request POST --url ' + URL + '/v1/chain/get_currency_balance' + \

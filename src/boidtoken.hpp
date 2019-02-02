@@ -47,6 +47,10 @@ CONTRACT boidtoken : public contract
      */
     ACTION issue(name to, asset quantity, string memo);
 
+    /** \brief Issuer can delete tokens as well from their own account
+     */
+    ACTION recycle(asset quantity);
+
     /** \brief Transfer tokens from one account to another
      *
      *  - Token type must be same as type to-be-staked via this contract
@@ -272,6 +276,7 @@ float boidtoken::get_boidpower(name owner) const
 EOSIO_DISPATCH(boidtoken,
     (create)
     (issue)
+    (recycle)
     (transfer)
     (stakebreak)
     (stake)

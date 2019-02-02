@@ -44,14 +44,15 @@ void boidtoken::create(name issuer, asset maximum_supply)
  */
 void boidtoken::issue(name to, asset quantity, string memo)
 {
-    //print("issue\nto = "); print(to.value); print("\n");
+    print("issue\n");
     auto sym = quantity.symbol;
     eosio_assert(sym.is_valid(), "invalid symbol name");
     eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
 
     stats statstable(_self, sym.code().raw());
     auto existing = statstable.find(sym.code().raw());
-    eosio_assert(existing != statstable.end(), "symbol does not exist, create token with symbol before issuing said token");
+    eosio_assert(existing != statstable.end(),
+        "symbol does not exist, create token with symbol before issuing said token");
     const auto &st = *existing;
 
     require_auth(st.issuer);
@@ -77,6 +78,29 @@ void boidtoken::issue(name to, asset quantity, string memo)
             std::make_tuple(st.issuer, to, quantity, std::string(memo))
         ).send();
     }
+}
+
+void boidtoken::recycle(asset quantity)
+{
+    print("recycle\n");
+    auto sym = quantity.symbol;
+    eosio_assert(sym.is_valid(), "invalid symbol name");
+
+    stats statstable(_self, sym.code().raw());
+    auto existing = statstable.find(sym.code().raw());
+    eosio_assert(existing != statstable.end(), "symbol does not exist in stats table");
+    const auto &st = *existing;
+
+    require_auth(st.issuer);
+    eosio_assert(quantity.is_valid(), "invalid quantity");
+    eosio_assert(quantity.amount > 0, "must recycle positive quantity");
+
+    eosio_assert(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
+    sub_balance(st.issuer, quantity, st.issuer, false);
+
+    statstable.modify(st, _self, [&](auto &s) {
+        s.supply -= quantity;
+    });
 }
 
 /* Transfer tokens from one account to another

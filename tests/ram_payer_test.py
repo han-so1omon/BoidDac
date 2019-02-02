@@ -11,6 +11,137 @@ pd.set_option('display.max_rows',10)
 pd.set_option('display.float_format', '{:.3f}'.format)
 #pd.options.display.float_format = '${:,.2f}'.format
 
+
+'''
+
+    test cases:
+        if we issue to a user with no money initially,
+            we should pay for their ram
+        if we issue to a user with money, thats not paying for ram,
+            we should stay paying for their ram
+        if we issue to a user with money, thats paying for ram,
+            they should stay paying for their ram
+        if we transfer to a user with
+
+        issue:
+            token_issuer is issuing tokens to themselves, and is not in accounts table yet
+                desired_outcome:
+                    token_issuer pays for RAM
+                predicted_outcome:
+                    token_issuer pays for RAM
+                actual_tested_outcome:
+                    CORRECT :)
+            token_issuer is issuing tokens to themselves. token_issuer is already in accounts table
+                desired_outcome:
+                    token_issuer pays for RAM
+                predicted_outcome:
+                    token_issuer pays for RAM
+                actual_tested_outcome:
+                    CORRECT :)
+            token_issuer is issuing tokens to an account that does not exist in the accounts table yet, and thus not paying for their own RAM
+                desired_outcome:
+                    token_issuer pays for RAM
+                predicted_outcome:
+                    token_issuer pays for RAM
+                actual_tested_outcome:
+                    CORRECT :)
+            token_issuer is issuing tokens to an account that does exist in the account table already, and they are not currently paying for their own RAM
+                desired_outcome:
+                    token_issuer continues to pay for RAM
+                predicted_outcome:
+                    token_issuer continues to pay for RAM
+                actual_tested_outcome:
+                    TBD
+            token_issuer is issuing tokens to an account that does exist in the account table, and they are currently paying for their own RAM
+                desired_outcome:
+                    acct continues to pay for RAM
+                predicted_outcome:
+                    acct continues to pay for RAM
+                actual_tested_outcome:
+                    TBD
+        transfer:
+            from doesn't exist in accounts table
+                NULL CASE - from must exist to send money to to
+            from does exist in accounts table, and it is paying for its own RAM.
+            to does exist is accounts table, and it is paying for its own RAM.
+                desired_outcome:
+                    both continue to pay for their own RAM
+                predicted_outcome:
+                    both continue to pay for their own RAM
+                actual_tested_outcome:
+                    TBD
+            from does exist in accounts table, and it is paying for its own RAM.
+            to does exist is accounts table, and its not paying for its own RAM.
+                desired_outcome:
+                    from continues to pay for its RAM, and whoever is paying for to's RAM continues to pay for it
+                predicted_outcome:
+                    from continues to pay for its RAM, and whoever is paying for to's RAM continues to pay for it
+                actual_tested_outcome:
+                    TBD
+            from does exist in accounts table, and its not paying for its own RAM
+            to does not exist in the accounts table, so its not paying for its RAM
+                desired_outcome:
+                    from continues to pay for its RAM, and it pays for to's RAM also
+                predicted_outcome:
+                    from continues to pay for its RAM, and it pays for to's RAM also
+                actual_tested_outcome:
+                    TBD
+        stake:
+            _stake_account doesn't exist in accounts table
+                NULL CASE - _stake_account must exist already to stake money
+            _stake_account does exist in accounts table, and it is paying for its own RAM
+                desired_outcome:
+                    _stake_account continues to pay for its own RAM
+                predicted_outcome:
+                    _stake_account continues to pay for its own RAM
+                actual_tested_outcome:
+                    TBD
+            _stake_account does exist in accounts table, and it's not paying for its own RAM
+                desired_outcome:
+                    _stake_account starts to pay for its own RAM
+                predicted_outcome:
+                    _stake_account starts to pay for its own RAM
+                actual_tested_outcome:
+                    TBD
+            NOTE: stake also makes users pay for the RAM to store their row in the staketable and for a row in the boidpower table (if they don't already have one)
+        unstake:
+            _stake_account doesn't exist in stake table
+                NULL CASE - _stake_account must exist already to have staked money
+            _stake_account does exist in stake table, and it is paying for its own RAM
+                desired_outcome:
+                    _stake_account continues to pay for its own RAM
+                predicted_outcome:
+                    _stake_account continues to pay for its own RAM
+                actual_tested_outcome:
+                    TBD
+            _stake_account does exist in accounts table, and it's not paying for its own RAM
+                NULL CASE - _stake_account must be paying for its RAM because the stake action made it start paying for its own RAM
+        claim:
+            _stake_account doesn't exist in stake table
+                NULL CASE - _stake_account must exist already to have staked money
+            _stake_account does exist in stake table, and it is paying for its own RAM
+                desired_outcome:
+                    _stake_account continues to pay for its own RAM
+                predicted_outcome:
+                    _stake_account continues to pay for its own RAM
+                actual_tested_outcome:
+                    TBD
+            _stake_account does exist in accounts table, and it's not paying for its own RAM
+                NULL CASE - _stake_account must be paying for its RAM because the stake action made it start paying for its own RAM
+
+    TEST NOTES:
+
+        we need to make sure that before we call the claim function we update
+        their boidpower from the offchain db, b/c when they stake, if they're
+        not in the boidpowers table, they pay for the RAM for a row in the
+        boidpowers table (whether they have bp in the offchain db or not). We
+        have to do it this way because the stake action is the only place we
+        have the users permission, and we don't want to be the ones paying
+        for their spot in the boidpower table.
+
+    '''
+
+
 ################################# Test variables #########################################
 
 TEST_DURATION   = 8  # measured in weeks

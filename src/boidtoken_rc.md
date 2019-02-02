@@ -27,6 +27,7 @@ The table below contains the `actions`, `inputs` and `input types` for the `{{ b
 |:--|:--|:--|
 | `{{ create }}` | `{{ issuer }}`<br/>`{{ maximum_supply }}` | `{{ name }}`<br/>`{{ asset }}` |
 | `{{ issue }}` | `{{ to }}`<br/>`{{ quantity }}`<br/>`{{ memo }}` | `{{ name }}`<br/>`{{ asset }}`<br/>`{{ string }}` |
+| `{{ recycle }}` | | `{{ quantity }}` | `{{ asset }}` |
 | `{{ stake }}` | `{{ _stake_account }}`<br/>`{{ _staked }}` | `{{ name }}`<br/>`{{ asset }}` |
 | `{{ stakebreak }}` | `{{ _stake_account }}`<br/>`{{ on_switch }}` | `{{ name }}`<br/>`{{ uint8_t }}` |
 | `{{ unstake }}` | `{{ _stake_account }}` | `{{ const name }}` |

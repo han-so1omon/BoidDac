@@ -146,6 +146,20 @@ Permissions: Only the issuer (specified in Create action) has permission to issu
 
 
 
+####recycle(): delete tokens under boidtoken contract
+```
+cleos --url URL push action OWNER recycle \
+'{"quantity":"1000.0000 BOID"}' -p OWNER
+```
+
+Arguments:
+
+"quantity": the number of tokens to delete from the issuers account balance. Data type must be a string with a float with the same level of precision and token symbol specified in the call to the Create action. Example: "1000.0000 BOID"
+
+Permissions: Only the issuer (specified in Create action) has permission to recycle tokens
+
+
+
 ####transfer(): Transfer tokens between end-user accounts
 ```
 cleos --url URL push action OWNER transfer \
