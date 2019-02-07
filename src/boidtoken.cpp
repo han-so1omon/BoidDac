@@ -62,9 +62,75 @@ void boidtoken::issue(name to, asset quantity, string memo)
     eosio_assert(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
     eosio_assert(quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
+
+
+
+    // verify that issuing 'quantity' this month will not surpass the MAX_ISSUE_RATE
+    /* CORNER CASES
+
+        Questions:
+            are users able to update their BP mid-season?
+                I assume the answer is yes, in which case we aren't going to
+                be able to accurately predict payouts
+
+        owner staking thing:
+            i want to be able to transfer staked tokens the user recieves them
+
+            users aren't able to transfer staked tokens
+            owner is
+                make it a separate function
+                    use same_payer
+
+        John wants to not worry about it because a sufficiently massive number
+        of tokens for staking payouts have already been issued and are waiting
+        to be transfered (paid out) to the users with staked tokens throughout
+        the season
+
+        stake payouts:
+            1) let it overflow
+                include memo to determine if issue was called from claim
+            2) keep track of overflow and then payout at the next available time
+                also needs a memo
+            3) make a prediction at beginning of stake period of how many tokens will be issued
+            and then if it overflows only payout a fraction of what the payouts were originally
+            if we do an airdrop at any point the prediction is recalculated and payouts updated
+            4)
+                make a prediction of how many coins will be issued each month depending on
+                the number of ppl staked and how much each of them staked
+                
+                verify that the payouts wont exceed the limit
+
+                if the owner tries to change the MONTH_STAKE_ROI
+                    verify that it won't make the payouts exceed the limit
+
+                if the owner tries to do an airdrop mid-season
+                    only allow it if the airdrop plus the payouts won't exceed the limit
+
+    */
+
+    // total_issued_this_month = asset{0, "BOID"};
+    // while st.this_month_start < // update month incrementor
+    //     statstable.modify(st, _self, [&](auto &s) {
+    //         s.asdfasdfa += 30 days
+    //     });
+    // // replace while loop with: vvvvv
+    // // (current time - previous_month_start ) / (30 * 24 * 60*60)
+    // // this is how eric did the weekly payouts missed btw
+    
+    // if st.last_issuance_time < // if the last issuance was this month
+    //     // add last_issuance_quantity to total_issued_this_month
+    // total_issued_this_month += quantity;
+    // eosio_assert(total_issued_this_month < c->max_issue_rate)
+
     statstable.modify(st, _self, [&](auto &s) {
         s.supply += quantity;
+        // s.last_months ... ;  // this represents the total number of coins issued this month
+        //              // this represents the time of the last issuance
+        //              // this represents the increment of months
     });
+
+
+
 
     add_balance(st.issuer, quantity, st.issuer, true);
 
@@ -109,7 +175,7 @@ void boidtoken::recycle(asset quantity)
  */
 void boidtoken::transfer(name from, name to, asset quantity, string memo)
 {
-    // print("transfer\n");
+    print("transfer\n");
     eosio_assert(from != to, "cannot transfer to self");
     require_auth( from );
     eosio_assert(is_account(to), "to account does not exist");
@@ -142,6 +208,80 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
 
     sub_balance(from, quantity, from, false);
     add_balance(to, quantity, from, false);
+}
+
+/* Transfer tokens from the contract owner account to a user account as staked tokens
+ *  - Token type must be same as type to-be-staked via this contract
+ *  - user account must be valid
+ */
+void boidtoken::transtaked(name to, asset quantity, string memo)
+{
+    print("transfer staked\n");
+    require_auth( _self );
+
+    ////////////////// transfer tokens to user ///////////////////////
+    auto sym = quantity.symbol;
+    stats statstable(_self, sym.code().raw());
+    const auto &st = statstable.get(sym.code().raw());
+    action(
+        permission_level{st.issuer,"active"_n},
+        get_self(),
+        "transfer"_n,
+        std::make_tuple(st.issuer, to, quantity, std::string(memo))
+    ).send();
+    // transfer(st.issuer, to, quantity, std::string(memo));
+
+    //////////////////// stake tokens for user ///////////////////////
+    config_table c_t (_self, _self.value);
+    auto c_itr = c_t.find(0);
+
+    // verify minimum stake amount
+    staketable s_t(_self, _self.value);
+    auto s_itr = s_t.find(to.value);
+    if(s_itr == s_t.end()) {  // Account hasn't staked yet
+        // minumum stake amount
+        uint8_t token_precision = sym.precision();
+        float tokens_to_stake = (float)quantity.amount / pow(10, token_precision);
+        string str = std::to_string(c_itr->min_stake);
+        str = str.substr(0, str.find('.') + 1 + token_precision);
+        const char * min_stake_str = (
+            "must stake a minimum stake of: " +
+            str + " BOID tokens").c_str();
+        eosio_assert(tokens_to_stake >= c_itr->min_stake, min_stake_str);
+    } // else the account has staked so we can be certain it is above the minimum
+
+    // maximum stake amount
+    accounts accts(_self, to.value);
+    const auto &boid_acct = accts.get(sym.code().raw(),
+        "no balance object found");
+    int64_t unstaked_tokens = boid_acct.balance.amount;
+    if (s_itr != s_t.end()) {  // if already staked
+        unstaked_tokens -= s_itr->staked.amount;
+    }
+    eosio_assert(unstaked_tokens >= quantity.amount,
+        "staking more than available balance");
+
+    // update stakes table and book keeping
+    if(s_itr == s_t.end()) {  // account hasn't staked yet
+        s_t.emplace(_self, [&](auto &s) {
+            s.stake_account = to;
+            s.staked = quantity;
+            s.auto_stake = 0;
+        });
+        // book keeping
+        c_t.modify(c_itr, _self, [&](auto &c) {
+            c.active_accounts += 1;
+        });
+    } else {  // account has staked already
+        s_t.modify(s_itr, same_payer, [&](auto &s) {
+            s.staked += quantity;
+        });
+    }
+
+    // book keeping
+    c_t.modify(c_itr, _self, [&](auto &c) {
+        c.total_staked.amount += quantity.amount;
+    });
 }
 
 void boidtoken::stakebreak(uint8_t on_switch)
@@ -235,12 +375,16 @@ void boidtoken::stake(name _stake_account, asset _staked)
         });
     }  // else if they do have boidpower, just leave it the way it is
 
-    // update stakes table
+    // update stakes table and book keeping
     if(s_itr == s_t.end()) {  // account hasn't staked yet
         s_t.emplace(_stake_account, [&](auto &s) {
             s.stake_account = _stake_account;
             s.staked = _staked;
             s.auto_stake = 0;
+        });
+        // book keeping
+        c_t.modify(c_itr, _self, [&](auto &c) {
+            c.active_accounts += 1;
         });
     } else {  // account has staked already
         s_t.modify(s_itr, _stake_account, [&](auto &s) {
@@ -250,7 +394,6 @@ void boidtoken::stake(name _stake_account, asset _staked)
 
     // book keeping
     c_t.modify(c_itr, _self, [&](auto &c) {
-        c.active_accounts += 1;
         c.total_staked.amount += _staked.amount;
     });
 
@@ -406,6 +549,7 @@ void boidtoken::unstake(name _stake_account, asset quantity)
  */
 void boidtoken::initstats()
 {
+    print("initstats\n");
     require_auth( _self );
     config_table c_t (_self, _self.value);
     auto c_itr = c_t.find(0);
@@ -427,6 +571,7 @@ void boidtoken::initstats()
             c.bp_bonus_divisor = BP_BONUS_DIVISOR;
             c.bp_bonus_max = BP_BONUS_MAX;
             c.min_stake = MIN_STAKE;
+            // c.max_issue_rate = MAX_ISSUE_RATE;
         });
     }
     else
@@ -445,6 +590,7 @@ void boidtoken::initstats()
             c.bp_bonus_divisor = BP_BONUS_DIVISOR;
             c.bp_bonus_max = BP_BONUS_MAX;
             c.min_stake = MIN_STAKE;
+            // c.max_issue_rate = MAX_ISSUE_RATE;
         });
     }
 }
@@ -535,6 +681,16 @@ void boidtoken::setminstake(float min_stake)
     });
 }
 
+// void boidtoken::setmaxissue(float max_issue_rate)
+// {
+//     require_auth( _self );
+//     config_table c_t (_self, _self.value);
+//     auto c_itr = c_t.find(0);
+//     c_t.modify(c_itr, _self, [&](auto &c) {
+//         c.max_issue_rate = max_issue_rate;
+//     });
+// }
+
 
 /* Subtract value from specified account
  */
@@ -554,14 +710,7 @@ void boidtoken::sub_balance(name owner, asset value, name ram_payer, bool change
     else
     {
         // print("modify\npayer = ");
-        name payer;
-        if (change_payer) {
-            payer = ram_payer;
-            // print("ram_payer = ");
-        } else {
-            payer = same_payer;
-            // print("same_payer = ");
-        }
+        name payer = ((change_payer) ? ram_payer : same_payer);
         // print(payer.value); print("\n");
         from_acnts.modify(from, payer, [&](auto &a) {
             a.balance -= value;
@@ -587,14 +736,7 @@ void boidtoken::add_balance(name owner, asset value, name ram_payer, bool change
     else
     {
         // print("modify\npayer = ");
-        name payer;
-        if (change_payer) {
-            payer = ram_payer;
-            // print("ram_payer = ");
-        } else {
-            payer = same_payer;
-            // print("same_payer = ");
-        }
+        name payer = ((change_payer) ? ram_payer : same_payer);
         // print(payer.value); print("\n");
         to_acnts.modify(to, payer, [&](auto &a) {
             a.balance += value;

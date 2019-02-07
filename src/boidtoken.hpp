@@ -58,6 +58,12 @@ CONTRACT boidtoken : public contract
      */
     ACTION transfer(name from, name to, asset quantity, string memo);
 
+    /* Transfer tokens from the contract owner account to a user account as staked tokens
+     *  - Token type must be same as type to-be-staked via this contract
+     *  - user account must be valid
+     */
+    ACTION transtaked(name to, asset quantity, string memo);
+
     /** \brief enable/disable staking and unstaking for users with stake break equals true/false respectively.
      */
     ACTION stakebreak(uint8_t on_switch);
@@ -119,6 +125,9 @@ CONTRACT boidtoken : public contract
      */
     ACTION setminstake(const float min_stake);
 
+    // /** \brief Set new max issue rate
+    //  */
+    // ACTION setmaxissue(const float max_issue_rate);
 
     /** \brief Get current boidpower of some account in accounts table
      */
@@ -133,6 +142,8 @@ CONTRACT boidtoken : public contract
     inline asset get_balance(name owner, symbol_code sym) const;
 
   private:
+
+    float     MAX_ISSUE_RATE = 10000000.0;  // maximum number of coins the contract owner can issue over 1 month
 
     float     BP_BONUS_RATIO = 0.0001;  // boidpower/boidstake >= BP_BONUS_RATIO to qualify for boidpower bonus
     float     BP_BONUS_DIVISOR = 1000000.0;  // boidpower bonus = (boidpower * boidstaked) / BP_BONUS_DIVISOR
@@ -174,6 +185,7 @@ CONTRACT boidtoken : public contract
         float           bp_bonus_divisor;
         float           bp_bonus_max;
         float           min_stake;
+        // float           max_issue_rate;
         uint32_t        payout_date;
 
         uint64_t    primary_key() const { return config_id; }
@@ -182,7 +194,9 @@ CONTRACT boidtoken : public contract
           (config_id)(stakebreak)(bonus)(active_accounts)
           (total_staked)(month_stake_roi)(month_multiplierx100)
           (bp_bonus_ratio)(bp_bonus_divisor)(bp_bonus_max)
-          (min_stake)(payout_date));
+          (min_stake)
+          // (max_issue_rate)
+          (payout_date));
     };
 
     typedef eosio::multi_index<"configs"_n, config> config_table;
@@ -272,12 +286,12 @@ float boidtoken::get_boidpower(name owner) const
   return 0;
 }
 
-//EOSIO_DISPATCH(boidtoken, (create)(issue)(transfer)(stake)(claim)(unstake)(initstats)(setnewbp)(setparams))
 EOSIO_DISPATCH(boidtoken,
     (create)
     (issue)
     (recycle)
     (transfer)
+    (transtaked)
     (stakebreak)
     (stake)
     (sendmessage)
@@ -291,5 +305,6 @@ EOSIO_DISPATCH(boidtoken,
     (setbpdiv)
     (setbpmax)
     (setminstake)
+    // (setmaxissue)
 )
 

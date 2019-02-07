@@ -84,7 +84,7 @@ def get_accounts(limit=10000, temp_filename=ALL_ACCTS_FILE):
 staked_accts = get_accounts(temp_filename=STAKED_ACCTS_FILE)
 print('\nlen(staked_accts) = %d\n' % len(staked_accts))
 
-#sys.exit()
+sys.exit()
 
 USER1 = "bbeeffdd1234"
 sym = "BOID"
@@ -93,11 +93,26 @@ acct = USER1
 #acct = "luke12341234"
 acct = OWNER
 
+#print('\n\nget_currency_balance')
+cmd = 'curl --request POST --url ' + URL + '/v1/chain/get_currency_balance' + \
+' --data \'{\"code\":"%s", "account":"%s", "symbol":"%s"}\'' % (OWNER, acct, sym)
+#print(cmd)
+#subprocess.run(cmd, shell=True)
+
+
+#USER1 = "bbeeffdd1234"
+#acct = 'we3i5kdsdo12'
+#acct = "johnatboid11"
+acct = "luke12341234"
+#acct = OWNER
+
 print('\n\nget_currency_balance')
 cmd = 'curl --request POST --url ' + URL + '/v1/chain/get_currency_balance' + \
 ' --data \'{\"code\":"%s", "account":"%s", "symbol":"%s"}\'' % (OWNER, acct, sym)
 print(cmd)
 subprocess.run(cmd, shell=True)
+
+
 
 #scope = USER1
 #scope = "johnatboid11"

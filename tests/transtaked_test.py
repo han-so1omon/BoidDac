@@ -88,6 +88,15 @@ def transfer(contract, from_acct, to_acct, quantity):
             'memo':'memo'
         }, permission=[from_acct]
     )
+def transtaked(contract, to_acct, quantity, perm):
+    contract.push_action(
+        'transtaked',
+        {
+            'to':to_acct,
+            'quantity':quantity,
+            'memo':'memo'
+        }, permission=[perm]
+    )
 def issue(contract, to_acct, quantity, perm):
     contract.push_action(
             'issue',
@@ -126,10 +135,11 @@ def stakebreak(contract, on_switch, acct):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='''
-        This is a unit test for the stake and unstake actions of the
+        This is a unit test for the transtaked action of the
         BOID Token smart contract.
     ''')
 
+    # testnet alias = myjungle
     parser.add_argument(
         "alias", nargs="?",
         help="Testnet alias")
@@ -163,6 +173,53 @@ if __name__ == '__main__':
     if args.build:
         contract.build()
     contract.deploy()
+
+
+    balance = getBalance(contract.table("accounts", master))
+    print('master balance')
+    print(balance)
+
+    balance = getBalance(contract.table("accounts", alice))
+    print('alice balance')
+    print(balance)
+
+    stake_params = getStakeParams(contract.table('stakes', master))
+    print('stake_params')
+    print(stake_params)
+
+    transtaked(
+        contract,
+        alice,
+        '100000.0000 BOID',
+        master)
+
+    balance = getBalance(contract.table("accounts", master))
+    print('master balance')
+    print(balance)
+
+    balance = getBalance(contract.table("accounts", alice))
+    print('alice balance')
+    print(balance)
+
+    stake_params = getStakeParams(contract.table('stakes', master))
+    print('stake_params')
+    print(stake_params)
+
+    # stop the testnet and exit python
+    eosf.stop()
+    sys.exit()
+
+
+
+
+
+
+
+
+
+
+
+
 
     # setup contract (1st time)
     try:

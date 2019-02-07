@@ -140,7 +140,7 @@ Arguments:
 
 "quantity": the number of tokens to mint and send to "to". Data type must be a string with a float with the same level of precision and token symbol specified in the call to the Create action. Example: "1000.0000 BOID"
 
-"memo": a short (human readable) description of what the issue is for (or of whatever you want really). Data type is be a string. Example: "sending money to luke"
+"memo": a short (human readable) description of what the issue is for (or of whatever you want really). Data type must be a string. Example: "sending money to luke"
 
 Permissions: Only the issuer (specified in Create action) has permission to issue tokens
 
@@ -175,9 +175,28 @@ Arguments:
 
 "quantity": the number of tokens to transfer from "from" to "to". Data type must be a string with a float with the same level of precision and token symbol specified in the call to the Create action. Example: "1000.0000 BOID"
 
-"memo": a short (human readable) description of what the issue is for (or of whatever you want really). Data type is be a string. Example: "sending money to luke"
+"memo": a short (human readable) description of what the transfer is for (or of whatever you want really). Data type must be a string. Example: "sending money to luke"
 
 Permissions: transfering tokens requires the permission of the sender
+
+
+
+####transtaked(): Transfer unstaked tokens from OWNER account to USER account and automatically stake the transfered tokens in USER's account
+```
+cleos --url URL push action OWNER transtaked \
+'{"to":"USER", "quantity":"100000.0000 BOID", \
+"memo":"memo"}' -p OWNER
+```
+
+Arguments:
+
+"to": the account of the reciever of tokens. Data type must be a string of a valid EOS account name. Example: "luke12341234"
+
+"quantity": the number of tokens to transfer from OWNER to "to". Data type must be a string with a float with the same level of precision and token symbol specified in the call to the Create action. Example: "100000.0000 BOID"
+
+"memo": a short (human readable) description of what the transtaked is for (or of whatever you want really). Data type must be a string. Example: "sending staked money to luke"
+
+Permissions: transtaking tokens requires the permission of the OWNER
 
 
 
