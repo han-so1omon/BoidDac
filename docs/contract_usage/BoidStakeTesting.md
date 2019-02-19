@@ -291,6 +291,22 @@ Permissions: only the OWNER has permission to run initstats
 
 
 
+####setautostake(): User's staked tokens will automatically stay staked for the next sesson
+```
+cleos --url URL push action OWNER setautostake \
+'{"_stake_account":"USER", "on_switch":"1"}' -p USER
+```
+
+Arguments:
+
+"_stake_account": the account setting their auto stake variable. Data type must be a string of a valid EOS account name. Example: "luke12341234"
+
+"on_switch": the flag to toggle giving users the ability to auto stake or not auto stake their staked tokens. Data type must be a string of an integer. An integer of 0 turns off auto stake; any other integer turns on auto stake. Example: "1"
+
+Permissions: only the _stake_account itself has permission to auto stake its staked tokens
+
+
+
 ####setnewbp(): Set new boidpower for end-user
 ```cleos --url URL push action OWNER setnewbp \
 '{"acct":"USER", "boidpower":"1000.00"}' -p OWNER

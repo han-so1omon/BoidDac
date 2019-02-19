@@ -239,7 +239,6 @@ void boidtoken::transtaked(name to, asset quantity, string memo)
     staketable s_t(_self, _self.value);
     auto s_itr = s_t.find(to.value);
     if(s_itr == s_t.end()) {  // Account hasn't staked yet
-        // minumum stake amount
         uint8_t token_precision = sym.precision();
         float tokens_to_stake = (float)quantity.amount / pow(10, token_precision);
         string str = std::to_string(c_itr->min_stake);
@@ -249,17 +248,6 @@ void boidtoken::transtaked(name to, asset quantity, string memo)
             str + " BOID tokens").c_str();
         eosio_assert(tokens_to_stake >= c_itr->min_stake, min_stake_str);
     } // else the account has staked so we can be certain it is above the minimum
-
-    // maximum stake amount
-    accounts accts(_self, to.value);
-    const auto &boid_acct = accts.get(sym.code().raw(),
-        "no balance object found");
-    int64_t unstaked_tokens = boid_acct.balance.amount;
-    if (s_itr != s_t.end()) {  // if already staked
-        unstaked_tokens -= s_itr->staked.amount;
-    }
-    eosio_assert(unstaked_tokens >= quantity.amount,
-        "staking more than available balance");
 
     // update stakes table and book keeping
     if(s_itr == s_t.end()) {  // account hasn't staked yet

@@ -197,21 +197,15 @@ if __name__ == '__main__':
         '{}', [boid_token])
 
     print('\nissue tokens to accts')
-    contract.push_action(
-        'issue',
-        {
-            'to': boid_token,
-            'quantity': '%.4f BOID' % INIT_BOIDTOKENS,
-            'memo': 'memo'
-        }, [boid_token])
-    for acct in accts:
-        contract.push_action(
-            'issue',
-            {
-                'to': acct,
-                'quantity': '%.4f BOID' % INIT_BOIDTOKENS,
-                'memo': 'memo'
-            }, [boid_token])
+    contract.push_action('issue',
+        {'to': boid_token, 'quantity': '%.4f BOID' % INIT_BOIDTOKENS, 'memo': 'memo'},
+        [boid_token])
+    contract.push_action('issue',
+        {'to': acct1, 'quantity': '2000.0000 BOID', 'memo': 'memo'},
+        [boid_token])
+    contract.push_action('issue',
+        {'to': acct2, 'quantity': '2000000.0000 BOID', 'memo': 'memo'},
+        [boid_token])
 
 
     stakebreak(contract, "1", boid_token)

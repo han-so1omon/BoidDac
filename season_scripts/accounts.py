@@ -3,6 +3,7 @@ import subprocess
 import sys
 from config import *
 
+
 # get_table_by_scope
 # source: https://developers.eos.io/eosio-nodeos/reference#get_table_by_scope
 
