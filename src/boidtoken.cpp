@@ -210,6 +210,7 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
     add_balance(to, quantity, from, false);
 }
 
+
 /* Transfer tokens from the contract owner account to a user account as staked tokens
  *  - Token type must be same as type to-be-staked via this contract
  *  - user account must be valid
