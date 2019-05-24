@@ -5,6 +5,17 @@
 ## Devices interact with accounts
 ## Tokens interact with accounts
 
+## Dsp interaction
+`cleos -u https://dsp.boid.io:2121 <cmd>`
+
+# Kylin testnet interactions
+## account : contract
+151515315153 : boidpower
+beepbeepbeep : boidaccounts
+callitoffnow : boidteams
+fightnight11 : boidnodes
+thenumberten : boidtoken
+
 # Run a node
 ## Create and own a node
 - boidnodes::create
