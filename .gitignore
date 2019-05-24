@@ -1,0 +1,17 @@
+accountless1
+all-dapp-services
+build
+contract-accounts
+dac-factory
+dapp-services
+docs/api/*
+memberclient
+node_modules
+vaccounts-dapp-service
+test
+spec
+temp
+vgrab
+dist
+dist/
+contracts/coldtoken

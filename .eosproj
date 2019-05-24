@@ -1,0 +1,20 @@
+{
+  "main": "contracts/boidpower/boidpower.cpp",
+  "contract": "boidpower",
+  "include": "./contracts",
+  "cdt": "",
+  "output": "./build/boidpower.wasm",
+  "scripts": {
+    "build": "mkdir -p ./build/boidpower && mkdir -p ./build/boidaccounts && mkdir -p ./build/boidteams && mkdir -p ./build/boidnodes && mkdir -p ./build/boidtoken && eosio-cpp -abigen -I ./contracts -contract boidpower -o ./build/boidpower/boidpower.wasm contracts/boidpower/boidpower.cpp && eosio-cpp -abigen -I ./contracts -contract boidaccounts -o ./build/boidaccounts/boidaccounts.wasm contracts/boidaccounts/boidaccounts.cpp && eosio-cpp -abigen -I ./contracts -contract boidteams -o ./build/boidteams/boidteams.wasm contracts/boidteams/boidteams.cpp && eosio-cpp -abigen -I ./contracts -contract boidnodes -o ./build/boidnodes/boidnodes.wasm contracts/boidnodes/boidnodes.cpp && eosio-cpp -abigen -I ./contracts -contract boidtoken -o ./build/boidtoken/boidtoken.wasm contracts/boidtoken/boidtoken.cpp"
+  },
+  "deploy": {
+    "target": "both",
+    "mainnet": "",
+    "kylin": "",
+    "jungle": "",
+    "local": ""
+  },
+  "test": {
+    "npmClient": "npm"
+  }
+}
