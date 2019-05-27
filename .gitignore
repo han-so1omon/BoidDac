@@ -4,7 +4,7 @@ build
 contract-accounts
 dac-factory
 dapp-services
-docs/api/*
+#docs/api/*
 memberclient
 node_modules
 vaccounts-dapp-service
