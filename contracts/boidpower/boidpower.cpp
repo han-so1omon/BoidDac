@@ -18,28 +18,29 @@ boidpower::create(
   string devname)
 {
   require_auth(owner);
+  /*
   eosio_assert( accountExists(accountContractOwner,owner),
     "account does not exist" );
-  addDeviceByName(owner,devname);
+    */
+  addDevice(owner,devname);
 }
 
 ACTION
 boidpower::erase(
   name owner,
-  string devname)
+  uint64_t num)
 {
   require_auth(owner);
-  removeDeviceByName(owner,devname);
+  removeDevice(owner,num);
 }
 
 ACTION 
 boidpower::changeowner(
   name accountContractOwner,
   name owner,
-  string devname)
+  uint64_t num)
 {
   require_auth(owner);
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
   device_t devices( 
     get_self(), // contract
     get_self().value, // scope
@@ -49,10 +50,12 @@ boidpower::changeowner(
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   //TODO eosio_assert(owner account exists)
-  auto to = getDeviceItr<device_t>(&devices, devname);
+  auto to = devices.find(num);
   eosio_assert(to != devices.end(), "device does not exist");
+  /*
   eosio_assert( accountExists(accountContractOwner,owner),
     "account does not exist" );
+    */
 
   //require_auth(to->owner); //FIXME add this in
   devices.modify(to, get_self(),[&](auto& a) {
@@ -65,10 +68,9 @@ ACTION
 boidpower::freedevice(
   name accountContractOwner,
   name owner,
-  string devname)
+  uint64_t num)
 {
   require_auth(owner);
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
   device_t devices( 
     get_self(), // contract
     get_self().value, // scope
@@ -78,10 +80,12 @@ boidpower::freedevice(
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   //TODO eosio_assert(owner account exists)
-  auto to = getDeviceItr<device_t>(&devices, devname);
+  auto to = devices.find(num);
   eosio_assert(to != devices.end(), "device does not exist");
+  /*
   eosio_assert( accountExists(accountContractOwner,owner),
     "account does not exist" );
+    */
 
   if (!to->owner.to_string().empty()) {
     require_auth(to->owner);
@@ -95,11 +99,10 @@ boidpower::freedevice(
 
 ACTION
 boidpower::assignpower(
-  string devname,
+  uint64_t num,
   uint64_t quantity)
 {
   require_auth(get_self());
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
   device_t devices( 
     get_self(), // contract
     get_self().value, // scope
@@ -110,7 +113,7 @@ boidpower::assignpower(
   );
   
   //TODO eosio_assert(owner account exists)
-  auto to = getDeviceItr(&devices,devname);
+  auto to = devices.find(num);
   eosio_assert(to != devices.end(), "device does not exist");
   devices.modify( to, get_self(), [&]( auto& a ) {
     a.power = quantity;
@@ -118,10 +121,9 @@ boidpower::assignpower(
 }
 
 ACTION
-boidpower::open( name owner, string devname, bool open )
+boidpower::open( name owner, uint64_t num, bool open )
 {
   require_auth(owner);
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
   device_t devices( 
     get_self(), // contract
     get_self().value, // scope
@@ -131,7 +133,7 @@ boidpower::open( name owner, string devname, bool open )
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   
-  auto to = getDeviceItr(&devices,devname);
+  auto to = devices.find(num);
   eosio_assert(to != devices.end(), "device does not exist");
   devices.modify( to, get_self(), [&]( auto& a ) {
     a.open = open;
@@ -145,11 +147,10 @@ boidpower::open( name owner, string devname, bool open )
 ACTION
 boidpower::freeze(
   name owner,
-  string devname,
+  uint64_t num,
   bool freeze)
 {
   require_auth(get_self());
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
   device_t devices( 
     get_self(), // contract
     get_self().value, // scope
@@ -159,7 +160,7 @@ boidpower::freeze(
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   
-  auto to = getDeviceItr(&devices,devname);
+  auto to = devices.find(num);
   eosio_assert(to != devices.end(), "device does not exist");
   devices.modify( to, get_self(), [&]( auto& a ) {
     a.freeze = freeze;
@@ -167,12 +168,13 @@ boidpower::freeze(
 }
 
 void
-boidpower::addDeviceByName(
+boidpower::addDevice(
   name owner,
   string devname)
 {
   require_auth(owner);
-  device_t devices( 
+
+  device_t devices(
     get_self(), // contract
     get_self().value, // scope
     1024,  // optional: shards per table
@@ -180,36 +182,26 @@ boidpower::addDeviceByName(
     true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
+
+  uint64_t nextDevNum = getAvailableDevNum();
   
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
-  uint64_t devhash = boidDeviceNameHash(devname);
-  uint64_t orighash = devhash;
-  auto dev = devices.find(devhash);
-  auto orig = dev;
-  if (dev != devices.end()) {
-    for (auto it = dev->collisions.begin();
-              it != dev->collisions.end();
-              it++) {
-      eosio_assert(devname != dev->devnameStr, "name must be unique");
-    }
-    devhash = getAvailableDeviceHash(devhash);
-    devices.modify(orig, get_self(), [&](auto& a) {
-      a.collisions.push_back(devhash);
-    });
-  }
+  auto dev = devices.find(nextDevNum);
+
+  eosio_assert(dev == devices.end(),
+    "Internal error: new device number not available");
+
   devices.emplace(get_self(),[&](auto& a) {
-    a.devname = devhash;
-    a.devnameStr = devname;
+    a.num = nextDevNum;
+    a.vanityName = devname;
     a.owner = owner;
     a.open = false;
-    a.origHash = orighash;
   });
 }
 
 void
-boidpower::removeDeviceByName(
+boidpower::removeDevice(
   name owner,
-  string devname)
+  uint64_t num)
 {
   require_auth(owner);
   device_t devices( 
@@ -221,98 +213,64 @@ boidpower::removeDeviceByName(
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
-  uint64_t devhash = boidDeviceNameHash(devname);
-  uint64_t orighash = devhash;
-  auto dev = devices.find(devhash);
-  eosio_assert(dev != devices.end(), "device does not exist");
-  
-  auto currCollision = dev->collisions.begin();
-  // Find appropriate device by checking thru collisions
-  while (dev->devnameStr != devname) {
-    eosio_assert(currCollision != dev->collisions.end(),
-      "device does not exist");
-    dev = devices.find(*currCollision);
-    eosio_assert(dev != devices.end(), "bad hash collision table");
-    currCollision++;
-  }
-  
-  // Replace original hash (direct from boidNameHash() 
-  // if it is the element being deleted
-  // and if there have been previous collisions
-  if (dev->origHash == orighash && !dev->collisions.empty()) {
-    uint64_t nexthash = dev->collisions.front();
-    auto nextdev = devices.find(nexthash);
-    eosio_assert(nextdev != devices.end(), "bad hash collision table");
-    devices.modify(nextdev, get_self(), [&](auto& a) {
-      // Reassign first collision to have orighash
-      a.devname = orighash;
-      // Create new collisions table
-      for (auto it = dev->collisions.begin();
-           it != dev->collisions.end();
-           it++) {
-        if (*it != nexthash)
-          a.collisions.push_back(*it);
-      }
-    });
-  }
-  
-  // Finally erase device
+  auto dev = devices.find(num);
+  eosio_assert(dev != devices.end(),
+    "Internal error: Team number does not exist");
+  removeDevNum(num);
   devices.erase(dev);
 }
 
 uint64_t
-boidpower::getAvailableDeviceHash(
-  uint64_t hash)
+boidpower::getAvailableDevNum()
 {
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
+  uint64_t availableDevNum;
+  devnum_t devnums(
+    get_self(),
+    get_self().value
   );
-  auto dev = devices.find(hash);
-  while (dev != devices.end()) {
-    hash++;
-    dev = devices.find(hash);
+  
+  auto devnumItr = devnums.find(0);
+  if (devnumItr == devnums.end()) {
+    devnums.emplace(get_self(),[&](auto& a) {
+      a.dummy = 0;
+      a.freeInc = 0;
+    });
   }
-  return hash;
+  
+  if (!devnumItr->otherFree.empty()) {
+    availableDevNum = devnumItr->otherFree.back();
+    devnums.modify(devnumItr, get_self(), [&](auto& a) {
+      a.otherFree.pop_back();
+    });
+  } else {
+    availableDevNum = devnumItr->freeInc;
+    devnums.modify(devnumItr, get_self(), [&](auto& a) {
+      a.freeInc++;
+    });
+  }
+  return availableDevNum;
 }
 
-template<typename T>
-auto
-boidpower::getDeviceItr(
-  T* dummy,
-  string devname) -> decltype(dummy->end())
+void
+boidpower::removeDevNum(
+  uint64_t num)
 {
-  //TODO require authorization of owner account (vaccounts style)
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
+  devnum_t devnums(
+    get_self(),
+    get_self().value
   );
   
-  eosio_assert(boidValidDeviceName(devname), "invalid device name");
-  uint64_t devhash = boidDeviceNameHash(devname);
-  uint64_t orighash = devhash;
-  auto dev = devices.find(devhash);
-  eosio_assert(dev != devices.end(), "device does not exist");
+  auto devnumItr = devnums.find(0);
+  eosio_assert(devnumItr != devnums.end(),
+    "Problem with device number generator: generator table not found");
   
-  auto currCollision = dev->collisions.begin();
-  // Find appropriate device by checking thru collisions
-  while (dev->devnameStr != devname) {
-    eosio_assert(currCollision != dev->collisions.end(),
-      "device does not exist");
-    dev = devices.find(*currCollision);
-    eosio_assert(dev != devices.end(), "bad hash collision table");
-    currCollision++;
-  }
-  return dev;
+  devnums.modify(devnumItr, get_self(), [&](auto& a){
+    eosio_assert(
+      std::find(a.otherFree.begin(), a.otherFree.end(), num)
+      == a.otherFree.end(),
+      "Problem with device number generator: Duplicate free device numbers found"
+    );
+  });
 }
 
 bool

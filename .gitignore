@@ -14,4 +14,12 @@ temp
 vgrab
 dist
 dist/
+coldtoken/
+deepfreeze/
+boidtoken.abi
+boidtoken.wasm
 contracts/coldtoken
+.eosproj.bak
+tokentest.tar.gz
+dsp-fixes/
+dist/

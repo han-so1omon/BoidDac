@@ -61,7 +61,8 @@ CONTRACT_START()
       ACTION addaccount(
         name accountContractOwner,
         name nodename,
-        string teamname, 
+        uint64_t num, 
+        string teamname,
         name acct,
         name teamleader);
 
@@ -75,7 +76,7 @@ CONTRACT_START()
       ACTION erase(
         name accountContractOwner,
         name nodename,
-        string teamname, 
+        uint64_t num, 
         name leader);
 
       /**
@@ -89,7 +90,7 @@ CONTRACT_START()
       ACTION eraseaccount(
         name accountContractOwner,
         name nodename,
-        string teamname, 
+        uint64_t num, 
         name acct,
         name teamleader);
 
@@ -100,7 +101,7 @@ CONTRACT_START()
         @param nodename - node container
         @return true if team successfully added to team table
        */
-      void addTeamByName(
+      uint64_t addTeam(
         name leader,
         string teamname,
         name nodename);
@@ -111,10 +112,10 @@ CONTRACT_START()
         @param teamname - name of team
         @param nodename - node container
        */
-      void removeTeamByName(
+      void removeTeam(
         name leader,
-        string teamname,
-        name nodename);
+        name nodename,
+        uint64_t num);
       
       /**
         @brief Get available hash for team table
@@ -122,23 +123,12 @@ CONTRACT_START()
         @param hash - starting point for search
         @return available hash value
        */
-      uint64_t getAvailableTeamHash(
-        name nodename,
-        uint64_t hash);
+      uint64_t getAvailableTeamNum(name nodename);
 
-      /**
-        @brief Get team by name
-        @param dummy variable to deduce return type
-        @param teamname - name of team
-        @param nodename - name of node
-        @return iterator of team from teams table
-       */
-      template<typename T>
-      auto getTeamItr(
-        T* dummy,
-        string teamname,
-        name nodename) -> decltype(dummy->end());
-      
+      void removeTeamNum(
+        name nodename,
+        uint64_t num);
+
       /**
         @brief Check if team is in node
         @param nodename - name of node to check
@@ -184,6 +174,18 @@ CONTRACT_START()
         string teamname);
       
    private:
+     /*!
+      open device number table. because auto-increment is not yet supported
+      */
+      TABLE teamnum {
+        uint64_t dummy;
+        uint64_t freeInc;
+        std::vector<uint64_t> otherFree;
+        
+        uint64_t primary_key()const { return dummy; }
+      };
+      typedef eosio::multi_index<"teamnum"_n, teamnum> teamnum_t;
+      
       /*!
         vRam table of team members
         **Future**
@@ -233,15 +235,13 @@ CONTRACT_START()
        */
       TABLE team_stats {
         std::map<uint64_t,uint8_t> members; /**< List of team members */
-        uint64_t teamname; /**< Team name hash*/
-        string teamnameStr; /**< Team name string */
+        uint64_t num; /**< Team name hash*/
+        string vanityName; /**< Team name string */
         name nodeContainer; /**< Node containing team */
         name leader; /**< Team leader */
         uint64_t numAccounts; /**< Number of accounts in team */
-        uint64_t origHash; /**< For handling device hash collisions */
-        std::vector<uint64_t> collisions; /**< List of device hash collisions */
 
-        uint64_t primary_key()const { return teamname; } //!< Index by team name hash
+        uint64_t primary_key()const { return num; } //!< Index by team name hash
       };
       
       // team stats table (vram)
@@ -254,12 +254,13 @@ CONTRACT_START()
           uint64_t primary_key() const { return shard; }
       };
       typedef eosio::multi_index<"stat"_n, statshards> stat_t_abi;
+      
       /*!
         vRam table for storing boid devices
        */
       TABLE device {
-         uint64_t devname; /**< Hash of device name */
-         string devnameStr; /**< Device name string */
+         uint64_t num; /**< Hash of device name */
+         string vanityName; /**< Device name string */
          uint64_t power; /**< Associated boidpower */
          name owner; /**< Owner of device */
          name ownerNode; /**< Deprecated */
@@ -267,10 +268,8 @@ CONTRACT_START()
          uint64_t isFree; /**< Device has no owner */
          bool freeze; /**< Device is not available for use */
          std::map<uint8_t,uint64_t> powerSources; /**< Contribution types for */
-         uint64_t origHash; /**< For handling device hash collisions */
-         std::vector<uint64_t> collisions; /**< List of device hash collisions */
 
-         uint64_t primary_key()const { return devname; } //!< Index table by device hash
+         uint64_t primary_key()const { return num; } //!< Index table by device hash
          uint64_t by_free()const { return isFree; } //!< Secondary index by free devices
       };
       typedef dapp::multi_index<

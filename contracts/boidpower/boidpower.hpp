@@ -17,7 +17,6 @@
 
 #include "boidcommon/boidcommon.hpp"
 
-
 /*
   Sources of boidpower
  */
@@ -67,7 +66,7 @@ CONTRACT_START()
        */
       ACTION erase(
         name owner,
-        string devname);
+        uint64_t num);
       
       /**
         Wbrief Change device owner
@@ -78,7 +77,7 @@ CONTRACT_START()
       ACTION changeowner(
         name accountContractOwner,
         name owner,
-        string devname);
+        uint64_t num);
         
       /**
         @brief Free device from owner
@@ -89,7 +88,7 @@ CONTRACT_START()
       ACTION freedevice(
         name accountContractOwner,
         name owner,
-        string devname);
+        uint64_t num);
         
       /**
         @brief Assign device to boidpower quantity
@@ -97,7 +96,7 @@ CONTRACT_START()
         @param quantity - amount of power
        */
       ACTION assignpower( 
-        string devname,
+        uint64_t num,
         uint64_t quantity);
       
       /**
@@ -108,7 +107,7 @@ CONTRACT_START()
        */
       ACTION open(
         name owner,
-        string devname,
+        uint64_t num,
         bool open);
         
       /**
@@ -119,7 +118,7 @@ CONTRACT_START()
        */
       ACTION freeze(
         name owner,
-        string devname,
+        uint64_t num,
         bool freeze);
       
       /**
@@ -128,7 +127,7 @@ CONTRACT_START()
         @param devname - name of device
         @return true if device successfully added to device table
        */
-      void addDeviceByName(
+      void addDevice(
         name owner,
         string devname);
       
@@ -138,28 +137,19 @@ CONTRACT_START()
         @param devname - name of device
         @return true if device successfully added to device table
        */
-      void removeDeviceByName(
+      void removeDevice(
         name owner,
-        string devname);
+        uint64_t num);
       
       /**
         @brief Get available hash for device table
         @param hash - starting point for search
         @return available hash value
        */
-      uint64_t getAvailableDeviceHash(
-        uint64_t hash);
+      uint64_t getAvailableDevNum();
       
-      /**
-        @brief Get device by name
-        @param dummy - dummy variable to deduce return type
-        @param devname - name of device
-        @return iterator of device from device table
-       */
-      template<typename T>
-      auto getDeviceItr(
-        T* dummy,
-        string devname) -> decltype(dummy->end());
+      void removeDevNum(
+        uint64_t num);
       
       /**
         @brief Check if account exists
@@ -172,12 +162,25 @@ CONTRACT_START()
         name acctname);
                
    private:
+   
+      /*!
+        open device number table. because auto-increment is not yet supported
+        */
+      TABLE devnum {
+        uint64_t dummy;
+        uint64_t freeInc;
+        std::vector<uint64_t> otherFree;
+        
+        uint64_t primary_key()const { return dummy; }
+      };
+      typedef eosio::multi_index<"devnum"_n, devnum> devnum_t;
+
       /*!
         vRam table for storing boid devices
        */
       TABLE device {
-         uint64_t devname; /**< Hash of device name */
-         string devnameStr; /**< Device name string */
+         uint64_t num; /**< Hash of device name */
+         string vanityName; /**< Device name string */
          uint64_t power; /**< Associated boidpower */
          name owner; /**< Owner of device */
          name ownerNode; /**< Deprecated */
@@ -185,10 +188,8 @@ CONTRACT_START()
          uint64_t isFree; /**< Device has no owner */
          bool freeze; /**< Device is not available for use */
          std::map<uint8_t,uint64_t> powerSources; /**< Contribution types for */
-         uint64_t origHash; /**< For handling device hash collisions */
-         std::vector<uint64_t> collisions; /**< List of device hash collisions */
 
-         uint64_t primary_key()const { return devname; } //!< Index table by device hash
+         uint64_t primary_key()const { return num; } //!< Index table by device hash
          uint64_t by_free()const { return isFree; } //!< Secondary index by free devices
       };
       typedef dapp::multi_index<

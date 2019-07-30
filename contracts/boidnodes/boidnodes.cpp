@@ -53,9 +53,11 @@ boidnodes::addteam(
     true,
     false
   );
+  /*
   eosio_assert(getTeamItr(
       &tstats, teamContractOwner, teamname, nodename) == tstats.end(),
     "team already exists in node");
+    */
 
   nodestats stats(get_self(),get_self().value);
   auto node = stats.find(nodename.value);
@@ -146,6 +148,7 @@ boidnodes::getTeamItr(
   auto team = stats.find(teamhash);
   eosio_assert(team != stats.end(), "team does not exist in node");
   
+  /* TODO update to work with new team numbering system
   auto currCollision = team->collisions.begin();
   // Find appropriate device by checking thru collisions
   while (team->teamnameStr != teamname) {
@@ -155,5 +158,6 @@ boidnodes::getTeamItr(
     eosio_assert(team != stats.end(), "bad hash collision table");
     currCollision++;
   }
+  */
   return team;
 }

@@ -124,15 +124,13 @@ CONTRACT_START()
        */
       TABLE team_stats {
         std::map<uint64_t,uint8_t> members; /**< List of team members */
-        uint64_t teamname; /**< Team name hash*/
-        string teamnameStr; /**< Team name string */
+        uint64_t num; /**< Team name hash*/
+        string vanityName; /**< Team name string */
         name nodeContainer; /**< Node containing team */
         name leader; /**< Team leader */
         uint64_t numAccounts; /**< Number of accounts in team */
-        uint64_t origHash; /**< For handling device hash collisions */
-        std::vector<uint64_t> collisions; /**< List of device hash collisions */
 
-        uint64_t primary_key()const { return teamname; } //!< Index by team name hash
+        uint64_t primary_key()const { return num; } //!< Index by team name hash
       };
       
       // team stats table (vram)
@@ -145,7 +143,7 @@ CONTRACT_START()
           uint64_t primary_key() const { return shard; }
       };
       typedef eosio::multi_index<"stat"_n, statshards> stat_t_abi;
-
+      
       /*!
         vRam table for storing boid accounts
        */

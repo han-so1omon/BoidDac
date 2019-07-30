@@ -10,11 +10,11 @@
 
 # Kylin testnet interactions
 ## account : contract
-151515315153 : boidpower
-beepbeepbeep : boidaccounts
-callitoffnow : boidteams
-fightnight11 : boidnodes
-thenumberten : boidtoken
+151515315153 : boidteams
+beepbeepbeep : boidnodes
+callitoffnow : boidtoken
+fightnight11 : boidpower
+thenumberten : boidaccounts
 
 # Run a node
 ## Create and own a node

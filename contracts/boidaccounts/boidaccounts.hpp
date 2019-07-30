@@ -89,7 +89,7 @@ CONTRACT_START()
         uint8_t memberType);
         
       /**
-        @brief update power of account
+        @brief update power of account from devices
         @param devContractAcct - account of boidpower contract and device table
         @param acctname - name of account to update
        */
@@ -97,6 +97,15 @@ CONTRACT_START()
         name devContractAcct,
         name acctname);
         
+      /**
+        @brief update power of account by specifying amount
+        @param amount - boidpower amount
+        @param acctname - name of account to update
+       */
+      ACTION assignpower(
+        uint64_t amount,
+        name acctname);
+
       /**
         @brief erase account
         @param devContractAcct - owner of boidpower contract and device table
@@ -106,9 +115,7 @@ CONTRACT_START()
        */
       ACTION erase(
         name devContractAcct,
-        name acctname,
-        string devName,
-        bool freedev);
+        name acctname);
       
       /**
         @brief erase device from account
@@ -197,8 +204,8 @@ CONTRACT_START()
         vRam table for storing boid devices
        */
       TABLE device {
-         uint64_t devname; /**< Hash of device name */
-         string devnameStr; /**< Device name string */
+         uint64_t num; /**< Hash of device name */
+         string vanityName; /**< Device name string */
          uint64_t power; /**< Associated boidpower */
          name owner; /**< Owner of device */
          name ownerNode; /**< Deprecated */
@@ -206,10 +213,8 @@ CONTRACT_START()
          uint64_t isFree; /**< Device has no owner */
          bool freeze; /**< Device is not available for use */
          std::map<uint8_t,uint64_t> powerSources; /**< Contribution types for */
-         uint64_t origHash; /**< For handling device hash collisions */
-         std::vector<uint64_t> collisions; /**< List of device hash collisions */
 
-         uint64_t primary_key()const { return devname; } //!< Index table by device hash
+         uint64_t primary_key()const { return num; } //!< Index table by device hash
          uint64_t by_free()const { return isFree; } //!< Secondary index by free devices
       };
       typedef dapp::multi_index<

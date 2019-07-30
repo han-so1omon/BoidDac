@@ -13,8 +13,12 @@ boidteams::create(
   name leader)
 {
   require_auth(leader);
+  /*
   eosio_assert(!teamIsInNode(nodename,teamname),
     "team already exists in node");
+    */
+
+  uint64_t num = addTeam(leader, teamname, nodename);
   
   action(
     permission_level{leader,"active"_n},
@@ -23,26 +27,28 @@ boidteams::create(
     std::make_tuple(
       leader,
       leader,
+      num,
       teamname,
       nodename,
       BOID_TEAM_LEADER)
   ).send();
-  
-  addTeamByName(leader, teamname, nodename);
 } 
 
 ACTION
 boidteams::addaccount(
   name accountContractOwner,
   name nodename,
-  string teamname, 
+  uint64_t num,
+  string teamname,
   name acct,
   name teamleader)
 { 
   require_auth(acct);
   //require_auth(teamleader); //FIXME add this back in
+  /*
   eosio_assert(teamIsInNode(nodename,teamname),
     "team does not exist in node");
+    */
 
   action(
     permission_level{acct,"active"_n},
@@ -51,6 +57,7 @@ boidteams::addaccount(
     std::make_tuple(
       acct,
       teamleader,
+      num,
       teamname,
       nodename,
       BOID_TEAM_MEMBER)
@@ -64,7 +71,8 @@ boidteams::addaccount(
     true,
     false
   );
-  auto team = getTeamItr(&stats, teamname, nodename);
+  
+  auto team = stats.find(num);;
   stats.modify(team, _self, [&](auto& a){
     a.members[acct.value] = BOID_TEAM_MEMBER;
     a.numAccounts += 1;
@@ -75,12 +83,14 @@ ACTION
 boidteams::erase(
   name accountContractOwner,
   name nodename,
-  string teamname, 
+  uint64_t num, 
   name leader)
 {
   require_auth(leader);
+  /*
   eosio_assert(teamIsInNode(nodename,teamname),
     "team does not exist in node");
+    */
 
   teamstats stats(
     _self,
@@ -91,31 +101,33 @@ boidteams::erase(
     false
   );
 
-  auto team = getTeamItr(&stats, teamname, nodename);
+  auto team = stats.find(num);;
   auto mems = team->members.begin();
   while(mems != team->members.end()) {
     action(
       permission_level{leader,"active"_n},
       accountContractOwner,
       "eraseteam"_n,
-      std::make_tuple(nodename, teamname, mems->first)
+      std::make_tuple(nodename, num, mems->first)
     ).send();
   }
   
-  removeTeamByName(leader, teamname, nodename);
+  removeTeam(leader, nodename, num);
 }
 
 ACTION
 boidteams::eraseaccount(
   name accountContractOwner,
   name nodename,
-  string teamname, 
+  uint64_t num, 
   name acct,
   name teamleader)
 {
   require_auth(acct);
+  /*
   eosio_assert(teamIsInNode(nodename,teamname),
     "team does not exist in node");
+    */
   
   teammembers members(
     _self,
@@ -130,7 +142,7 @@ boidteams::eraseaccount(
     permission_level{acct,"active"_n},
     accountContractOwner,
     "eraseteam"_n,
-    std::make_tuple(nodename, teamname, acct)
+    std::make_tuple(nodename, num, acct)
   ).send();  
 
   teamstats stats(
@@ -141,7 +153,7 @@ boidteams::eraseaccount(
     true,
     false
   );
-  auto team = getTeamItr(&stats, teamname, nodename);
+  auto team = stats.find(num);;
 
   stats.modify(team,_self,[&](auto& a) {
     a.members.erase(a.members.find(acct.value));
@@ -149,9 +161,8 @@ boidteams::eraseaccount(
   });
 }
 
-
-void
-boidteams::addTeamByName(
+uint64_t
+boidteams::addTeam(
   name leader,
   string teamname,
   name nodename)
@@ -166,40 +177,30 @@ boidteams::addTeamByName(
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   
-  eosio_assert(boidValidTeamName(teamname), "invalid team name");
-  uint64_t teamhash = boidTeamNameHash(teamname);
-  uint64_t orighash = teamhash;
-  auto team = stats.find(teamhash);
-  auto orig = team;
-  if (team != stats.end()) {
-    for (auto it = team->collisions.begin();
-              it != team->collisions.end();
-              it++) {
-      eosio_assert(teamname != team->teamnameStr,
-        "team name must be unique in node");
-    }
-    teamhash = getAvailableTeamHash(nodename, teamhash);
-    stats.modify(orig, get_self(), [&](auto& a) {
-      a.collisions.push_back(teamhash);
-    });
-  }
+  uint64_t nextTeamNum = getAvailableTeamNum(nodename);
   
+  auto tm = stats.find(nextTeamNum);
+
+  eosio_assert(tm == stats.end(),
+    "Internal error: new team number not available");
+
   stats.emplace(_self, [&](auto& a){
     a.members[leader.value] = BOID_TEAM_LEADER;
     a.nodeContainer = nodename;
-    a.teamname = teamhash;
-    a.teamnameStr = teamname;
+    a.num = nextTeamNum;
+    a.vanityName = teamname;
     a.leader = leader;
     a.numAccounts = 1;
-    a.origHash = orighash;
   });
+  
+  return nextTeamNum;
 }
 
 void
-boidteams::removeTeamByName(
+boidteams::removeTeam(
   name leader,
-  string teamname,
-  name nodename)
+  name nodename,
+  uint64_t num)
 {
   require_auth(leader);
   teamstats stats( 
@@ -211,100 +212,67 @@ boidteams::removeTeamByName(
     false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
   );
   
-  eosio_assert(boidValidTeamName(teamname), "invalid team name");
-  uint64_t teamhash = boidTeamNameHash(teamname);
-  uint64_t orighash = teamhash;
-  auto team = stats.find(teamhash);
-  eosio_assert(team != stats.end(), "team does not exist in node");
-  
-  auto currCollision = team->collisions.begin();
-  // Find appropriate device by checking thru collisions
-  while (team->teamnameStr != teamname) {
-    eosio_assert(currCollision != team->collisions.end(),
-      "team does not exist in node");
-    team = stats.find(*currCollision);
-    eosio_assert(team != stats.end(), "bad hash collision table");
-    currCollision++;
-  }
-  
-  // Replace original hash (direct from boidNameHash() 
-  // if it is the element being deleted
-  // and if there have been previous collisions
-  if (team->origHash == orighash && !team->collisions.empty()) {
-    uint64_t nexthash = team->collisions.front();
-    auto nextteam = stats.find(nexthash);
-    eosio_assert(nextteam != stats.end(), "bad hash collision table");
-    stats.modify(nextteam, get_self(), [&](auto& a) {
-      // Reassign first collision to have orighash
-      a.teamname = orighash;
-      // Create new collisions table
-      for (auto it = team->collisions.begin();
-           it != team->collisions.end();
-           it++) {
-        if (*it != nexthash)
-          a.collisions.push_back(*it);
-      }
-    });
-  }
-  
-  // Finally erase team
-  stats.erase(team);
+  auto tm = stats.find(num);
+  eosio_assert(tm != stats.end(),
+    "Internal error: Team number does not exist");
+  removeTeamNum(nodename, num);
+  stats.erase(tm);
 }
 
 uint64_t
-boidteams::getAvailableTeamHash(
-  name nodename,
-  uint64_t hash)
+boidteams::getAvailableTeamNum(
+  name nodename)
 {
-  teamstats stats( 
-    get_self(), // contract
-    nodename.value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
+  uint64_t availableTeamNum;
+  teamnum_t teamnums(
+    get_self(),
+    nodename.value
   );
-  auto team = stats.find(hash);
-  while (team != stats.end()) {
-    hash++;
-    team = stats.find(hash);
+  
+  auto teamnumItr = teamnums.find(0);
+  
+  if (teamnumItr == teamnums.end()) {
+    teamnums.emplace(get_self(),[&](auto& a) {
+      a.dummy = 0;
+      a.freeInc = 0;
+    });
   }
-  return hash;
+  
+  if (!teamnumItr->otherFree.empty()) {
+    availableTeamNum = teamnumItr->otherFree.back();
+    teamnums.modify(teamnumItr, get_self(), [&](auto& a) {
+      a.otherFree.pop_back();
+    });
+  } else {
+    availableTeamNum = teamnumItr->freeInc;
+    teamnums.modify(teamnumItr, get_self(), [&](auto& a) {
+      a.freeInc++;
+    });
+  }
+  return availableTeamNum;
 }
 
-template<typename T>
-auto
-boidteams::getTeamItr(
-  T* dummy,
-  string teamname,
-  name nodename) -> decltype(dummy->end())
+void
+boidteams::removeTeamNum(
+  name nodename,
+  uint64_t num)
 {
-  //TODO require authorization of owner account (vaccounts style)
-  teamstats stats( 
-    get_self(), // contract
-    nodename.value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
+  teamnum_t teamnums(
+    get_self(),
+    nodename.value
   );
   
-  eosio_assert(boidValidTeamName(teamname), "invalid team name");
-  uint64_t teamhash = boidTeamNameHash(teamname);
-  uint64_t orighash = teamhash;
-  auto team = stats.find(teamhash);
-  eosio_assert(team != stats.end(), "team does not exist in node");
+  auto teamnumItr = teamnums.find(0);
+  eosio_assert(teamnumItr != teamnums.end(),
+    "Problem with team number generator: generator table not found");
   
-  auto currCollision = team->collisions.begin();
-  // Find appropriate device by checking thru collisions
-  while (team->teamnameStr != teamname) {
-    eosio_assert(currCollision != team->collisions.end(),
-      "team does not exist in node");
-    team = stats.find(*currCollision);
-    eosio_assert(team != stats.end(), "bad hash collision table");
-    currCollision++;
-  }
-  return team;
+  teamnums.modify(teamnumItr, get_self(), [&](auto& a){
+    eosio_assert(
+      std::find(a.otherFree.begin(), a.otherFree.end(), num)
+      == a.otherFree.end(),
+      "Problem with device number generator: Duplicate free device numbers found"
+    );
+  });
 }
 
 bool
@@ -328,6 +296,7 @@ boidteams::teamIsInNode(
   auto team = stats.find(teamhash);
   if (team == stats.end()) return false;
 
+  /* TODO updtae to work with new team numbering system
   auto currCollision = team->collisions.begin();
   // Find appropriate device by checking thru collisions
   while (team->teamnameStr != teamname) {
@@ -336,6 +305,7 @@ boidteams::teamIsInNode(
     eosio_assert(team != stats.end(), "bad hash collision table");
     currCollision++;
   }
+  */
   return true;
 }
 

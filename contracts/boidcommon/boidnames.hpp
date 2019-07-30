@@ -63,6 +63,7 @@ uint64_t boidDeviceNameHash(string s, uint64_t seed = 0)
       it++) {
     hash = hash * 101 + *it;
   }
+  print("device name hash: ", hash);
   return hash;
 }
 
@@ -81,5 +82,6 @@ uint64_t boidTeamNameHash(string s, uint64_t seed = 7)
       it++) {
     hash = hash * 101 + *it;
   }
+  print("team name hash: ", hash);
   return hash;
 }
