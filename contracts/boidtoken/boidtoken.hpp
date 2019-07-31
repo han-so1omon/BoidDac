@@ -226,6 +226,10 @@ CONTRACT_START()
      */
     ACTION setminstake(const float min_stake);
 
+    ACTION resetpowbon(const name account, const asset type);
+
+    ACTION resetpowtm(const name account, const asset type);
+
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
       \param to - account to be issued tokens
@@ -410,6 +414,8 @@ CONTRACT_END((create)
     (setpowerrate)
     (setpwrstkdiv)
     (setminstake)
+    (resetpowbon)
+    (resetpowtm)
 //    (testissue)
 //    (vramtransfer)
 )

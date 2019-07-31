@@ -16,7 +16,12 @@
     "m4": "node test/updateproc/4_replaceInUpdate.js",
     "m5": "node test/updateproc/5_checkContract.js",
     "m6": "node test/updateproc/6_eraseMaintenance.js",
-    "kylin_deploy": "node test/kylinDeploy.js"
+    "kylin_deploy": "node test/kylinDeploy.js",
+    "u0": "node test/updateproc2/00_freezeContract.js",
+    "u1": "node test/updateproc2/1_getData.js",
+    "u2": "node test/updateproc2/2_eraseExisting.js",
+    "u3": "node test/updateproc2/3_deployUpdate.js",
+    "u4": "node test/updateproc2/4_replaceInUpdate.js"
   },
   "keywords": [],
   "author": "",

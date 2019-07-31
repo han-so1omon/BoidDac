@@ -324,11 +324,7 @@ boidtoken::claim(name stake_account, asset type)
   // Bonus will only exist if account exists, as bonus requires boidpower
   if (a_itr != accts.end()) {
     boidpower = a_itr->boidpower;
-    if (member != s_t.end() && \
-        member->staked_amounts.begin() != member->staked_amounts.end())
-      start_time = a_itr->previous_power_claim_time;
-    else
-      start_time = c_itr->season_start;
+    start_time = a_itr->previous_power_claim_time;  
       
     claim_time = now();
     float power_coef = fmin(
@@ -741,6 +737,30 @@ void boidtoken::setminstake(float min_stake)
     c_t.modify(c_itr, _self, [&](auto &c) {
         c.min_stake = asset{(int64_t)min_stake, symbol("BOID",4)};
     });
+}
+
+void boidtoken::resetpowbon(const name account, const asset type)
+{
+  require_auth( _self );
+  accounts a_t(_self, account.value);
+  auto a_itr = a_t.find(type.symbol.code().raw());
+  if (a_itr != a_t.end()) {
+    a_t.modify(a_itr, same_payer, [&](auto& a) {
+      a.power_bonus = asset{0, type.symbol};
+    });
+  }
+}
+
+void boidtoken::resetpowtm(const name account, const asset type)
+{
+  require_auth( _self );
+  accounts a_t(_self, account.value);
+  auto a_itr = a_t.find(type.symbol.code().raw());
+  if (a_itr != a_t.end()) {
+    a_t.modify(a_itr, same_payer, [&](auto& a) {
+      a.previous_power_claim_time = now();
+    });
+  }
 }
 
 /* Subtract value from specified account
