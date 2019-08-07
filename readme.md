@@ -1,6 +1,18 @@
-TODO try deploying token ct to other act
+TODO try deploying token to other acct
 Potential issue: call transtaked when account has nothing staked
   - Thus, we must pay for stake table RAM
+
+TODO track and automatically change stake/power difficulty
+parameters with off-chain script. Base this off of desired
+inflation rate, monthly sliding average powered
+stake and boidpower. Set target inflation at 10-15%.
+
+TODO run the state history plugin and see if the actions show up in state
+history
+
+TODO regrab unused airdropped tokens
+  Make list of accounts that have not used the boidtoken contract
+
 #Testing phase for BoidDac
 ##Tests
 Install required libraries:

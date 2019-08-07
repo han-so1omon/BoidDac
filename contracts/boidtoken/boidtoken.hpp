@@ -32,6 +32,8 @@
 
 #define STAKE_ADD 0
 #define STAKE_SUB 1
+#define STAKE_SEND 2
+#define STAKE_RETURN 3
 
 #define AUTO_STAKE_ON 0
 #define AUTO_STAKE_OFF 1
@@ -113,7 +115,14 @@ CONTRACT_START()
      */
     ACTION transtaked(name to, asset quantity, string memo);
 
-    ACTION updatedummy(name to, asset quantity, int8_t auto_stake, uint8_t type);
+    ACTION updatedummy(
+      name from,
+      name to,
+      asset quantity,
+      int8_t auto_stake,
+      uint8_t type,
+      uint32_t timeout
+    );
 
 
     /** \brief enable/disable staking and unstaking for users with stake break equals true/false respectively.
@@ -133,7 +142,14 @@ CONTRACT_START()
      * \param _staked - number of tokens to stake
      * \param auto_stake - if the account should stay staked thru stake seasons
      */
-    ACTION stake(name stake_account, asset quantity, uint8_t auto_stake);
+    ACTION stake(
+      name from,
+      name to,
+      asset quantity,
+      uint8_t auto_stake,
+      uint32_t time_limit,
+      bool use_staked_balance
+    );
 
     /** \brief broadcast blockchain to message
      * \param acct - account sending message
@@ -145,7 +161,7 @@ CONTRACT_START()
      * \param accountContractOwner - owner of account contract and account table
      * \param _stake_account - account claiming token bonus
      */
-    ACTION claim(name stake_account, asset type);
+    ACTION claim(name stake_account, float percentage_to_stake);
 
     /** \brief Unstake tokens for specified _stake_account
      *
@@ -153,15 +169,22 @@ CONTRACT_START()
      * \param _stake_account - account unstaking tokens
      * \param quanitity - number of tokens to unstake
      */
-    ACTION unstake(name stake_account, asset quantity);
+    ACTION unstake(
+      name from,
+      name to,
+      asset quantity,
+      uint32_t timeout,
+      bool to_staked_account,
+      bool issuer_unstake
+    );
 
     /** \brief Initialize config table
      */
-    ACTION initstats(asset type);
+    ACTION initstats();
     
-    ACTION erasetoken(asset type);
+    ACTION erasetoken();
     
-    ACTION erasestats(asset type);
+    ACTION erasestats();
     
     ACTION eraseacct(const name acct);
 
@@ -178,12 +201,13 @@ CONTRACT_START()
       const asset balance,
       const float boidpower,
       const uint32_t previous_power_claim_time,
+      const std::map<name, std::pair<asset, uint32_t>> delegations,
       const asset power_bonus
     );
     
     ACTION emplacestake(
       const name acct,
-      const std::map<uint32_t, std::pair<asset,float>> staked_amounts,
+      const std::map<name, std::tuple<asset,uint32_t, uint32_t>> staked_amounts,
       const uint8_t auto_stake,
       const uint8_t stake_type,
       const asset stake_season_bonus,
@@ -226,9 +250,9 @@ CONTRACT_START()
      */
     ACTION setminstake(const float min_stake);
 
-    ACTION resetpowbon(const name account, const asset type);
+    ACTION resetpowbon(const name account);
 
-    ACTION resetpowtm(const name account, const asset type);
+    ACTION resetpowtm(const name account);
 
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
@@ -259,21 +283,6 @@ CONTRACT_START()
      */
     inline asset get_available(name owner, symbol sym) const;
 
-    /** \brief Get staked balance of some account for some token in accounts table
-     * \param owner - name of account to get staked tokens for
-     * \param sym - type of token to search for
-     */
-    inline asset get_staked(name owner, symbol sym) const;
-    
-    /**
-      \brief Get boidpower for account
-      \param accountContractOwner - owner of account contract and accounts table
-      \param account - account to check
-     */
-    inline float get_boidpower(
-      name account
-    );
-
   private:
 
     /*!
@@ -290,6 +299,8 @@ CONTRACT_START()
         // bookkeeping:
         uint32_t        active_accounts; /**< Total active staking accounts */
         asset           total_staked; /**< Total quantity staked */
+        asset           last_total_powered_stake;
+        float           total_boidpower;
 
         // staking reward equation vars:
         float           stake_difficulty;
@@ -312,8 +323,9 @@ CONTRACT_START()
         float boidpower;
         uint32_t previous_power_claim_time;
         asset power_bonus;
+        std::map<name, std::pair<asset, uint32_t>> delegations;
 
-        uint64_t primary_key() const { return balance.symbol.code().raw(); }
+        uint64_t primary_key() const { return balance.symbol.code().raw();}
     };
 
     typedef eosio::multi_index<"accounts"_n, account> accounts;
@@ -324,8 +336,10 @@ CONTRACT_START()
     TABLE stakerow {
         // map times to stake amounts and boidpowers
         //TODO change to tuples
-        // {staketime: {amount, boidpower} }
-        std::map<uint32_t, std::pair<asset,float>> staked_amounts; 
+        // {owner: {amount, prev_claim_time, time_limit} }
+        // TODO staked_amounts::amount should keep individual stakes not cumulative
+        std::map<name, std::tuple<asset,uint32_t,uint32_t>> staked_amounts;
+        asset powered_stake;
         //std::map<uint32_t, std::tuple<asset,float>> staked_amounts;
         //asset           staked;
         uint8_t         auto_stake;  // toggle if we want to unstake stake_account at end of season
@@ -369,7 +383,14 @@ CONTRACT_START()
      */    
     void add_balance(name owner, asset value);
     
-    void update_stake(name stake_account, asset quantity, int8_t auto_stake, uint8_t type);
+    void update_stake(
+      name from,
+      name to,
+      asset quantity,
+      int8_t auto_stake,
+      uint8_t type,
+      uint32_t timeout
+    );
 
     public:
     
@@ -438,39 +459,4 @@ asset boidtoken::get_available(name owner, symbol sym) const
   accounts accts(get_self(), owner.value);
   const auto& a = accts.get(sym.code().raw());
   return a.balance;
-}
-
-asset boidtoken::get_staked(name owner, symbol sym) const
-{
-  /*
-  token_t tkns(_self, owner.value);
-  const auto& a = tkns.get(sym.code().raw());
-  return a.staked;
-  */
-  staketable s_t(_self, _self.value);
-  const auto& a = s_t.get(owner.value);
-  return a.staked_amounts.rbegin()->second.first;
-}
-
-float boidtoken::get_boidpower(
-  name account
-)
-{
-  /*
-  account_t accts( 
-    accountContractOwner, // contract
-    accountContractOwner.value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  
-  const auto& acct = accts.get(account.value,
-    "account does not exist");
-  return acct.power;
-  */
-  accounts acct(_self, account.value);
-  const auto& a = acct.get(symbol("BOID",4).code().raw());
-  return a.boidpower;
 }

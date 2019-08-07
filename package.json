@@ -21,7 +21,12 @@
     "u1": "node test/updateproc2/1_getData.js",
     "u2": "node test/updateproc2/2_eraseExisting.js",
     "u3": "node test/updateproc2/3_deployUpdate.js",
-    "u4": "node test/updateproc2/4_replaceInUpdate.js"
+    "u4": "node test/updateproc2/4_replaceInUpdate.js",
+    "s0": "node test/updatesim/0_resetContract.js",
+    "s1": "node test/updatesim/1_getData.js",
+    "s2": "node test/updatesim/2_eraseExisting.js",
+    "s3": "node test/updatesim/3_deployUpdate.js",
+    "s4": "node test/updatesim/4_replaceInUpdate.js"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +41,7 @@
   "dependencies": {
     "chai": "^4.2.0",
     "config": "^3.2.2",
+    "csv-parse": "^4.4.3",
     "csv-stringify": "^5.3.0",
     "dotenv": "^8.0.0",
     "eosjs-ecc": "^4.0.4",
