@@ -34,6 +34,7 @@
 #define STAKE_SUB 1
 #define STAKE_SEND 2
 #define STAKE_RETURN 3
+#define STAKE_TRANSFER 4
 
 #define AUTO_STAKE_ON 0
 #define AUTO_STAKE_OFF 1
@@ -113,17 +114,12 @@ CONTRACT_START()
      * \param quantity - number of staked tokens to transfer
      * \param memo - message after staked transfer
      */
-    ACTION transtaked(name to, asset quantity, string memo);
-
-    ACTION updatedummy(
+    ACTION transtaked(
       name from,
       name to,
       asset quantity,
-      int8_t auto_stake,
-      uint8_t type,
       uint32_t timeout
     );
-
 
     /** \brief enable/disable staking and unstaking for users with stake break equals true/false respectively.
      * \param on_switch - 0 if off break, 1 if on break
@@ -180,7 +176,7 @@ CONTRACT_START()
 
     /** \brief Initialize config table
      */
-    ACTION initstats();
+    ACTION initstats(bool wpf_reset);
     
     ACTION erasetoken();
     
@@ -189,6 +185,8 @@ CONTRACT_START()
     ACTION eraseacct(const name acct);
 
     ACTION erasestake(const name acct);
+
+    ACTION erasedeleg(const name acct);
     
     ACTION emplacetoken(
       const asset supply,
@@ -249,6 +247,8 @@ CONTRACT_START()
      * \param min_stake - minimum tokens staked to get bonus
      */
     ACTION setminstake(const float min_stake);
+
+    ACTION setmaxpwrstk(const float percentage);
 
     ACTION resetpowbon(const name account);
 
@@ -312,6 +312,8 @@ CONTRACT_START()
         float           power_bonus_max_rate;
         float           power_bonus_divisor;
         asset           min_stake; /**< Min staked to receive bonus */
+        float           max_powered_stake_ratio;
+        asset           worker_proposal_fund;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
     };
@@ -336,7 +338,7 @@ CONTRACT_START()
     TABLE stakerow {
         // map times to stake amounts and boidpowers
         //TODO change to tuples
-        // {owner: {amount, prev_claim_time, time_limit} }
+        // {owner: {amount, time_limit, prev_claim_time} }
         // TODO staked_amounts::amount should keep individual stakes not cumulative
         std::map<name, std::tuple<asset,uint32_t,uint32_t>> staked_amounts;
         asset powered_stake;
@@ -410,7 +412,6 @@ CONTRACT_END((create)
     (recycle)
     (transfer)
     (transtaked)
-    (updatedummy)
     (stakebreak)
     (stake)
     (sendmessage)
@@ -421,6 +422,7 @@ CONTRACT_END((create)
     (erasestats)
     (eraseacct)
     (erasestake)
+    (erasedeleg)
     (emplacetoken)
     (emplaceacct)
     (emplacestake)
@@ -435,6 +437,7 @@ CONTRACT_END((create)
     (setpowerrate)
     (setpwrstkdiv)
     (setminstake)
+    (setmaxpwrstk)
     (resetpowbon)
     (resetpowtm)
 //    (testissue)

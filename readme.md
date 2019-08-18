@@ -1,4 +1,10 @@
-TODO try deploying token to other acct
+TODO fix stake parameters
+TODO add cap to powered stake and get rid of max stake bonus rate. Perhaps 5% of
+total tokens staked
+TODO worker proposal fund
+TODO percentage of stake bonus to staked account
+TODO boidpower decay
+
 Potential issue: call transtaked when account has nothing staked
   - Thus, we must pay for stake table RAM
 

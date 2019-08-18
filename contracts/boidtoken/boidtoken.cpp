@@ -140,39 +140,20 @@ void boidtoken::transfer(name from, name to, asset quantity, string memo)
  *  - Token type must be same as type to-be-staked via this contract
  *  - user account must be valid
  */
-void boidtoken::transtaked(name to, asset quantity, string memo)
-{
-  auto sym = quantity.symbol;
-  stats statstable(get_self(), sym.code().raw());
-  const auto& st = statstable.get(sym.code().raw());
-  action(
-    permission_level{st.issuer, "active"_n},
-    get_self(),
-    "issue"_n,
-    std::make_tuple(to, quantity, std::string(memo))
-  ).send();
-
-  action(
-    permission_level{st.issuer, "active"_n},
-    get_self(),
-    "updatedummy"_n,
-    std::make_tuple(to, quantity, 1, STAKE_ADD)
-  ).send();  
-}
-
-void boidtoken::updatedummy(
+void boidtoken::transtaked(
   name from,
   name to,
   asset quantity,
-  int8_t auto_stake,
-  uint8_t type,
-  uint32_t timeout
-) {
-  auto sym = quantity.symbol;
-  stats statstable(get_self(), sym.code().raw());
-  const auto& st = statstable.get(sym.code().raw());
-  require_auth(st.issuer);
-  update_stake(from, to, quantity, 1, STAKE_ADD, timeout);
+  uint32_t timeout)
+{
+  update_stake(
+    from,
+    to,
+    quantity,
+    1,
+    STAKE_TRANSFER,
+    now() + timeout
+  );
 }
 
 void boidtoken::stakebreak(uint8_t on_switch)
@@ -244,6 +225,10 @@ void boidtoken::stake(
     "no account object found");
   
   string memo, account_type;
+
+  uint32_t expiration_time = time_limit == 0 ?
+    0 : now() + time_limit;
+    
   // Assert either:
   //  1) has sufficient liquid balance
   //  2) has sufficient staked, undelegated balance && not staking to self
@@ -253,13 +238,13 @@ void boidtoken::stake(
       quantity.amount <= std::get<0>(acct.delegations.at(from)).amount &&
       from != to,
       "staking more than available staked balance"); 
-    update_stake(from, to, quantity, auto_stake, STAKE_SEND, now() + time_limit);
+    update_stake(from, to, quantity, auto_stake, STAKE_SEND, expiration_time);
     account_type = "stake";
   } else {
     eosio_assert(
       quantity.amount <= acct.balance.amount,
       "staking more than available liquid balance");
-    update_stake(from, to, quantity, auto_stake, STAKE_ADD, now() + time_limit);
+    update_stake(from, to, quantity, auto_stake, STAKE_ADD, expiration_time);
     account_type = "liquid";
   }
   
@@ -319,6 +304,8 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   asset total_payout = asset{0,sym},
         power_payout = asset{0,sym},
         stake_payout = asset{0,sym},
+        self_stake_payout = asset{0,sym},
+        wpf_payout = asset{0,sym},
         expired_received_tokens = asset{0,sym},
         expired_delegated_tokens = asset{0,sym};
 
@@ -339,9 +326,14 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         it++) {  
       powered_stake_amount += std::get<0>(it->second);
     }
-    powered_stake_amount *= (int64_t)boidpower/(int64_t)c_itr->powered_stake_divisor;
+    int64_t tmp = powered_stake_amount.amount;
+    int64_t max_amt =
+      c_itr->max_powered_stake_ratio*c_itr->total_staked.amount;
+    tmp *= boidpower/c_itr->powered_stake_divisor;
+    tmp = tmp > max_amt ? max_amt : tmp;
+    powered_stake_amount = asset{tmp, sym};
   }
-  
+
   // Find stake bonus
   auto it2 = member->staked_amounts.begin();
   if (member != s_t.end() && c_itr->stakebreak == STAKE_BREAK_OFF) {
@@ -351,7 +343,9 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       if (std::get<2>(it->second) > now()) continue;
       start_time = std::get<2>(it->second);
 
-      if (std::get<1>(it->second) < now() &&\
+      if (std::get<1>(it->second) == 0) {
+        claim_time = now();
+      } else if (std::get<1>(it->second) < now() &&\
           stake_account != it->first) {
         claim_time = std::get<1>(it->second);
         expired_received_tokens += std::get<0>(it->second);
@@ -368,18 +362,23 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       float amt = fmin(
         (float)staked_amount.amount,
         (float)powered_stake_amount.amount);
-      float stake_coef = fmin(
-        amt*c_itr->stake_difficulty/\
-        c_itr->stake_bonus_divisor/(float)precision_coef,
-        c_itr->stake_bonus_max_rate);
-      int64_t payout_amount = (int64_t)(
-        stake_coef*(claim_time - start_time)*\
-        TIME_MULT);
+      float wpf_amount = fmax(
+        (float)(powered_stake_amount.amount - staked_amount.amount),
+        0);
+      float stake_coef =
+        c_itr->stake_difficulty/\
+        c_itr->stake_bonus_divisor*\
+        (claim_time - start_time)*\
+        TIME_MULT;
+      int64_t payout_amount = (int64_t)(amt*stake_coef);
+      int64_t wpf_payout_amount = (int64_t)(wpf_amount*stake_coef);
       stake_payout += asset{payout_amount,sym};
-      
+      wpf_payout += asset{wpf_payout_amount,sym};
       //DEBUGGING
       //stake_payout = powered_stake_amount;
       print("stake payout: ", stake_payout);
+      print("claim_time: ", claim_time);      
+      print("start_time: ", start_time);      
       print("staked amount: ", staked_amount);
       print("powered staked amount: ", powered_stake_amount);
       print("stake_coef: ", stake_coef);
@@ -389,9 +388,10 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         std::get<2>(s.staked_amounts.at(it->first)) = now();
       });
     
-      if (std::get<1>(it->second) < now() && it->first != stake_account)
+      if (std::get<1>(it->second) < now() && it->first != stake_account) {
         update_stake(it->first, stake_account, std::get<0>(it->second),
           member->auto_stake, STAKE_RETURN, std::get<1>(it->second));
+      }
       
       powered_stake_amount -= staked_amount;
       amt = fmax(
@@ -399,11 +399,9 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         (float)powered_stake_amount.amount);
       powered_stake_amount = asset{(int64_t)amt,sym};
     }
-    total_payout += stake_payout;
+    total_payout += stake_payout + wpf_payout;
   }
 
-  print("stake payout: ", stake_payout);
-  
   for (auto it = a_itr->delegations.begin();
             it != a_itr->delegations.end();
             it++) {
@@ -441,13 +439,31 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       statstable.modify(st, get_self(), [&](auto &s) {
           s.supply += total_payout;
       });
-      add_balance(stake_account, total_payout);
+      asset self_payout = power_payout + stake_payout;
+      add_balance(stake_account, self_payout);
+      int64_t self_stake_payout_amount =
+        (int64_t)(percentage_to_stake/100)*self_payout.amount;
+      self_stake_payout += asset{self_stake_payout_amount,sym};
       if (member != s_t.end()) {
         s_t.modify(member, same_payer, [&](auto& a) {
           a.stake_season_bonus += stake_payout;
         });
         c_t.modify(c_itr, same_payer, [&](auto& a) {
           a.total_season_bonus += stake_payout;
+          a.worker_proposal_fund += wpf_payout;
+        });
+      }
+      if (
+        (member != s_t.end() &&\
+         member->staked_amounts.find(stake_account) != member->staked_amounts.end()) ||\
+        self_stake_payout >= c_itr->min_stake) {
+        update_stake(stake_account, stake_account, self_stake_payout, AUTO_STAKE_ON, STAKE_ADD, 0);
+        auto newmember = s_t.find(sym.code().raw());        
+        s_t.modify(newmember, same_payer, [&](auto& a) {
+          a.stake_season_bonus += self_stake_payout;
+        });      
+        c_t.modify(c_itr, same_payer, [&](auto& a) {
+          a.total_staked += self_stake_payout;
         });
       }
     }
@@ -457,6 +473,8 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
      "\naction: claim" +\
      "\nstake bonus: " + stake_payout.to_string() +\
      "\npower bonus: " + power_payout.to_string() +\
+     "\nwpf contribution: " + wpf_payout.to_string() +\
+     "\npercentage to self stake: " + self_stake_payout.to_string() +\
      "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
      "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
   
@@ -485,12 +503,16 @@ void boidtoken::unstake(
   config_table c_t(get_self(), get_self().value);
   auto c_itr = c_t.find(0);
   eosio_assert(c_itr != c_t.end(), "Must first initstats");  
-  if (c_itr->stakebreak == STAKE_BREAK_ON && !issuer_unstake) {
+  
+  // Can unstake to liquid or staked account out of season with delegator
+  if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_account)\
+      && !issuer_unstake) {
     require_auth( from );
-  } else if (issuer_unstake && c_itr->stakebreak == STAKE_BREAK_ON) {
-    require_auth( get_self() );    
+  
+  // Can unstake to liquid or staked account at all times as token issuer
   } else {
-    require_auth( get_self() );
+    eosio_assert(issuer_unstake, "Must use issuer account to unstake in this way");
+    require_auth( get_self() ); 
   }
 
   // verify symbol
@@ -518,21 +540,31 @@ void boidtoken::unstake(
     amount_after.amount == 0,
     "After unstake, must have nothing staked or a valid amount");
 
-  eosio_assert(
-    std::get<2>(s_itr->staked_amounts.at(from)) < now(),
+  uint32_t curr_expiration_time = std::get<1>(s_itr->staked_amounts.at(from));
+  eosio_assert(curr_expiration_time < now(),
     "Cannot unstake before time limit");
 
-  if (to_staked_account)
+  uint32_t expiration_time = timeout == 0 ?
+    0 : now() + timeout;
+
+  if (to_staked_account && to != from)  {
+    update_stake(
+      from, to, quantity, 
+      AUTO_STAKE_NULL, STAKE_RETURN, expiration_time
+    );
+  } else {
+    eosio_assert(
+      c_itr->stakebreak == STAKE_BREAK_ON,
+      "Cannot unstake to liquid account in season"
+    );
     update_stake(from, to, quantity, 
-          AUTO_STAKE_NULL, STAKE_RETURN, timeout);
-  else
-    update_stake(from, to, quantity, 
-      AUTO_STAKE_NULL, STAKE_SUB, timeout);
+      AUTO_STAKE_NULL, STAKE_SUB, expiration_time);
+  }
 }
 
 /* Initialize config table
  */
-void boidtoken::initstats()
+void boidtoken::initstats(bool wpf_reset)
 {
     print("initstats\n");
     require_auth( get_self() );
@@ -565,6 +597,7 @@ void boidtoken::initstats()
             c.stake_difficulty = 5000;
             c.power_bonus_max_rate = 1e6/c.season_length;
             c.power_bonus_divisor = 8e12;
+            c.max_powered_stake_ratio = .05;
         });
     }
     else
@@ -588,6 +621,10 @@ void boidtoken::initstats()
             c.stake_difficulty = 5000;
             c.power_bonus_max_rate = 1e6/c.season_length;
             c.power_bonus_divisor = 8e12;
+            c.max_powered_stake_ratio = .05;
+            if (wpf_reset) {
+              c.worker_proposal_fund = cleartokens;
+            }    
         });
     }
 }
@@ -631,6 +668,18 @@ void boidtoken::erasestake(const name acct)
   auto s_itr = s_t.find(symbol("BOID",4).code().raw());
   if (s_itr != s_t.end())
     s_t.erase(s_itr);
+}
+
+void boidtoken::erasedeleg(const name acct)
+{
+  require_auth(get_self());
+  accounts acct_t(get_self(), acct.value);
+  auto a_itr = acct_t.find(symbol("BOID",4).code().raw());
+  if (a_itr != acct_t.end()) {
+    acct_t.modify(a_itr, same_payer, [&](auto& a) {
+      a.delegations.clear();
+    });
+  }
 }
 
 void boidtoken::emplacetoken(
@@ -851,6 +900,17 @@ void boidtoken::setminstake(float min_stake)
     });
 }
 
+void boidtoken::setmaxpwrstk(const float percentage)
+{
+  require_auth( _self );
+  config_table c_t (_self, _self.value);
+  auto c_itr = c_t.find(0);
+  eosio_assert(c_itr != c_t.end(), "Must first initstats");  
+  c_t.modify(c_itr, _self, [&](auto &c) {
+      c.max_powered_stake_ratio = percentage/100;
+  });
+}
+
 void boidtoken::resetpowbon(const name account)
 {
   require_auth( _self );
@@ -943,7 +1003,8 @@ void boidtoken::update_stake(
     type == STAKE_ADD ||\
     type == STAKE_SUB ||\
     type == STAKE_SEND ||\
-    type == STAKE_RETURN,
+    type == STAKE_RETURN ||\
+    type == STAKE_TRANSFER,
     "Invalid stake type");
   eosio_assert(quantity.amount > 0,
     "Must update stake with positive amount");
@@ -1022,24 +1083,31 @@ void boidtoken::update_stake(
     asset curr_delegated_to =
       acct->delegations.find(to) == acct->delegations.end() ?
       zerotokens : acct->delegations.find(to)->second.first;
-    asset after_delegated_to = curr_delegated_to + quantity;
+    asset after_delegated_to = curr_delegated_to - quantity;
     eosio_assert(
       after_delegated_to >= c_itr->min_stake ||\
       after_delegated_to.amount == 0,
       "Must maintain minimum stake or have zero stake for this delegation"
     );
     
+    previous_stake_amount = std::get<0>(to_itr->staked_amounts.at(from));
+    asset amount_after = previous_stake_amount - quantity;
+    
+    eosio_assert(
+      after_delegated_to == amount_after,
+      "Delegations must agree from stake table to accounts table"
+    );
+    
     accts.modify(acct, same_payer, [&](auto& a) {
-      if (after_delegated_to.amount > 0) {
+      if (after_delegated_to >= c_itr->min_stake) {
         a.delegations[to] =
           std::pair(after_delegated_to, timeout);
       } else {
         a.delegations.erase(to); //TODO check if should be deleted in claim
       }
-    });  
+      add_balance(from, quantity);
+    });
     
-    previous_stake_amount = std::get<0>(to_itr->staked_amounts.at(from));
-    asset amount_after = previous_stake_amount - quantity;
     if (amount_after >= c_itr->min_stake) {
       std::tuple stake_traits = std::tuple(
         amount_after,
@@ -1154,21 +1222,27 @@ void boidtoken::update_stake(
       zerotokens : acct->delegations.find(from)->second.first;
     asset after_delegated_self = curr_delegated_self + quantity;
     eosio_assert(
-      after_delegated_to.amount > c_itr->min_stake.amount ||\
+      after_delegated_to.amount >= c_itr->min_stake.amount ||\
       after_delegated_to.amount == 0,
       "Must maintain minimum stake or have no stake for delegate");
     eosio_assert(
-      after_delegated_self > c_itr->min_stake,
+      after_delegated_self >= c_itr->min_stake,
       "Delegator must have at least minimum stake delegated to self after stake return"
     );
     
+    print("after to: ", after_delegated_to);
+    print("after self: ", after_delegated_self);
+    
     accts.modify(acct, same_payer, [&](auto& a) {
-      a.delegations[to] =
-        std::pair(after_delegated_to, timeout);
-      a.delegations[from] =
+      if (after_delegated_to >= c_itr->min_stake) {
+        a.delegations[to] =
+          std::pair(after_delegated_to, timeout);
+      } else {
+        a.delegations.erase(to);
+      }
+      a.delegations[from] = 
         std::pair(after_delegated_self, a.delegations[from].second);
-    });    
-
+    });
 
     if (after_delegated_to >= c_itr->min_stake) {
       std::tuple stake_traits = std::tuple(
@@ -1200,7 +1274,7 @@ void boidtoken::update_stake(
       now()
     );
     if (from_itr == s_t.end()) {
-      s_t.emplace(same_payer, [&](auto& s) {
+      s_t.emplace(get_self(), [&](auto& s) {
         s.staked_amounts[from] = stake_traits;
         if (auto_stake != AUTO_STAKE_NULL) {
           s.auto_stake = auto_stake;
@@ -1216,5 +1290,7 @@ void boidtoken::update_stake(
         }
       });      
     }
+  } else if (type == STAKE_TRANSFER) {
+    eosio_assert(1==2,"TODO: STAKE_TRANSFER");
   }
 }
