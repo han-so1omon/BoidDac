@@ -36,14 +36,8 @@
 #define STAKE_RETURN 3
 #define STAKE_TRANSFER 4
 
-#define AUTO_STAKE_ON 0
-#define AUTO_STAKE_OFF 1
-#define AUTO_STAKE_NULL -1
-
 #define STAKE_BREAK_ON 0
 #define STAKE_BREAK_OFF 1
-
-#define STAKE_TYPE_SELF 0
 
 #define TIME_MULT 86400
 
@@ -94,7 +88,7 @@ CONTRACT_START()
     /** \brief Issuer can delete tokens as well from their own account
      * \param quantity - number or tokens to recycle
      */
-    ACTION recycle(asset quantity);
+    ACTION recycle(name account, asset quantity);
 
     /** \brief Transfer tokens from one account to another
      *
@@ -136,13 +130,11 @@ CONTRACT_START()
      *    -- Token type must be same as type to-be-staked via this contract
      * \param _stake_account - account that is staking tokens
      * \param _staked - number of tokens to stake
-     * \param auto_stake - if the account should stay staked thru stake seasons
      */
     ACTION stake(
       name from,
       name to,
       asset quantity,
-      uint8_t auto_stake,
       uint32_t time_limit,
       bool use_staked_balance
     );
@@ -206,8 +198,6 @@ CONTRACT_START()
     ACTION emplacestake(
       const name acct,
       const std::map<name, std::tuple<asset,uint32_t, uint32_t>> staked_amounts,
-      const uint8_t auto_stake,
-      const uint8_t stake_type,
       const asset stake_season_bonus,
       const asset type
     );
@@ -218,30 +208,15 @@ CONTRACT_START()
       std::map<std::string,asset> assetparams
     );
 
-    ACTION setbp(const name acct, const float boidpower);
+    ACTION updatebp(const name acct, const float boidpower);
     
-    /** \brief set auto restake
-     * \param _stake_account - account setting auto_stake param
-     * \param on_switch - 0 if auto_stake off, 1 if auto_stake on
-     */
-    ACTION setautostake(name stake_account, asset type, uint8_t on_switch);
-
     ACTION setstakediff(const float stake_difficulty);
     
     ACTION setpowerdiff(const float power_difficulty);
         
-    /** \brief Set new bp bonus divisor
-     * \param bp_bonus_divisor - correction multiplier in boidpower stake bonus
-     */
-    ACTION setstakediv(const float stake_bonus_divisor);
-
-    ACTION setpowerdiv(const float power_bonus_divisor);
-
-    ACTION setstakerate(const float stake_bonus_max_rate);
-
     ACTION setpowerrate(const float power_bonus_max_rate);
 
-    ACTION setpwrstkdiv(const float powered_stake_divisor);
+    ACTION setpwrstkmul(const float powered_stake_multiplier);
 
     /** \brief Set new minimum stake amount
      * \param min_stake - minimum tokens staked to get bonus
@@ -249,6 +224,18 @@ CONTRACT_START()
     ACTION setminstake(const float min_stake);
 
     ACTION setmaxpwrstk(const float percentage);
+    
+    ACTION setmaxwpfpay(const asset max_wpf_payout);
+    
+    ACTION setwpfproxy(const name proxy);
+    
+    ACTION collectwpf();
+    
+    ACTION recyclewpf();
+        
+    ACTION setbpdecay(const float decay);
+    
+    ACTION setbpexp(const float update_exp);
 
     ACTION resetpowbon(const name account);
 
@@ -283,6 +270,12 @@ CONTRACT_START()
      */
     inline asset get_available(name owner, symbol sym) const;
 
+    inline float update_boidpower(
+      float bpPrev,
+      float bpNew,
+      float dt
+    );
+
   private:
 
     /*!
@@ -304,16 +297,18 @@ CONTRACT_START()
 
         // staking reward equation vars:
         float           stake_difficulty;
-        float           stake_bonus_max_rate; /**< Max bp bonus */
-        float           stake_bonus_divisor; /**< Divisor for boidpower extra bonus */
-        float           powered_stake_divisor;
+        float           powered_stake_multiplier;
 
         float           power_difficulty;
         float           power_bonus_max_rate;
-        float           power_bonus_divisor;
         asset           min_stake; /**< Min staked to receive bonus */
         float           max_powered_stake_ratio;
+        asset           max_wpf_payout;
         asset           worker_proposal_fund;
+        name            worker_proposal_fund_proxy;
+        
+        float           boidpower_decay_rate;
+        float           boidpower_update_exp;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
     };
@@ -324,6 +319,7 @@ CONTRACT_START()
         asset balance;
         float boidpower;
         uint32_t previous_power_claim_time;
+        uint32_t previous_bp_update_time;
         asset power_bonus;
         std::map<name, std::pair<asset, uint32_t>> delegations;
 
@@ -344,9 +340,7 @@ CONTRACT_START()
         asset powered_stake;
         //std::map<uint32_t, std::tuple<asset,float>> staked_amounts;
         //asset           staked;
-        uint8_t         auto_stake;  // toggle if we want to unstake stake_account at end of season
         //uint32_t        previous_payout_date; /**< Date to payout bonuses
-        uint8_t         stake_type;
         asset           stake_season_bonus;
         asset           type;
 
@@ -376,22 +370,22 @@ CONTRACT_START()
       @param owner - account to subtract tokens from
       @param value - amount to subtract
      */
-    void sub_balance(name owner, asset value);
+    void sub_balance(name owner, asset value, name ram_payer);
     
     /**
       @brief add available balance to account
       @param owner - account to add tokens to
       @param value - amount to add
      */    
-    void add_balance(name owner, asset value);
+    void add_balance(name owner, asset value, name ram_payer);
     
     void update_stake(
       name from,
       name to,
       asset quantity,
-      int8_t auto_stake,
       uint8_t type,
-      uint32_t timeout
+      uint32_t timeout,
+      name ram_payer
     );
 
     public:
@@ -427,17 +421,19 @@ CONTRACT_END((create)
     (emplaceacct)
     (emplacestake)
     (emplacecfg)
-    (setbp)
-    (setautostake)
+    (updatebp)
     (setstakediff)
     (setpowerdiff)
-    (setstakediv)
-    (setpowerdiv)
-    (setstakerate)
     (setpowerrate)
-    (setpwrstkdiv)
+    (setpwrstkmul)
     (setminstake)
     (setmaxpwrstk)
+    (setmaxwpfpay)
+    (setwpfproxy)
+    (collectwpf)
+    (recyclewpf)
+    (setbpdecay)
+    (setbpexp)
     (resetpowbon)
     (resetpowtm)
 //    (testissue)
@@ -462,4 +458,17 @@ asset boidtoken::get_available(name owner, symbol sym) const
   accounts accts(get_self(), owner.value);
   const auto& a = accts.get(sym.code().raw());
   return a.balance;
+}
+
+float boidtoken::update_boidpower(
+      float bpPrev,
+      float bpNew,
+      float dt
+)
+{
+  config_table c_t (_self, _self.value);
+  auto c_itr = c_t.find(0);
+  eosio_assert(c_itr != c_t.end(), "Must first initstats");  
+  return bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
+    pow(bpNew, 1-c_itr->boidpower_update_exp);
 }

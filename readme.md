@@ -1,9 +1,21 @@
+TODO modify unstake logic so that account is not deleted if contract owner
+triggers unstake action
 TODO fix stake parameters
-TODO add cap to powered stake and get rid of max stake bonus rate. Perhaps 5% of
-total tokens staked
-TODO worker proposal fund
-TODO percentage of stake bonus to staked account
+TODO add cap to powered stake debugging
+TODO worker proposal fund debugging.
+TODO percentage of stake bonus to staked account debugging
 TODO boidpower decay
+TODO check who pays for ram from BOID accounts
+TODO get rid of auto stake
+TODO update time parameters 
+
+1. Migrate to the new contract structure but freeze staking
+1a. Emplace in current stakers
+2. Finalize stake parameters for bonuses
+3. Unfreeze staking with the new parameters
+Note: Think about splitting up unfreezing for staking different from claiming
+4. Check who pays for ram on accounts
+5. Get rid of unused airdrop accounts
 
 Potential issue: call transtaked when account has nothing staked
   - Thus, we must pay for stake table RAM
