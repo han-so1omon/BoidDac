@@ -1,0 +1,21 @@
+{
+  "main": "src/boidtoken.cpp",
+  "contract": "boidtoken",
+  "include": "./src",
+  "resource": "",
+  "cdt": "v1.6.2",
+  "output": "./build/boidtoken.wasm",
+  "scripts": {
+    "build": "mkdir -p ./build/ && eosio-cpp -abigen -I ./src -contract boidtoken -o ./build/boidtoken.wasm src/boidtoken.cpp"
+  },
+  "deploy": {
+    "target": "both",
+    "mainnet": "",
+    "kylin": "",
+    "jungle": "",
+    "local": ""
+  },
+  "test": {
+    "npmClient": "npm"
+  }
+}
