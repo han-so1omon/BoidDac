@@ -13,22 +13,25 @@
 #include <set>
 #include <cmath>
 
-#include "dappservices/log.hpp"
-#include "dappservices/plist.hpp"
-#include "dappservices/plisttree.hpp"
-#include "dappservices/multi_index.hpp"
+#include <eosio/eosio.hpp>
+#include <eosio/serialize.hpp>
+#include <eosio/singleton.hpp>
+#include <eosio/multi_index.hpp>
+#include <eosio/dispatcher.hpp>
+#include <eosio/contract.hpp>
+#include <eosio/asset.hpp>
+#include <eosio/action.hpp>
+#include <eosio/binary_extension.hpp>
+#include <eosio/datastream.hpp>
+#include <eosio/print.hpp>
+#include <eosio/ignore.hpp>
+#include <eosio/crypto.hpp>
+#include <eosio/varint.hpp>
+#include <eosio/fixed_bytes.hpp>
+#include <eosio/symbol.hpp>
+#include <eosio/name.hpp>
 
 #include "boidcommon/defines.hpp"
-
-#define DAPPSERVICES_ACTIONS() \
-  XSIGNAL_DAPPSERVICE_ACTION \
-  LOG_DAPPSERVICE_ACTIONS \
-  IPFS_DAPPSERVICE_ACTIONS
-
-#define DAPPSERVICE_ACTIONS_COMMANDS() \
-  IPFS_SVC_COMMANDS()LOG_SVC_COMMANDS() 
-
-#define CONTRACT_NAME() boidtoken
 
 #define STAKE_ADD 0
 #define STAKE_SUB 1
@@ -36,37 +39,30 @@
 #define STAKE_RETURN 3
 #define STAKE_TRANSFER 4
 
-#define AUTO_STAKE_ON 0
-#define AUTO_STAKE_OFF 1
-#define AUTO_STAKE_NULL -1
-
 #define STAKE_BREAK_ON 0
 #define STAKE_BREAK_OFF 1
 
-#define STAKE_TYPE_SELF 0
-
-#define TIME_MULT 86400
+#define TIME_MULT 86400000000 // microseconds
 
 using namespace eosio;
 using std::string;
 //using std::vector;
 using std::set;
 using eosio::const_mem_fun;
-
-// FIXME this contract should accept existing tokens and not have to issue them first
-// BOID tokens would be staked for another token, such as EOS
-namespace eosiosystem {
-   class system_contract;
-}
-
+using eosio::check;
+using eosio::microseconds;
+using eosio::time_point;
 /*
   - Allow BOID tokens to be staked towards another account
   - Allow BOID token staking to be redirected to another account at any time
   - Team bonus should be tied to token votes
  */
 
-CONTRACT_START()
+CONTRACT boidtoken : public contract
+{
   public:
+    using contract::contract;
+    
     //boidtoken(name self) : contract(self) {}
 
     /** \brief Add specific token to token-staking stats table.
@@ -94,7 +90,7 @@ CONTRACT_START()
     /** \brief Issuer can delete tokens as well from their own account
      * \param quantity - number or tokens to recycle
      */
-    ACTION recycle(asset quantity);
+    ACTION recycle(name account, asset quantity);
 
     /** \brief Transfer tokens from one account to another
      *
@@ -118,7 +114,7 @@ CONTRACT_START()
       name from,
       name to,
       asset quantity,
-      uint32_t timeout
+      uint32_t time_limit
     );
 
     /** \brief enable/disable staking and unstaking for users with stake break equals true/false respectively.
@@ -136,13 +132,11 @@ CONTRACT_START()
      *    -- Token type must be same as type to-be-staked via this contract
      * \param _stake_account - account that is staking tokens
      * \param _staked - number of tokens to stake
-     * \param auto_stake - if the account should stay staked thru stake seasons
      */
     ACTION stake(
       name from,
       name to,
       asset quantity,
-      uint8_t auto_stake,
       uint32_t time_limit,
       bool use_staked_balance
     );
@@ -169,7 +163,7 @@ CONTRACT_START()
       name from,
       name to,
       asset quantity,
-      uint32_t timeout,
+      uint32_t time_limit,
       bool to_staked_account,
       bool issuer_unstake
     );
@@ -184,9 +178,13 @@ CONTRACT_START()
     
     ACTION eraseacct(const name acct);
 
+    ACTION erasebp(const name acct);
+
+    ACTION erasestk(const name from, const name to);
+
     ACTION erasestake(const name acct);
 
-    ACTION erasedeleg(const name acct);
+    ACTION erasedeleg(const name from, const name to);
     
     ACTION emplacetoken(
       const asset supply,
@@ -196,52 +194,48 @@ CONTRACT_START()
     
     ACTION emplaceacct(
       const name acct,
-      const asset balance,
-      const float boidpower,
-      const uint32_t previous_power_claim_time,
-      const std::map<name, std::pair<asset, uint32_t>> delegations,
-      const asset power_bonus
+      const asset balance
     );
     
     ACTION emplacestake(
-      const name acct,
-      const std::map<name, std::tuple<asset,uint32_t, uint32_t>> staked_amounts,
-      const uint8_t auto_stake,
-      const uint8_t stake_type,
-      const asset stake_season_bonus,
-      const asset type
+      name            from,
+      name            to,
+      asset           quantity,
+      asset           my_bonus,
+      microseconds    expiration,
+      microseconds    prev_claim_time,
+      asset           trans_quantity,
+      microseconds    trans_expiration,
+      microseconds    trans_prev_claim_time
     );
-
-    ACTION emplacecfg(
-      std::map<std::string,float> floatparams,
-      std::map<std::string,uint64_t> uintparams,
-      std::map<std::string,asset> assetparams
-    );
-
-    ACTION setbp(const name acct, const float boidpower);
     
-    /** \brief set auto restake
-     * \param _stake_account - account setting auto_stake param
-     * \param on_switch - 0 if auto_stake off, 1 if auto_stake on
-     */
-    ACTION setautostake(name stake_account, asset type, uint8_t on_switch);
+    ACTION emplacedeleg(
+      name          from,
+      name          to,
+      asset         quantity,
+      microseconds  expiration,
+      asset         trans_quantity,
+      microseconds  trans_expiration
+    );
 
+    ACTION emplacepow(
+      name              acct,
+      float             quantity,
+      asset             total_power_bonus,
+      asset             total_stake_bonus,
+      microseconds      prev_claim_time,
+      microseconds      prev_bp_update_time    
+    );
+
+    ACTION updatebp(const name acct, const float boidpower);
+    
     ACTION setstakediff(const float stake_difficulty);
     
     ACTION setpowerdiff(const float power_difficulty);
         
-    /** \brief Set new bp bonus divisor
-     * \param bp_bonus_divisor - correction multiplier in boidpower stake bonus
-     */
-    ACTION setstakediv(const float stake_bonus_divisor);
-
-    ACTION setpowerdiv(const float power_bonus_divisor);
-
-    ACTION setstakerate(const float stake_bonus_max_rate);
-
     ACTION setpowerrate(const float power_bonus_max_rate);
 
-    ACTION setpwrstkdiv(const float powered_stake_divisor);
+    ACTION setpwrstkmul(const float powered_stake_multiplier);
 
     /** \brief Set new minimum stake amount
      * \param min_stake - minimum tokens staked to get bonus
@@ -249,8 +243,20 @@ CONTRACT_START()
     ACTION setminstake(const float min_stake);
 
     ACTION setmaxpwrstk(const float percentage);
+    
+    ACTION setmaxwpfpay(const asset max_wpf_payout);
+    
+    ACTION setwpfproxy(const name proxy);
+    
+    ACTION collectwpf();
+    
+    ACTION recyclewpf();
+        
+    ACTION setbpdecay(const float decay);
+    
+    ACTION setbpexp(const float update_exp);
 
-    ACTION resetpowbon(const name account);
+    ACTION resetbonus(const name account);
 
     ACTION resetpowtm(const name account);
 
@@ -283,6 +289,12 @@ CONTRACT_START()
      */
     inline asset get_available(name owner, symbol sym) const;
 
+    inline float update_boidpower(
+      float bpPrev,
+      float bpNew,
+      float dt
+    );
+
   private:
 
     /*!
@@ -292,8 +304,8 @@ CONTRACT_START()
         uint64_t        config_id; /**< Configuration id for indexing */
         uint8_t         stakebreak; /**< Activate stake break period */
         asset           bonus; /**< Stake bonus type */
-        uint64_t        season_start;
-        uint64_t        season_length;
+        microseconds    season_start;
+        microseconds    season_length;
         asset           total_season_bonus;
 
         // bookkeeping:
@@ -304,16 +316,18 @@ CONTRACT_START()
 
         // staking reward equation vars:
         float           stake_difficulty;
-        float           stake_bonus_max_rate; /**< Max bp bonus */
-        float           stake_bonus_divisor; /**< Divisor for boidpower extra bonus */
-        float           powered_stake_divisor;
+        float           powered_stake_multiplier;
 
         float           power_difficulty;
         float           power_bonus_max_rate;
-        float           power_bonus_divisor;
         asset           min_stake; /**< Min staked to receive bonus */
         float           max_powered_stake_ratio;
+        asset           max_wpf_payout;
         asset           worker_proposal_fund;
+        name            worker_proposal_fund_proxy;
+        
+        float           boidpower_decay_rate;
+        float           boidpower_update_exp;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
     };
@@ -322,40 +336,87 @@ CONTRACT_START()
 
     TABLE account {
         asset balance;
-        float boidpower;
-        uint32_t previous_power_claim_time;
-        asset power_bonus;
-        std::map<name, std::pair<asset, uint32_t>> delegations;
-
+        
         uint64_t primary_key() const { return balance.symbol.code().raw();}
     };
 
     typedef eosio::multi_index<"accounts"_n, account> accounts;
 
-    /*!
-      stake table
-     */
-    TABLE stakerow {
-        // map times to stake amounts and boidpowers
-        //TODO change to tuples
-        // {owner: {amount, time_limit, prev_claim_time} }
-        // TODO staked_amounts::amount should keep individual stakes not cumulative
-        std::map<name, std::tuple<asset,uint32_t,uint32_t>> staked_amounts;
-        asset powered_stake;
-        //std::map<uint32_t, std::tuple<asset,float>> staked_amounts;
-        //asset           staked;
-        uint8_t         auto_stake;  // toggle if we want to unstake stake_account at end of season
-        //uint32_t        previous_payout_date; /**< Date to payout bonuses
-        uint8_t         stake_type;
-        asset           stake_season_bonus;
-        asset           type;
+    //DEPRECATED
+    TABLE boidpower {
+        name              acct;
+        float             quantity;
 
-        uint64_t        primary_key () const {
-          return type.symbol.code().raw();
-        }
+        uint64_t primary_key() const { return acct.value; }
+
+        EOSLIB_SERIALIZE(boidpower, (acct)(quantity));
+    };
+
+    typedef eosio::multi_index<"boidpowers"_n, boidpower> boidpowers;
+
+    TABLE power {
+        name              acct;
+        float             quantity;
+        asset             total_power_bonus;
+        asset             total_stake_bonus;
+        microseconds      prev_claim_time;
+        microseconds      prev_bp_update_time;
+
+        uint64_t primary_key() const { return acct.value; }
+  
+        EOSLIB_SERIALIZE(power, (acct)(quantity));
+    };
+  
+    typedef eosio::multi_index<"powers"_n, power> power_t;
+
+    //DEPRECATED
+    TABLE stakerow {
+        name            stake_account;
+        asset           staked;
+        uint8_t         auto_stake;  // toggle if we want to unstake stake_account at end of season
+
+        uint64_t        primary_key () const { return stake_account.value; }
+
+        EOSLIB_SERIALIZE (stakerow, (stake_account)(staked)(auto_stake));
     };
 
     typedef eosio::multi_index<"stakes"_n, stakerow> staketable;
+
+    /*!
+      stake table
+     */
+    TABLE stake_row {
+      name            from;
+      name            to;
+      asset           quantity;
+      asset           my_bonus; //TODO
+      microseconds    expiration;
+      microseconds    prev_claim_time;
+      asset           trans_quantity;
+      microseconds    trans_expiration;
+      microseconds    trans_prev_claim_time;
+
+      uint64_t        primary_key () const {
+        return from.value;
+      }
+    };
+
+    typedef eosio::multi_index<"staked"_n, stake_row> stake_t;
+    
+    TABLE delegations {
+      name          from;
+      name          to;
+      asset         quantity;
+      microseconds  expiration;
+      asset         trans_quantity;
+      microseconds  trans_expiration;   
+      
+      uint64_t      primary_key () const {
+        return to.value;
+      }
+    };
+    
+    typedef eosio::multi_index<"delegation"_n, delegations> delegation_t;
 
     /*!
       Table for storing token information
@@ -376,24 +437,58 @@ CONTRACT_START()
       @param owner - account to subtract tokens from
       @param value - amount to subtract
      */
-    void sub_balance(name owner, asset value);
+    void sub_balance(name owner, asset value, name ram_payer);
     
     /**
       @brief add available balance to account
       @param owner - account to add tokens to
       @param value - amount to add
      */    
-    void add_balance(name owner, asset value);
+    void add_balance(name owner, asset value, name ram_payer);
     
-    void update_stake(
+    void sub_stake(
       name from,
       name to,
       asset quantity,
-      int8_t auto_stake,
-      uint8_t type,
-      uint32_t timeout
+      microseconds expiration,
+      name ram_payer,
+      bool transfer
+    );
+    
+    void add_stake(
+      name from,
+      name to,
+      asset quantity,
+      microseconds expiration,
+      name ram_payer,
+      bool transfer
     );
 
+    void claim_for_stake(
+      asset staked,
+      asset powered_staked,
+      microseconds prev_claim_time,
+      microseconds expiration,
+      asset* stake_payout,
+      asset* wpf_payout
+    );
+    
+    void get_stake_bonus(
+      microseconds start_time,
+      microseconds claim_time,
+      asset staked,
+      asset powered_staked,
+      asset* stake_payout,
+      asset* wpf_payout
+    );
+    
+    void get_power_bonus(
+      microseconds start_time,
+      microseconds claim_time,
+      float boidpower,
+      asset* power_payout
+    );  
+    
     public:
     
     /*!
@@ -406,8 +501,10 @@ CONTRACT_START()
         asset quantity;
         string memo;
     };
-        
-CONTRACT_END((create)
+};
+
+EOSIO_DISPATCH(boidtoken,
+    (create)
     (issue)
     (recycle)
     (transfer)
@@ -421,24 +518,29 @@ CONTRACT_END((create)
     (erasetoken)
     (erasestats)
     (eraseacct)
+    (erasebp)
+    (erasestk)
     (erasestake)
     (erasedeleg)
     (emplacetoken)
     (emplaceacct)
     (emplacestake)
-    (emplacecfg)
-    (setbp)
-    (setautostake)
+    (emplacedeleg)
+    (emplacepow)
+    (updatebp)
     (setstakediff)
     (setpowerdiff)
-    (setstakediv)
-    (setpowerdiv)
-    (setstakerate)
     (setpowerrate)
-    (setpwrstkdiv)
+    (setpwrstkmul)
     (setminstake)
     (setmaxpwrstk)
-    (resetpowbon)
+    (setmaxwpfpay)
+    (setwpfproxy)
+    (collectwpf)
+    (recyclewpf)
+    (setbpdecay)
+    (setbpexp)
+    (resetbonus)
     (resetpowtm)
 //    (testissue)
 //    (vramtransfer)
@@ -462,4 +564,17 @@ asset boidtoken::get_available(name owner, symbol sym) const
   accounts accts(get_self(), owner.value);
   const auto& a = accts.get(sym.code().raw());
   return a.balance;
+}
+
+float boidtoken::update_boidpower(
+      float bpPrev,
+      float bpNew,
+      float dt
+)
+{
+  config_table c_t (_self, _self.value);
+  auto c_itr = c_t.find(0);
+  check(c_itr != c_t.end(), "Must first initstats");  
+  return bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
+    pow(bpNew, 1-c_itr->boidpower_update_exp);
 }
