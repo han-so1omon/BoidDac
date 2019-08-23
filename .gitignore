@@ -1,2 +1,7 @@
 *.sw*
 build/
+docs/
+doxygen.config
+bonus_equations.txt
+season_scripts
+tests
