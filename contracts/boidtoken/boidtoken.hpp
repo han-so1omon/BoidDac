@@ -14,20 +14,20 @@
 #include <cmath>
 
 #include <eosio/eosio.hpp>
-#include <eosio/serialize.hpp>
-#include <eosio/singleton.hpp>
+//#include <eosio/serialize.hpp>
+//#include <eosio/singleton.hpp>
 #include <eosio/multi_index.hpp>
 #include <eosio/dispatcher.hpp>
 #include <eosio/contract.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/action.hpp>
-#include <eosio/binary_extension.hpp>
-#include <eosio/datastream.hpp>
-#include <eosio/print.hpp>
-#include <eosio/ignore.hpp>
-#include <eosio/crypto.hpp>
-#include <eosio/varint.hpp>
-#include <eosio/fixed_bytes.hpp>
+//#include <eosio/binary_extension.hpp>
+//#include <eosio/datastream.hpp>
+//#include <eosio/print.hpp>
+//#include <eosio/ignore.hpp>
+//#include <eosio/crypto.hpp>
+//#include <eosio/varint.hpp>
+//#include <eosio/fixed_bytes.hpp>
 #include <eosio/symbol.hpp>
 #include <eosio/name.hpp>
 
@@ -92,6 +92,8 @@ CONTRACT boidtoken : public contract
      */
     ACTION recycle(name account, asset quantity);
 
+    ACTION reclaim(name account, name token_holder, string memo);
+
     /** \brief Transfer tokens from one account to another
      *
      *  - Token type must be same as type to-be-staked via this contract
@@ -110,7 +112,7 @@ CONTRACT boidtoken : public contract
      * \param quantity - number of staked tokens to transfer
      * \param memo - message after staked transfer
      */
-    ACTION transtaked(
+    ACTION transtake(
       name from,
       name to,
       asset quantity,
@@ -182,9 +184,13 @@ CONTRACT boidtoken : public contract
 
     ACTION erasestk(const name from, const name to);
 
+    ACTION erasestks(const name acct);
+
     ACTION erasestake(const name acct);
 
     ACTION erasedeleg(const name from, const name to);
+
+    ACTION erasedelegs(const name acct);
     
     ACTION emplacetoken(
       const asset supply,
@@ -202,20 +208,25 @@ CONTRACT boidtoken : public contract
       name            to,
       asset           quantity,
       asset           my_bonus,
-      microseconds    expiration,
-      microseconds    prev_claim_time,
+      uint32_t        expiration,
+      uint32_t        prev_claim_time,
       asset           trans_quantity,
-      microseconds    trans_expiration,
-      microseconds    trans_prev_claim_time
+      uint32_t        trans_expiration,
+      uint32_t        trans_prev_claim_time
+    );
+    
+    ACTION emplaceolstk(
+      name    stake_account,
+      asset   staked
     );
     
     ACTION emplacedeleg(
       name          from,
       name          to,
       asset         quantity,
-      microseconds  expiration,
+      uint32_t      expiration,
       asset         trans_quantity,
-      microseconds  trans_expiration
+      uint32_t      trans_expiration
     );
 
     ACTION emplacepow(
@@ -223,11 +234,14 @@ CONTRACT boidtoken : public contract
       float             quantity,
       asset             total_power_bonus,
       asset             total_stake_bonus,
-      microseconds      prev_claim_time,
-      microseconds      prev_bp_update_time    
+      uint32_t          prev_claim_time,
+      uint32_t          prev_bp_update_time    
     );
 
-    ACTION updatebp(const name acct, const float boidpower);
+    ACTION updatebp(
+      const name acct,
+      const float boidpower
+    );
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -277,17 +291,6 @@ CONTRACT boidtoken : public contract
     // /** \brief Set new max issue rate
     //  */
     // ACTION setmaxissue(const float max_issue_rate);
-
-    /** \brief Get BOID token supply
-     * \param sym - token type to get supply of
-     */
-    inline asset get_supply(symbol sym) const;
-
-    /** \brief Get available balance of some account for some token in accounts table
-     * \param owner - name of account to get available tokens for
-     * \param sym - type of token to search for
-     */
-    inline asset get_available(name owner, symbol sym) const;
 
     inline float update_boidpower(
       float bpPrev,
@@ -490,25 +493,15 @@ CONTRACT boidtoken : public contract
     );  
     
     public:
-    
-    /*!
-      **Deprecated** Transfer args structure
-     */
-    struct transfer_args
-    {
-        name from;
-        name to;
-        asset quantity;
-        string memo;
-    };
 };
 
 EOSIO_DISPATCH(boidtoken,
     (create)
     (issue)
     (recycle)
+    (reclaim)
     (transfer)
-    (transtaked)
+    (transtake)
     (stakebreak)
     (stake)
     (sendmessage)
@@ -518,13 +511,16 @@ EOSIO_DISPATCH(boidtoken,
     (erasetoken)
     (erasestats)
     (eraseacct)
-    (erasebp)
+    //(erasebp)
     (erasestk)
+    (erasestks)
     (erasestake)
     (erasedeleg)
+    (erasedelegs)
     (emplacetoken)
     (emplaceacct)
     (emplacestake)
+    (emplaceolstk)
     (emplacedeleg)
     (emplacepow)
     (updatebp)
@@ -545,26 +541,6 @@ EOSIO_DISPATCH(boidtoken,
 //    (testissue)
 //    (vramtransfer)
 )
-
-asset boidtoken::get_supply(symbol sym) const
-{
-    stats statstable(_self, sym.code().raw());
-    const auto &st = statstable.get(sym.code().raw());
-    return st.supply;
-}
-
-
-asset boidtoken::get_available(name owner, symbol sym) const
-{
-  /*
-  token_t tkns(_self, owner.value);
-  const auto& a = tkns.get(sym.code().raw());
-  return a.available;
-  */
-  accounts accts(get_self(), owner.value);
-  const auto& a = accts.get(sym.code().raw());
-  return a.balance;
-}
 
 float boidtoken::update_boidpower(
       float bpPrev,
