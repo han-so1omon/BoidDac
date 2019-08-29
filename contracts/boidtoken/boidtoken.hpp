@@ -94,6 +94,8 @@ CONTRACT boidtoken : public contract
 
     ACTION reclaim(name account, name token_holder, string memo);
 
+    ACTION open( const name& owner, const symbol& symbol, const name& ram_payer );
+
     /** \brief Transfer tokens from one account to another
      *
      *  - Token type must be same as type to-be-staked via this contract
@@ -500,6 +502,7 @@ EOSIO_DISPATCH(boidtoken,
     (issue)
     (recycle)
     (reclaim)
+    (open)
     (transfer)
     (transtake)
     (stakebreak)

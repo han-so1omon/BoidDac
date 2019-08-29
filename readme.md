@@ -1,4 +1,5 @@
 TODO cannot update timeout of token delegation
+TODO tests for ram payer
 TODO separate transstaked balance for stake and delegation tables
 TODO fix stake parameters
 TODO add cap to powered stake and get rid of max stake bonus rate. Perhaps 5% of

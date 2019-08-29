@@ -128,6 +128,26 @@ void boidtoken::reclaim(name account, name token_holder, string memo)
   add_balance(token_holder, acct.balance, get_self());
 }
 
+void boidtoken::open( const name& owner, const symbol& symbol, const name& ram_payer )
+{
+   require_auth( ram_payer );
+
+   check( is_account( owner ), "owner account does not exist" );
+
+   auto sym_code_raw = symbol.code().raw();
+   stats statstable( get_self(), sym_code_raw );
+   const auto& st = statstable.get( sym_code_raw, "symbol does not exist" );
+   check( st.supply.symbol == symbol, "symbol precision mismatch" );
+
+   accounts acnts( get_self(), owner.value );
+   auto it = acnts.find( sym_code_raw );
+   if( it == acnts.end() ) {
+      acnts.emplace( ram_payer, [&]( auto& a ){
+        a.balance = asset{0, symbol};
+      });
+   }
+}
+
 /* Transfer tokens from one account to another
  *  - Token type must be same as type to-be-staked via this contract
  *  - Both accounts of transfer must be valid
@@ -205,7 +225,7 @@ void boidtoken::transtake(
   microseconds expiration_time = time_limit == 0 ?
     microseconds(0) : t.time_since_epoch() + microseconds(time_limit);
   
-  sub_balance(from, quantity, same_payer);
+  sub_balance(from, quantity, from);
   add_stake(from, to, quantity, expiration_time, from, true);
 }
 
@@ -311,7 +331,7 @@ void boidtoken::stake(
       "staking from staked balance to self"
     );
     //TODO check if stake exists already
-    sub_stake(from, from, quantity, expiration_time, same_payer, false);
+    sub_stake(from, from, quantity, expiration_time, from, false);
     add_stake(from, to, quantity, expiration_time, from, false);
     account_type = "stake";
   } else {
@@ -323,8 +343,8 @@ void boidtoken::stake(
       quantity <= acct.balance,
       "staking more than available liquid balance"
     );
-        
-    sub_balance(from, quantity, same_payer);
+      
+    sub_balance(from, quantity, from);
     add_stake(from, to, quantity, expiration_time, from, false);
 
     account_type = "liquid";
@@ -545,7 +565,8 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
     int64_t self_stake_payout_amount = 
       (int64_t)(percentage_to_stake/100)*self_payout.amount;
     self_stake_payout += asset{self_stake_payout_amount, sym};
-    if (self_stake_payout_amount > 0) {
+    if (self_stake_payout_amount > 0 ||\
+        self_stake_payout_amount >= c_itr->min_stake.amount) {
       sub_balance(stake_account, self_stake_payout, stake_account);
       add_stake(stake_account, stake_account, self_stake_payout, self_expiration, stake_account, false); 
     }
@@ -649,14 +670,14 @@ void boidtoken::unstake(
     microseconds(0) : curr_time + microseconds(time_limit);
 
   if (to_staked_account && to != from)  {
-    sub_stake(from, to, quantity, expiration_time, same_payer, false);
+    sub_stake(from, to, quantity, expiration_time, from, false);
     add_stake(from, from, quantity, expiration_time, from, false);
   } else {
     check(
       c_itr->stakebreak == STAKE_BREAK_ON,
       "Cannot unstake to liquid account in stake season"
     );
-    sub_stake(from, to, quantity, expiration_time, same_payer, false);
+    sub_stake(from, to, quantity, expiration_time, from, false);
     add_balance(from, quantity, from);
   }
 }
@@ -1222,7 +1243,8 @@ void boidtoken::add_balance(name owner, asset value, name ram_payer)
   else
   {
     // print(payer.value); print("\n");
-    to_acnts.modify(to, ram_payer, [&](auto &a) {
+    //if (ram_payer == get_self()) ram_payer = same_payer;
+    to_acnts.modify(to, same_payer, [&](auto &a) {
       a.balance += value;
     });
   } 
@@ -1264,7 +1286,7 @@ void boidtoken::sub_stake(
       c.total_staked -= quantity;
     });      
   } else {
-    deleg_t.modify(deleg, same_payer, [&](auto& d) {
+    deleg_t.modify(deleg, ram_payer, [&](auto& d) {
       if (transfer) {
         d.trans_quantity = after_delegated_to;
         d.trans_expiration = expiration;
@@ -1273,7 +1295,7 @@ void boidtoken::sub_stake(
         d.expiration = expiration;
       }
     });
-    s_t.modify(to_itr, same_payer, [&](auto& s) {
+    s_t.modify(to_itr, ram_payer, [&](auto& s) {
       if (transfer) {
         s.trans_quantity = after_delegated_to;
         s.trans_expiration = expiration;
