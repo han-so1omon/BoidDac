@@ -19,6 +19,8 @@
 #include <eosio/multi_index.hpp>
 #include <eosio/dispatcher.hpp>
 #include <eosio/contract.hpp>
+#include <eosio/time.hpp>
+#include <eosio/system.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/action.hpp>
 //#include <eosio/binary_extension.hpp>
@@ -39,10 +41,11 @@
 #define STAKE_RETURN 3
 #define STAKE_TRANSFER 4
 
-#define STAKE_BREAK_ON 0
-#define STAKE_BREAK_OFF 1
+#define STAKE_BREAK_OFF 0 // Can not stake
+#define STAKE_BREAK_ON 1 // Can stake
 
-#define TIME_MULT 86400000000 // microseconds
+#define TIME_MULT 86400e6 // microseconds
+#define MICROSEC_MULT 1e6
 
 using namespace eosio;
 using std::string;
@@ -95,6 +98,8 @@ CONTRACT boidtoken : public contract
     ACTION reclaim(name account, name token_holder, string memo);
 
     ACTION open( const name& owner, const symbol& symbol, const name& ram_payer );
+
+    ACTION close( const name& owner, const symbol& symbol );
 
     /** \brief Transfer tokens from one account to another
      *
@@ -169,7 +174,8 @@ CONTRACT boidtoken : public contract
       asset quantity,
       uint32_t time_limit,
       bool to_staked_account,
-      bool issuer_unstake
+      bool issuer_unstake,
+      bool transfer
     );
 
     /** \brief Initialize config table
@@ -310,7 +316,6 @@ CONTRACT boidtoken : public contract
         uint8_t         stakebreak; /**< Activate stake break period */
         asset           bonus; /**< Stake bonus type */
         microseconds    season_start;
-        microseconds    season_length;
         asset           total_season_bonus;
 
         // bookkeeping:
@@ -503,6 +508,7 @@ EOSIO_DISPATCH(boidtoken,
     (recycle)
     (reclaim)
     (open)
+    (close)
     (transfer)
     (transtake)
     (stakebreak)
