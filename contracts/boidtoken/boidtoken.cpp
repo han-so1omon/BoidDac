@@ -1039,6 +1039,7 @@ void boidtoken::updatebp(const name acct, const float boidpower)
   auto bp = p_t.find(acct.value);
   if (bp == p_t.end()) {
     p_t.emplace(get_self(), [&](auto& p) {
+      p.acct = acct;
       p.prev_bp_update_time = curr_time;
       p.quantity = update_boidpower(
         p.quantity,

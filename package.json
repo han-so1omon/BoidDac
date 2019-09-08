@@ -26,7 +26,8 @@
     "s1": "node test/updatesim/1_getData.js",
     "s2": "node test/updatesim/2_eraseExisting.js",
     "s3": "node test/updatesim/3_deployUpdate.js",
-    "s4": "node test/updatesim/4_replaceInUpdate.js"
+    "s4": "node test/updatesim/4_replaceInUpdate.js",
+    "staketest": "node test/stakeTest.js"
   },
   "keywords": [],
   "author": "",

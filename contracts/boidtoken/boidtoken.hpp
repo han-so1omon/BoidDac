@@ -560,6 +560,7 @@ float boidtoken::update_boidpower(
   config_table c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
-  return bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
-    pow(bpNew, 1-c_itr->boidpower_update_exp);
+  return bpNew;
+  //return bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
+  //  pow(bpNew, 1-c_itr->boidpower_update_exp);
 }
