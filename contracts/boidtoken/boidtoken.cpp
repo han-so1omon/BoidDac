@@ -342,6 +342,10 @@ void boidtoken::stake(
       from != to,
       "staking from staked balance to self"
     );
+    check(
+      deleg->expiration <= expiration_time,
+      "Delegation cannot cause tokens to expire earlier than expected"
+    );
     //TODO check if stake exists already
     sub_stake(from, from, quantity, deleg->expiration, from, false);
     add_stake(from, to, quantity, expiration_time, from, false);
@@ -459,68 +463,73 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   };
   
   asset curr_stake_payout = zerotokens, curr_wpf_payout = zerotokens;
-  for (auto it=s_t.begin(); it!= s_t.end(); it++) {
-    claim_for_stake(
-      it->quantity,
-      powered_stake,
-      it->prev_claim_time,
-      it->expiration,
-      &curr_stake_payout,
-      &curr_wpf_payout
-    );
-    
-    stake_payout += curr_stake_payout;
-    wpf_payout += curr_wpf_payout;
-    
-    powered_stake -= it->quantity;
-    powered_stake_amount = fmax(
-      0,
-      (float)powered_stake.amount
-    );
-    powered_stake = asset{(int64_t)powered_stake_amount, sym};
-          
-    stake_t from_stake(get_self(), it->from.value);
-    auto from_self_stake = from_stake.find(it->from.value);
-    microseconds from_self_expiration, from_self_trans_expiration;
-    if (from_self_stake == from_stake.end()) {
-      from_self_expiration = microseconds(0);
-    } else {
-      from_self_expiration = from_self_stake->expiration;
+  for (auto it=s_t.begin(); it != s_t.end(); it++) {
+    if (it->quantity.amount > 0) {
+      claim_for_stake(
+        it->quantity,
+        powered_stake,
+        it->prev_claim_time,
+        it->expiration,
+        &curr_stake_payout,
+        &curr_wpf_payout
+      );
+      
+      stake_payout += curr_stake_payout;
+      wpf_payout += curr_wpf_payout;
+      
+      powered_stake -= it->quantity;
+      powered_stake_amount = fmax(
+        0,
+        (float)powered_stake.amount
+      );
+      powered_stake = asset{(int64_t)powered_stake_amount, sym};
+            
+      stake_t from_stake(get_self(), it->from.value);
+      auto from_self_stake = from_stake.find(it->from.value);
+      microseconds from_self_expiration, from_self_trans_expiration;
+      if (from_self_stake == from_stake.end()) {
+        from_self_expiration = microseconds(0);
+      } else {
+        from_self_expiration = from_self_stake->expiration;
+      }
+      
+      if (it->expiration < curr_time && it->from != it->to) {
+        sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
+        add_stake(it->from, it->from, it->quantity, from_self_expiration, stake_account, false);
+      }
     }
     
-    if (it->expiration < curr_time && it->from != it->to) {
-      sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
-      add_stake(it->from, it->from, it->quantity, from_self_expiration, stake_account, false);
+    if (it->trans_quantity.amount > 0) {
+      claim_for_stake(
+        it->trans_quantity,
+        powered_stake,
+        it->trans_prev_claim_time,
+        it->trans_expiration,
+        &curr_stake_payout,
+        &curr_wpf_payout
+      );
+      
+      stake_payout += curr_stake_payout;
+      wpf_payout += curr_wpf_payout;      
+      
+      powered_stake -= it->quantity;
+      powered_stake_amount = fmax(
+        0,
+        (float)powered_stake.amount
+      );
+      powered_stake = asset{(int64_t)powered_stake_amount, sym};
+            
+      //FIXME must also check if indefinite stake
+      if (it->trans_expiration < curr_time && it->from != it->to) {
+        sub_stake(it->from, it->to, it->trans_quantity, it->trans_expiration, same_payer, true);
+        add_stake(it->to, it->to, it->trans_quantity, self_expiration, stake_account, false);
+      }
+      
+      s_t.modify(it, same_payer, [&](auto& s) {
+        s.prev_claim_time = curr_time;
+        s.trans_prev_claim_time = curr_time;
+      });
     }
-    
-    claim_for_stake(
-      it->trans_quantity,
-      powered_stake,
-      it->trans_prev_claim_time,
-      it->trans_expiration,
-      &curr_stake_payout,
-      &curr_wpf_payout
-    );
-    
-    stake_payout += curr_stake_payout;
-    wpf_payout += curr_wpf_payout;      
-    
-    powered_stake -= it->quantity;
-    powered_stake_amount = fmax(
-      0,
-      (float)powered_stake.amount
-    );
-    powered_stake = asset{(int64_t)powered_stake_amount, sym};
-          
-    if (it->trans_expiration < curr_time && it->from != it->to) {
-      sub_stake(it->from, it->to, it->trans_quantity, it->trans_expiration, same_payer, true);
-      add_stake(it->to, it->to, it->trans_quantity, self_expiration, stake_account, false);
-    }
-    
-    s_t.modify(it, same_payer, [&](auto& s) {
-      s.prev_claim_time = curr_time;
-      s.trans_prev_claim_time = curr_time;
-    });
   }
   
   wpf_payout = wpf_payout < c_itr->max_wpf_payout ?
@@ -622,7 +631,7 @@ void boidtoken::unstake(
   name to,
   asset quantity,
   uint32_t time_limit,
-  bool to_staked_account,
+  bool to_staked_balance,
   bool issuer_unstake,
   bool transfer
 )
@@ -635,12 +644,12 @@ void boidtoken::unstake(
   check(c_itr != c_t.end(), "Must first initstats");  
   
   // Can unstake to liquid or staked account out of season with delegator
-  if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_account)\
+  if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_balance)\
       && !issuer_unstake\
       && !transfer) {
     require_auth( from );
   // Can unstake to liquid or staked account at all times as token issuer
-  } else if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_account)\
+  } else if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_balance)\
       && !issuer_unstake\
       && transfer) {
     require_auth(to);
@@ -696,7 +705,7 @@ void boidtoken::unstake(
   microseconds expiration_time = time_limit == 0 ?
     microseconds(0) : curr_time + microseconds(time_limit*MICROSEC_MULT);
 
-  if (to_staked_account && to != from)  {
+  if (to_staked_balance && to != from)  {
 
     sub_stake(from, to, quantity, expiration_time, from, transfer);
     if (transfer) {
@@ -714,7 +723,7 @@ void boidtoken::unstake(
       
       add_stake(from, from, quantity, self_expiration, from, false);
     }
-  } else if (!to_staked_account) {
+  } else if (!to_staked_balance) {
     check(
       c_itr->stakebreak == STAKE_BREAK_ON,
       "Can only unstake to liquid balance during season break"
@@ -766,6 +775,7 @@ void boidtoken::initstats(bool wpf_reset)
             c.worker_proposal_fund = cleartokens;
             c.boidpower_decay_rate = 25e-7;
             c.boidpower_update_exp = 5e-3;
+            c.boidpower_const_decay = 100;
         });
     }
     else
@@ -794,6 +804,7 @@ void boidtoken::initstats(bool wpf_reset)
             }  
             c.boidpower_decay_rate = 25e-7;
             c.boidpower_update_exp = 5e-3;  
+            c.boidpower_const_decay = 100;
         });
     }
 }
@@ -821,11 +832,14 @@ void boidtoken::erasestats()
     c_t.erase(c_itr);
 }
 
-void boidtoken::eraseacct(const name acct)
+void boidtoken::eraseacct(const name acct, bool expect_empty)
 {
   require_auth(get_self());
   accounts acct_t(get_self(), acct.value);
   auto a_itr = acct_t.find(symbol("BOID",4).code().raw());
+  if (expect_empty)
+    check( a_itr == acct_t.end() || a_itr->balance.amount == 0,
+           "Account balance not empty");
   if (a_itr != acct_t.end())
     acct_t.erase(a_itr);
 }

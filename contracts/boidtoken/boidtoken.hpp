@@ -173,7 +173,7 @@ CONTRACT boidtoken : public contract
       name to,
       asset quantity,
       uint32_t time_limit,
-      bool to_staked_account,
+      bool to_staked_balance,
       bool issuer_unstake,
       bool transfer
     );
@@ -186,7 +186,7 @@ CONTRACT boidtoken : public contract
     
     ACTION erasestats();
     
-    ACTION eraseacct(const name acct);
+    ACTION eraseacct(const name acct, bool expect_empty);
 
     ACTION erasebp(const name acct);
 
@@ -338,6 +338,7 @@ CONTRACT boidtoken : public contract
         
         float           boidpower_decay_rate;
         float           boidpower_update_exp;
+        float           boidpower_const_decay;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
     };
@@ -562,5 +563,6 @@ float boidtoken::update_boidpower(
   check(c_itr != c_t.end(), "Must first initstats");  
   return bpNew;
   //return bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
-  //  pow(bpNew, 1-c_itr->boidpower_update_exp);
+  //  pow(bpNew, 1-c_itr->boidpower_update_exp)-\
+  //  c_itr->boidpower_const_decay;
 }
