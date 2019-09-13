@@ -190,6 +190,8 @@ CONTRACT boidtoken : public contract
 
     ACTION erasebp(const name acct);
 
+    ACTION erasepow(const name acct);
+
     ACTION erasestk(const name from, const name to);
 
     ACTION erasestks(const name acct);
@@ -374,8 +376,6 @@ CONTRACT boidtoken : public contract
         microseconds      prev_bp_update_time;
 
         uint64_t primary_key() const { return acct.value; }
-  
-        EOSLIB_SERIALIZE(power, (acct)(quantity));
     };
   
     typedef eosio::multi_index<"powers"_n, power> power_t;
@@ -521,7 +521,8 @@ EOSIO_DISPATCH(boidtoken,
     (erasetoken)
     (erasestats)
     (eraseacct)
-    //(erasebp)
+    (erasebp)
+    (erasepow)
     (erasestk)
     (erasestks)
     (erasestake)

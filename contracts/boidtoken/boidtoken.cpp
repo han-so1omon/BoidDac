@@ -435,7 +435,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   time_point t = current_time_point();
 
   microseconds start_time, claim_time, curr_time = t.time_since_epoch(),
-               self_expiration;
+               self_expiration, zeroseconds = microseconds(0);
 
   float boidpower = update_boidpower(
     bp->quantity,
@@ -493,7 +493,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         from_self_expiration = from_self_stake->expiration;
       }
       
-      if (it->expiration < curr_time && it->from != it->to) {
+      if (it->expiration != zeroseconds && it->expiration < curr_time && it->from != it->to) {
         sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
         add_stake(it->from, it->from, it->quantity, from_self_expiration, stake_account, false);
       }
@@ -518,9 +518,8 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         (float)powered_stake.amount
       );
       powered_stake = asset{(int64_t)powered_stake_amount, sym};
-            
-      //FIXME must also check if indefinite stake
-      if (it->trans_expiration < curr_time && it->from != it->to) {
+
+      if (it->trans_expiration != zeroseconds && it->trans_expiration < curr_time && it->from != it->to) {
         sub_stake(it->from, it->to, it->trans_quantity, it->trans_expiration, same_payer, true);
         add_stake(it->to, it->to, it->trans_quantity, self_expiration, stake_account, false);
       }
@@ -540,11 +539,11 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   delegation_t deleg_t(get_self(), stake_account.value);
   
   for (auto it=deleg_t.begin(); it!=deleg_t.end(); it++) {
-    if (it->expiration < curr_time) {
+    if (it->expiration != zeroseconds && it->expiration < curr_time && it->from != it->to) {
       sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
       add_stake(it->from, it->from, it->quantity, self_expiration, stake_account, false);
     }
-    if (it->trans_expiration < curr_time) {
+    if (it->trans_expiration != zeroseconds && it->trans_expiration < curr_time && it->from != it->to) {
       microseconds to_self_expiration;
       delegation_t to_deleg_t(get_self(), it->to.value);
       auto to_self_deleg = to_deleg_t.find(it->to.value);
@@ -613,6 +612,8 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
      "\npercentage to self stake: " + self_stake_payout.to_string() +\
      "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
      "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
+  
+  //TODO add to worker_proposal_fund
   
   action(
     permission_level{stake_account,"active"_n},
@@ -746,7 +747,7 @@ void boidtoken::initstats(bool wpf_reset)
     config_table c_t (get_self(), get_self().value);
     auto c_itr = c_t.find(0);
     auto sym = symbol("BOID",4);
-     asset cleartokens = asset{0, sym};
+    asset cleartokens = asset{0, sym};
 
     float precision_coef = pow(10,sym.precision());
     
@@ -851,6 +852,15 @@ void boidtoken::erasebp(const name acct)
   auto bp_itr = bps.find(acct.value);
   if (bp_itr!= bps.end())
     bps.erase(bp_itr);
+}
+
+void boidtoken::erasepow(const name acct)
+{
+  require_auth(get_self());
+  power_t pow_t(get_self(), acct.value);    
+  auto p_itr = pow_t.find(acct.value);
+  if (p_itr != pow_t.end())
+    pow_t.erase(p_itr);
 }
 
 void boidtoken::erasestk(const name from, const name to)
@@ -1048,18 +1058,25 @@ void boidtoken::updatebp(const name acct, const float boidpower)
   power_t p_t(get_self(), acct.value);
   
   time_point t = current_time_point();
-  microseconds curr_time = t.time_since_epoch();
-  
+  microseconds curr_time = t.time_since_epoch(),
+               zeroseconds = microseconds(0);
+              
+  auto sym = symbol("BOID",4);
+  asset zerotokens = asset{0, sym};
+
   auto bp = p_t.find(acct.value);
   if (bp == p_t.end()) {
     p_t.emplace(get_self(), [&](auto& p) {
       p.acct = acct;
       p.prev_bp_update_time = curr_time;
       p.quantity = update_boidpower(
-        p.quantity,
+        0,
         boidpower,
-        (curr_time - p.prev_bp_update_time).count()
+        0
       );
+      p.total_power_bonus = zerotokens;
+      p.total_stake_bonus = zerotokens;
+      p.prev_claim_time = zeroseconds;
     });
   } else {
     p_t.modify(bp, same_payer, [&](auto& p) {
@@ -1262,11 +1279,7 @@ void boidtoken::sub_balance(name owner, asset value, name ram_payer)
   accounts from_acnts(get_self(), owner.value);
   const auto &from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
   check(from.balance.amount >= value.amount, "overdrawn balance");
-  power_t pow_t(get_self(), owner.value);    
-  auto bp = pow_t.find(owner.value);
-  
-  stake_t s_t(get_self(), owner.value);
-  auto itr = s_t.find(value.symbol.code().raw());
+
   // print(payer.value); print("\n");
   from_acnts.modify(from, ram_payer, [&](auto &a) {
       a.balance -= value;
