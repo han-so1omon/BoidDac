@@ -145,6 +145,9 @@ void boidtoken::open( const name& owner, const symbol& symbol, const name& ram_p
       acnts.emplace( ram_payer, [&]( auto& a ){
         a.balance = asset{0, symbol};
       });
+   } else if (owner == ram_payer) {
+     acnts.modify(it, ram_payer, [&](auto& a) {
+     });
    }
 }
 
