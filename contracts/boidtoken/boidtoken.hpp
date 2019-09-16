@@ -201,51 +201,10 @@ CONTRACT boidtoken : public contract
     ACTION erasedeleg(const name from, const name to);
 
     ACTION erasedelegs(const name acct);
-    
-    ACTION emplacetoken(
-      const asset supply,
-      const asset max_supply,
-      const name issuer
-    );
-    
-    ACTION emplaceacct(
-      const name acct,
-      const asset balance
-    );
-    
-    ACTION emplacestake(
-      name            from,
-      name            to,
-      asset           quantity,
-      asset           my_bonus,
-      uint32_t        expiration,
-      uint32_t        prev_claim_time,
-      asset           trans_quantity,
-      uint32_t        trans_expiration,
-      uint32_t        trans_prev_claim_time
-    );
-    
-    ACTION emplaceolstk(
-      name    stake_account,
-      asset   staked
-    );
-    
-    ACTION emplacedeleg(
-      name          from,
-      name          to,
-      asset         quantity,
-      uint32_t      expiration,
-      asset         trans_quantity,
-      uint32_t      trans_expiration
-    );
 
-    ACTION emplacepow(
-      name              acct,
-      float             quantity,
-      asset             total_power_bonus,
-      asset             total_stake_bonus,
-      uint32_t          prev_claim_time,
-      uint32_t          prev_bp_update_time    
+    ACTION setstakeinfo(
+      const int num_accts,
+      const asset total_staked
     );
 
     ACTION updatebp(
@@ -347,6 +306,43 @@ CONTRACT boidtoken : public contract
 
     typedef eosio::multi_index<"configs"_n, config> config_table;
 
+    /*!
+      Configuration info for staking
+     */
+    TABLE stakeconfig {
+        uint64_t        config_id; /**< Configuration id for indexing */
+        uint8_t         stakebreak; /**< Activate stake break period */
+        asset           bonus; /**< Stake bonus type */
+        microseconds    season_start;
+        asset           total_season_bonus;
+
+        // bookkeeping:
+        uint32_t        active_accounts; /**< Total active staking accounts */
+        asset           total_staked; /**< Total quantity staked */
+        asset           last_total_powered_stake;
+        float           total_boidpower;
+
+        // staking reward equation vars:
+        float           stake_difficulty;
+        float           powered_stake_multiplier;
+
+        float           power_difficulty;
+        float           power_bonus_max_rate;
+        asset           min_stake; /**< Min staked to receive bonus */
+        float           max_powered_stake_ratio;
+        asset           max_wpf_payout;
+        asset           worker_proposal_fund;
+        name            worker_proposal_fund_proxy;
+
+        float           boidpower_decay_rate;
+        float           boidpower_update_exp;
+        float           boidpower_const_decay;
+
+        uint64_t    primary_key() const { return config_id; } //!< Index by config id
+    };
+
+    typedef eosio::multi_index<"stakeconfigs"_n, stakeconfig> config_t;
+
     TABLE account {
         asset balance;
         
@@ -375,7 +371,9 @@ CONTRACT boidtoken : public contract
         microseconds      prev_claim_time;
         microseconds      prev_bp_update_time;
 
-        uint64_t primary_key() const { return acct.value; }
+        uint64_t primary_key() const {
+          return acct.value;
+        }
     };
   
     typedef eosio::multi_index<"powers"_n, power> power_t;
@@ -528,12 +526,7 @@ EOSIO_DISPATCH(boidtoken,
     (erasestake)
     (erasedeleg)
     (erasedelegs)
-    (emplacetoken)
-    (emplaceacct)
-    (emplacestake)
-    (emplaceolstk)
-    (emplacedeleg)
-    (emplacepow)
+    (setstakeinfo)
     (updatebp)
     (setstakediff)
     (setpowerdiff)
@@ -559,7 +552,7 @@ float boidtoken::update_boidpower(
       float dt
 )
 {
-  config_table c_t (_self, _self.value);
+  config_t c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
   return bpNew;

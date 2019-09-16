@@ -1,3 +1,6 @@
+TODO update config table api so that table row can be deleted
+TODO rewrite eosdac constitution for BOID
+TODO write ricardian contracts
 TODO cannot update timeout of token delegation
 TODO tests for ram payer
 TODO separate transstaked balance for stake and delegation tables
