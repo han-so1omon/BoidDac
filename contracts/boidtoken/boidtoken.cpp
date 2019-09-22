@@ -400,7 +400,7 @@ void boidtoken::sendmessage(name acct, string memo)
 void
 boidtoken::claim(name stake_account, float percentage_to_stake)
 {
-  //require_auth(get_self());
+  require_auth(get_self());
   
   require_auth(stake_account);
   // print("claim \n");
@@ -446,16 +446,16 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
     0,
     (curr_time - bp->prev_bp_update_time).count()
   );
-  
+
   stake_t s_t(get_self(), stake_account.value);
-  
+
   auto self_stake = s_t.find(stake_account.value);
   if (self_stake == s_t.end()) {
     self_expiration = microseconds(0);
   } else {
     self_expiration = self_stake->expiration;
   }
-  
+
   // Find stake bonus
   float powered_stake_amount = fmin(
     c_itr->powered_stake_multiplier*boidpower*precision_coef,

@@ -304,7 +304,7 @@ CONTRACT boidtoken : public contract
         asset           max_wpf_payout;
         asset           worker_proposal_fund;
         name            worker_proposal_fund_proxy;
-        
+
         float           boidpower_decay_rate;
         float           boidpower_update_exp;
         float           boidpower_const_decay;
