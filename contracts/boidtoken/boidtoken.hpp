@@ -44,8 +44,9 @@
 #define STAKE_BREAK_OFF 0 // Can not stake
 #define STAKE_BREAK_ON 1 // Can stake
 
-#define TIME_MULT 86400e6 // microseconds
+#define TIME_MULT 86400 // seconds
 #define MICROSEC_MULT 1e6
+#define DAY_MICROSEC 86400e6
 
 using namespace eosio;
 using std::string;
@@ -212,6 +213,11 @@ CONTRACT boidtoken : public contract
       const float boidpower
     );
     
+    ACTION setbp(
+      const name acct,
+      const float boidpower
+    );
+    
     ACTION setstakediff(const float stake_difficulty);
     
     ACTION setpowerdiff(const float power_difficulty);
@@ -223,7 +229,7 @@ CONTRACT boidtoken : public contract
     /** \brief Set new minimum stake amount
      * \param min_stake - minimum tokens staked to get bonus
      */
-    ACTION setminstake(const float min_stake);
+    ACTION setminstake(const asset min_stake);
 
     ACTION setmaxpwrstk(const float percentage);
     
@@ -238,6 +244,8 @@ CONTRACT boidtoken : public contract
     ACTION setbpdecay(const float decay);
     
     ACTION setbpexp(const float update_exp);
+
+    ACTION setbpconst(const float const_decay);
 
     ACTION resetbonus(const name account);
 
@@ -528,6 +536,7 @@ EOSIO_DISPATCH(boidtoken,
     (erasedelegs)
     (setstakeinfo)
     (updatebp)
+    (setbp)
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
@@ -540,6 +549,7 @@ EOSIO_DISPATCH(boidtoken,
     (recyclewpf)
     (setbpdecay)
     (setbpexp)
+    (setbpconst)
     (resetbonus)
     (resetpowtm)
 //    (testissue)
@@ -555,8 +565,18 @@ float boidtoken::update_boidpower(
   config_t c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
-  return bpNew;
-  //return bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
-  //  pow(bpNew, 1-c_itr->boidpower_update_exp)-\
-  //  c_itr->boidpower_const_decay;
+  //return bpNew;
+  print("bpprev: ", bpPrev);
+  print("bpnew: ", bpNew);
+  print("dt: ", dt);
+  float quantity = bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
+    pow(bpNew, 1-c_itr->boidpower_update_exp)-\
+    dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay;
+
+  print("decay param: ",pow(1-c_itr->boidpower_decay_rate,dt));
+  print("decay: ", bpPrev - bpPrev*pow(1-c_itr->boidpower_decay_rate,dt));
+  print("const decay: ", dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay);
+  print("quantity: ", quantity);
+
+  return fmax(quantity, 0);
 }

@@ -1,3 +1,12 @@
+TODO press briefing for new contract
+  Relevant actions
+  Action variables
+  User interface screenshot
+TODO profitability calculator
+  Equation written out
+  Javascript
+  Option to put in stake params manually or check from current stake params
+TODO deploy token contract on kylin for testing with chintai
 TODO update config table api so that table row can be deleted
 TODO rewrite eosdac constitution for BOID
 TODO write ricardian contracts
