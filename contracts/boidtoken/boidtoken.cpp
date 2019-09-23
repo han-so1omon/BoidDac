@@ -395,7 +395,7 @@ void boidtoken::sendmessage(name acct, string memo)
 void
 boidtoken::claim(name stake_account, float percentage_to_stake)
 {
-  //require_auth(get_self());
+  require_auth(get_self());
 
   require_auth(stake_account);
   // print("claim \n");
