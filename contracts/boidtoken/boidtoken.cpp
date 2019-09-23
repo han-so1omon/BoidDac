@@ -269,11 +269,6 @@ void boidtoken::stakebreak(uint8_t on_switch)
  *  - Specify amount staked
  *    -- Token type must be same as type to-be-staked via this contract
  */
-//TODO use time_limit 0 as stake delegate forever
-//TODO delayed claim transaction to reclaim expired tokens
-//TODO boolean for stake delegation + transfer (new transtaked)
-//TODO irrevokable stake delegation
-//TODO display powered stake
 void boidtoken::stake(
   name from,
   name to,
@@ -400,8 +395,8 @@ void boidtoken::sendmessage(name acct, string memo)
 void
 boidtoken::claim(name stake_account, float percentage_to_stake)
 {
-  require_auth(get_self());
-  
+  //require_auth(get_self());
+
   require_auth(stake_account);
   // print("claim \n");
   config_t c_t(get_self(), get_self().value);
@@ -569,9 +564,10 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
     
     total_payout += power_payout;
 
-    string debugStr = "Payout would cause token supply to exceed maximum\ntotal payout: " + total_payout.to_string() +\
-      "power payout: " + power_payout.to_string() +\
-      "stake payout: " + stake_payout.to_string();
+    string debugStr = "Payout would cause token supply to exceed maximum\nstake account: " + stake_account.to_string() +\
+      "\ntotal payout: " + total_payout.to_string() +\
+      "\npower payout: " + power_payout.to_string() +\
+      "\nstake payout: " + stake_payout.to_string();
           
     check(
       total_payout <= existing->max_supply - existing->supply,
@@ -607,7 +603,6 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       p.quantity = boidpower;
       p.prev_bp_update_time = curr_time;
     });
-
   }
   
   string memo = "account:  " + stake_account.to_string() +\
@@ -644,6 +639,9 @@ void boidtoken::unstake(
 )
 {
   //require_auth(get_self());
+  
+  check(!to_staked_balance, "unstake to stake balance temporarily unavailable");
+  check(!transfer, "unstake for transfers temporarily unavailable");
   
   print("unstake\n");
   config_t c_t(get_self(), get_self().value);
@@ -773,9 +771,9 @@ void boidtoken::initstats(bool wpf_reset)
             int64_t min_stake = (int64_t)precision_coef*1e5;
             c.min_stake = asset{min_stake, sym};
             c.power_difficulty = 25e9;
-            c.stake_difficulty = 110000e6;
+            c.stake_difficulty = 11e10;
             c.powered_stake_multiplier = 100;
-            c.power_bonus_max_rate = 0.05e-4;
+            c.power_bonus_max_rate = 5.8e-7;
             c.max_powered_stake_ratio = .05;
             
             c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};
@@ -800,9 +798,9 @@ void boidtoken::initstats(bool wpf_reset)
             int64_t min_stake = (int64_t)precision_coef*1e5;
             c.min_stake = asset{min_stake, sym};
             c.power_difficulty = 25e9;
-            c.stake_difficulty = 110000e6;
+            c.stake_difficulty = 11e10;
             c.powered_stake_multiplier = 100;
-            c.power_bonus_max_rate = 0.05e-4;
+            c.power_bonus_max_rate = 5.8e-7;
             c.max_powered_stake_ratio = .05;
             
             c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};            
@@ -982,7 +980,8 @@ void boidtoken::updatebp(const name acct, const float boidpower)
 
 void boidtoken::setbp(
   const name acct,
-  const float boidpower
+  const float boidpower,
+  const bool reset_claim_time
 )
 {
   check(boidpower >= 0,
@@ -1006,14 +1005,73 @@ void boidtoken::setbp(
       p.quantity = boidpower;
       p.total_power_bonus = zerotokens;
       p.total_stake_bonus = zerotokens;
-      p.prev_claim_time = zeroseconds;
+      p.prev_claim_time = curr_time;
     });
   } else {
     p_t.modify(bp, same_payer, [&](auto& p) {
       p.quantity = boidpower;
       p.prev_bp_update_time = curr_time;
+      if (reset_claim_time) {
+        p.prev_claim_time = curr_time;
+      }
     });
   }
+}
+
+void boidtoken::recyclestake(const name account, const asset amount, bool recycle){
+  require_auth( get_self() );
+  symbol sym = amount.symbol;
+  accounts accts(get_self(), account.value);
+  const auto& a_itr = accts.find(sym.code().raw());
+  check(a_itr != accts.end(),
+    "Must have BOID account");
+  
+  stats statstable(get_self(), sym.code().raw());
+  auto existing = statstable.find(sym.code().raw());
+  check(existing != statstable.end(),
+    "symbol does not exist, create token with symbol before using said token");
+  const auto &st = *existing;
+ 
+  staketable stake_table_old(get_self(), get_self().value);
+  auto stake_old = stake_table_old.find(account.value);
+  check(stake_old != stake_table_old.end(),
+    "Can only recyclestake on accounts with stakes in old stake table"
+  );
+  
+  check(stake_old->staked == amount,
+    "Must recycle exact amount of old stake"
+  );
+ 
+  sub_balance(account, amount, same_payer);
+
+  if (recycle) {
+    statstable.modify(st, get_self(), [&](auto &s) {
+      s.supply -= amount;
+      if (s.supply.amount < 0) {
+        print("Warning: recycle sets   supply below 0. Please check this out. Setting supply to 0"); 
+        s.supply = asset{0, amount.symbol};
+      }
+    });  
+  }
+}
+
+void boidtoken::recycle2(const asset amount){
+  require_auth( get_self() );
+  symbol sym = amount.symbol;
+  
+  stats statstable(get_self(), sym.code().raw());
+  auto existing = statstable.find(sym.code().raw());
+  check(existing != statstable.end(),
+    "symbol does not exist, create token with symbol before using said token");
+  const auto &st = *existing;
+ 
+  statstable.modify(st, get_self(), [&](auto &s) {
+    s.supply -= amount;
+    if (s.supply.amount < 0) {
+      print("Warning: recycle sets   supply below 0. Please check this out. Setting supply to 0"); 
+      s.supply = asset{0, amount.symbol};
+    }
+  });  
 }
 
 void boidtoken::setstakediff(const float stake_difficulty)
@@ -1024,7 +1082,7 @@ void boidtoken::setstakediff(const float stake_difficulty)
   check(c_itr != c_t.end(), "Must first initstats");  
   c_t.modify(c_itr, _self, [&](auto &c) {
       c.stake_difficulty = stake_difficulty;
-  });  
+  });
 }
 
 void boidtoken::setpowerdiff(const float power_difficulty)
@@ -1524,6 +1582,7 @@ void boidtoken::get_power_bonus(
       (int64_t)(power_coef*(claim_time - start_time).count()*TIME_MULT),
       sym
     };
+  print("dt: ", (claim_time - start_time).count());
   print("power coef: ", power_coef);
   print("power payout: ", power_payout->to_string());
 }

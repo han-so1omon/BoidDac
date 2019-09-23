@@ -215,8 +215,13 @@ CONTRACT boidtoken : public contract
     
     ACTION setbp(
       const name acct,
-      const float boidpower
+      const float boidpower,
+      const bool reset_claim_time
     );
+    
+    ACTION recyclestake(const name account, const asset amount, bool recycle);
+    
+    ACTION recycle2(const asset amount);
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -537,6 +542,8 @@ EOSIO_DISPATCH(boidtoken,
     (setstakeinfo)
     (updatebp)
     (setbp)
+    (recyclestake)
+    (recycle2)
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
