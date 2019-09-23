@@ -221,7 +221,9 @@ CONTRACT boidtoken : public contract
     
     ACTION recyclestake(const name account, const asset amount, bool recycle);
     
-    ACTION recycle2(const asset amount);
+    ACTION matchstake(const name account, const asset quantity, bool subtract);
+    
+    ACTION matchsupply(const name account, const asset quantity);
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -383,6 +385,7 @@ CONTRACT boidtoken : public contract
         asset             total_stake_bonus;
         microseconds      prev_claim_time;
         microseconds      prev_bp_update_time;
+        asset             total_delegated;
 
         uint64_t primary_key() const {
           return acct.value;
@@ -509,7 +512,17 @@ CONTRACT boidtoken : public contract
       microseconds claim_time,
       float boidpower,
       asset* power_payout
-    );  
+    );
+    
+    void update_total_delegated(
+      name account,
+      asset quantity,
+      bool subtract
+    );
+    
+    asset get_total_delegated(
+      name account
+    );
     
     public:
 };
@@ -543,7 +556,8 @@ EOSIO_DISPATCH(boidtoken,
     (updatebp)
     (setbp)
     (recyclestake)
-    (recycle2)
+    (matchstake)
+    (matchsupply)
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
