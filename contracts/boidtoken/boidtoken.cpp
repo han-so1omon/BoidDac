@@ -1127,7 +1127,7 @@ void boidtoken::matchsupply(const name account, const asset quantity)
 
 void boidtoken::matchtotdel(const name account, const asset quantity)
 {
-  if (quantity.amount > 0) {
+  if (quantity.amount < 0) {
     sub_total_delegated(account, quantity, get_self());
   } else {
     add_total_delegated(account, quantity, get_self());
