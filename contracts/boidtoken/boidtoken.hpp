@@ -215,6 +215,7 @@ CONTRACT boidtoken : public contract
     
     ACTION setbp(
       const name acct,
+      const name ram_payer,
       const float boidpower,
       const bool reset_claim_time
     );
@@ -224,6 +225,8 @@ CONTRACT boidtoken : public contract
     ACTION matchstake(const name account, const asset quantity, bool subtract);
     
     ACTION matchsupply(const name account, const asset quantity);
+    
+    ACTION syncstake(const name account);
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -257,6 +260,29 @@ CONTRACT boidtoken : public contract
     ACTION resetbonus(const name account);
 
     ACTION resetpowtm(const name account);
+
+    /*
+    ACTION emplacestake(
+      name            from,
+      name            to,
+      asset           quantity,
+      asset           my_bonus,
+      uint32_t        expiration,
+      uint32_t        prev_claim_time,
+      asset           trans_quantity,
+      uint32_t        trans_expiration,
+      uint32_t        trans_prev_claim_time
+    );
+
+    ACTION emplacedeleg(
+      name          from,
+      name          to,
+      asset         quantity,
+      uint32_t      expiration,
+      asset         trans_quantity,
+      uint32_t      trans_expiration
+    );
+    */
 
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
@@ -514,13 +540,24 @@ CONTRACT boidtoken : public contract
       asset* power_payout
     );
     
-    void update_total_delegated(
+    void add_total_delegated(
       name account,
       asset quantity,
-      bool subtract
+      name ram_payer
+    );
+    
+    void sub_total_delegated(
+      name account,
+      asset quantity,
+      name ram_payer
     );
     
     asset get_total_delegated(
+      name account,
+      name ram_payer
+    );
+    
+    asset get_balance(
       name account
     );
     
@@ -558,6 +595,7 @@ EOSIO_DISPATCH(boidtoken,
     (recyclestake)
     (matchstake)
     (matchsupply)
+    (syncstake)
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
@@ -573,6 +611,8 @@ EOSIO_DISPATCH(boidtoken,
     (setbpconst)
     (resetbonus)
     (resetpowtm)
+    //(emplacestake)
+    //(emplacedeleg)
 //    (testissue)
 //    (vramtransfer)
 )
