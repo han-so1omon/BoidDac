@@ -247,7 +247,7 @@ void boidtoken::transtake(
   microseconds expiration_time = time_limit == 0 ?
     microseconds(0) : t.time_since_epoch() + microseconds(time_limit*MICROSEC_MULT);
   
-  sub_balance(from, quantity, from);
+  //sub_balance(from, quantity, from);
   add_stake(from, to, quantity, expiration_time, from, true);
 }
 
@@ -306,7 +306,7 @@ void boidtoken::stake(
   const auto &st = statstable.get(sym.code().raw());
   check(quantity.symbol == st.supply.symbol,
       "symbol precision mismatch");
-  
+
   asset available = get_balance(from) - get_total_delegated(from, from);
   check(quantity <= available,
     "transfer staking more than available balance");  
@@ -341,7 +341,7 @@ void boidtoken::stake(
   
     delegation_t deleg_t(get_self(), from.value);
     auto deleg = deleg_t.find(from.value);
-    
+
     check(
       deleg != deleg_t.end() &&
       quantity <= deleg->quantity,
@@ -373,7 +373,7 @@ void boidtoken::stake(
       "staking more than available liquid balance"
     );
 
-    sub_balance(from, quantity, from);
+    //sub_balance(from, quantity, from);
     add_stake(from, to, quantity, expiration_time, from, false);
 
     account_type = "liquid";
@@ -567,7 +567,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       add_stake(it->to, it->to, it->trans_quantity, to_self_expiration, stake_account, false);
     }
   }
-  
+
   // Find power bonus and update power and claim parameters
   if (a_itr != accts.end()) {
     start_time = bp->prev_claim_time;
@@ -619,7 +619,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       p.prev_bp_update_time = curr_time;
     });
   }
-  
+
   string memo = "account:  " + stake_account.to_string() +\
      "\naction: claim" +\
      "\nstake bonus: " + stake_payout.to_string() +\
@@ -675,7 +675,7 @@ void boidtoken::unstake(
     require_auth(to);
   } else {
     check(issuer_unstake, "Must use issuer account to unstake in this way");
-    require_auth( get_self() ); 
+    require_auth( get_self() );
   }
 
   // verify symbol
@@ -749,11 +749,13 @@ void boidtoken::unstake(
       "Can only unstake to liquid balance during season break"
     );
     sub_stake(from, to, quantity, expiration_time, from, transfer);
+    /*
     if (transfer) {
       add_balance(to, quantity, to);
     } else {
       add_balance(from, quantity, from);
     }
+    */
   }
 }
 
@@ -1042,7 +1044,8 @@ void boidtoken::setbp(
   }
 }
 
-void boidtoken::recyclestake(const name account, const asset amount, bool recycle){
+void boidtoken::recyclestake(const name account, const asset amount, bool recycle)
+{
   require_auth( get_self() );
   symbol sym = amount.symbol;
   accounts accts(get_self(), account.value);
