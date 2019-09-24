@@ -1142,7 +1142,7 @@ void boidtoken::syncstake(const name account)
   check(deleg != deleg_t.end(),
     "delegation must exist");
   
-  add_total_delegated(account, asset{0, symbol,("BOID",4), get_self());
+  add_total_delegated(account, asset{0, symbol("BOID",4)}, get_self());
 }
 
 void boidtoken::setstakediff(const float stake_difficulty)
