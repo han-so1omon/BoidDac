@@ -1064,10 +1064,6 @@ void boidtoken::recyclestake(const name account, const asset amount, bool recycl
   check(stake_old != stake_table_old.end(),
     "Can only recyclestake on accounts with stakes in old stake table"
   );
-  
-  check(stake_old->staked == amount,
-    "Must recycle exact amount of old stake"
-  );
  
   sub_balance(account, amount, same_payer);
 
@@ -1078,7 +1074,7 @@ void boidtoken::recyclestake(const name account, const asset amount, bool recycl
         print("Warning: recycle sets   supply below 0. Please check this out. Setting supply to 0"); 
         s.supply = asset{0, amount.symbol};
       }
-    });  
+    }); 
   }
 }
 
