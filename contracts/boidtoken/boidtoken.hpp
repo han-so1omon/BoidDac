@@ -226,6 +226,8 @@ CONTRACT boidtoken : public contract
     
     ACTION matchsupply(const name account, const asset quantity);
     
+    ACTION matchtotdel(const name account, const asset quantity);
+      
     ACTION syncstake(const name account);
     
     ACTION setstakediff(const float stake_difficulty);
@@ -595,6 +597,7 @@ EOSIO_DISPATCH(boidtoken,
     (recyclestake)
     (matchstake)
     (matchsupply)
+    (matchtotdel)    
     (syncstake)
     (setstakediff)
     (setpowerdiff)

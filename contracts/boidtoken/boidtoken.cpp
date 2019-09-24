@@ -654,7 +654,7 @@ void boidtoken::unstake(
 )
 {
   //require_auth(get_self());
-  
+
   check(!to_staked_balance, "unstake to stake balance temporarily unavailable");
   check(!transfer, "unstake for transfers temporarily unavailable");
   
@@ -1083,6 +1083,9 @@ void boidtoken::matchstake(const name account, const asset quantity, const bool 
   
   if (!subtract) {
     add_balance(account, quantity, get_self());
+    delegation_t curr_deleg_t(get_self(), account.value);
+    auto curr_deleg = curr_deleg_t.find(account.value); 
+    add_total_delegated(account, asset{0, quantity.symbol}, get_self());
   } else {
     symbol sym = quantity.symbol;
     
@@ -1091,7 +1094,7 @@ void boidtoken::matchstake(const name account, const asset quantity, const bool 
     check(existing != statstable.end(),
       "symbol does not exist, create token with symbol before using said token");
     const auto &st = *existing;
-    
+
     delegation_t deleg_t(get_self(), account.value);
     auto deleg = deleg_t.find(account.value);
     
@@ -1100,19 +1103,7 @@ void boidtoken::matchstake(const name account, const asset quantity, const bool 
     delegation_t new_deleg_t(get_self(), account.value);
     auto new_deleg = new_deleg_t.find(account.value);    
     add_balance(account, new_deleg->quantity, get_self());
-   
-    statstable.modify(st, get_self(), [&](auto &s) {
-      s.supply -= quantity;
-      if (s.supply.amount < 0) {
-        print("Warning: recycle sets   supply below 0. Please check this out. Setting supply to 0"); 
-        s.supply = asset{0, quantity.symbol};
-      }
-    });
   }
-  
-  delegation_t curr_deleg_t(get_self(), account.value);
-  auto curr_deleg = curr_deleg_t.find(account.value);  
-  add_total_delegated(account, curr_deleg->quantity, get_self());
 }
 
 void boidtoken::matchsupply(const name account, const asset quantity)
@@ -1125,15 +1116,22 @@ void boidtoken::matchsupply(const name account, const asset quantity)
   check(existing != statstable.end(),
     "symbol does not exist, create token with symbol before using said token");
   const auto &st = *existing;
- 
-  staketable stake_table_old(get_self(), get_self().value);
 
   check(st.supply + quantity <= st.max_supply,
     "Matching supply this way causes token supply to exceed maximum, please ensure that all parameters are correct");
     
   statstable.modify(st, get_self(), [&](auto &s) {
     s.supply += quantity;
-  });  
+  });
+}
+
+void boidtoken::matchtotdel(const name account, const asset quantity)
+{
+  if (quantity.amount > 0) {
+    sub_total_delegated(account, quantity, get_self());
+  } else {
+    add_total_delegated(account, quantity, get_self());
+  }
 }
 
 void boidtoken::syncstake(const name account)
@@ -1144,7 +1142,7 @@ void boidtoken::syncstake(const name account)
   check(deleg != deleg_t.end(),
     "delegation must exist");
   
-  add_total_delegated(account, deleg->quantity, get_self());
+  add_total_delegated(account, asset{0, symbol,("BOID",4), get_self());
 }
 
 void boidtoken::setstakediff(const float stake_difficulty)
