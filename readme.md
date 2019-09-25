@@ -1,3 +1,4 @@
+TODO fix staking
 TODO press briefing for new contract
   Relevant actions
   Action variables

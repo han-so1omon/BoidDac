@@ -98,6 +98,17 @@ void boidtoken::recycle(name account, asset quantity)
   check(quantity.amount > 0, "must recycle positive quantity");
 
   check(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
+  
+  power_t p_t(get_self(), account.value);
+  auto p_itr = p_t.find(account.value);
+  if (p_itr == p_t.end() ||\
+      p_itr->total_delegated.symbol != sym)
+    sync_total_delegated(account, account);
+
+  asset available = get_balance(account) - get_total_delegated(account, account, false);
+  check(quantity <= available,
+    "transferring more than available balance");  
+  
   sub_balance(account, quantity, account);
 
   statstable.modify(st, _self, [&](auto &s) {
@@ -109,6 +120,7 @@ void boidtoken::recycle(name account, asset quantity)
   });
 }
 
+/*
 void boidtoken::reclaim(name account, name token_holder, string memo)
 {
   require_auth(get_self());
@@ -127,6 +139,7 @@ void boidtoken::reclaim(name account, name token_holder, string memo)
   sub_balance(account, acct.balance, same_payer);
   add_balance(token_holder, acct.balance, get_self());
 }
+*/
 
 void boidtoken::open( const name& owner, const symbol& symbol, const name& ram_payer )
 {
@@ -168,28 +181,40 @@ void boidtoken::close( const name& owner, const symbol& symbol )
  */
 void boidtoken::transfer(name from, name to, asset quantity, string memo)
 {
-    print("transfer\n");
-    check(from != to, "cannot transfer to self");
-    require_auth( from );
-    check(is_account(to), "to account does not exist");
-    auto sym = quantity.symbol;
-    stats statstable(_self, sym.code().raw());
-    const auto &st = statstable.get(sym.code().raw());
+  print("transfer\n");
+  check(from != to, "cannot transfer to self");
+  require_auth( from );
+  check(is_account(to), "to account does not exist");
+  auto sym = quantity.symbol;
+  stats statstable(_self, sym.code().raw());
+  const auto &st = statstable.get(sym.code().raw());
 
-    require_recipient(from);
-    require_recipient(to);
+  require_recipient(from);
+  require_recipient(to);
 
-    check(quantity.is_valid(), "invalid quantity");
-    check(quantity.amount > 0, "must transfer positive quantity");
-    check(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
-    check(memo.size() <= 256, "memo has more than 256 bytes");
+  check(quantity.is_valid(), "invalid quantity");
+  check(quantity.amount > 0, "must transfer positive quantity");
+  check(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
+  check(memo.size() <= 256, "memo has more than 256 bytes");
 
-    asset available = get_balance(from) - get_total_delegated(from, from);
-    check(quantity <= available,
-      "transferring more than available balance");
+  power_t p_from_t(get_self(), from.value),
+          p_to_t(get_self(), to.value);
+  auto p_from_itr = p_from_t.find(from.value),
+       p_to_itr = p_to_t.find(to.value);
+  if (p_from_itr == p_from_t.end() ||\
+      p_from_itr->total_delegated.symbol != sym)
+    sync_total_delegated(from, from);
+  if (from != to &&\
+      (p_to_itr == p_to_t.end() ||\
+       p_to_itr->total_delegated.symbol != sym))
+    sync_total_delegated(to, from);
 
-    sub_balance(from, quantity, same_payer);
-    add_balance(to, quantity, from);
+  asset available = get_balance(from) - get_total_delegated(from, from, false);
+  check(quantity <= available,
+    "transferring more than available balance");
+
+  sub_balance(from, quantity, same_payer);
+  add_balance(to, quantity, from);
 }
 
 /* Transfer tokens from the contract owner account to a user account as staked tokens
@@ -222,7 +247,19 @@ void boidtoken::transtake(
   check(quantity.symbol == st.supply.symbol,
       "symbol precision mismatch");
   
-  asset available = get_balance(from) - get_total_delegated(from, from);
+  power_t p_from_t(get_self(), from.value),
+          p_to_t(get_self(), to.value);
+  auto p_from_itr = p_from_t.find(from.value),
+       p_to_itr = p_to_t.find(to.value);
+  if (p_from_itr == p_from_t.end() ||\
+      p_from_itr->total_delegated.symbol != sym)
+    sync_total_delegated(from, from);
+  if (from != to &&\
+      (p_to_itr == p_to_t.end() ||\
+       p_to_itr->total_delegated.symbol != sym))
+    sync_total_delegated(to, from);
+
+  asset available = get_balance(from) - get_total_delegated(from, from, false);
   check(quantity <= available,
     "transfer staking more than available balance");  
   
@@ -247,7 +284,8 @@ void boidtoken::transtake(
   microseconds expiration_time = time_limit == 0 ?
     microseconds(0) : t.time_since_epoch() + microseconds(time_limit*MICROSEC_MULT);
   
-  //sub_balance(from, quantity, from);
+  sub_balance(from, quantity, from);
+  add_balance(to, quantity, from);
   add_stake(from, to, quantity, expiration_time, from, true);
 }
 
@@ -307,9 +345,31 @@ void boidtoken::stake(
   check(quantity.symbol == st.supply.symbol,
       "symbol precision mismatch");
 
-  asset available = get_balance(from) - get_total_delegated(from, from);
+  power_t p_from_t(get_self(), from.value),
+          p_to_t(get_self(), to.value);
+  auto p_from_itr = p_from_t.find(from.value),
+       p_to_itr = p_to_t.find(to.value);
+  if (p_from_itr == p_from_t.end() ||\
+      p_from_itr->total_delegated.symbol != sym)
+    sync_total_delegated(from, from);
+  if (from != to &&\
+      (p_to_itr == p_to_t.end() ||\
+       p_to_itr->total_delegated.symbol != sym))
+    sync_total_delegated(to, from);
+
+  
+  delegation_t deleg_t(get_self(), from.value);
+  auto deleg = deleg_t.find(from.value);
+  asset available;
+  
+  if (!use_staked_balance) {
+    available = get_balance(from) - get_total_delegated(from, from, false);
+  } else {
+    available = deleg->quantity;
+  }
+  
   check(quantity <= available,
-    "transfer staking more than available balance");  
+    "transfer staking more than available balance");    
   
   stake_t s_t(get_self(), to.value);
   
@@ -327,7 +387,7 @@ void boidtoken::stake(
       );
   } else {
     check(
-      expiration_time > s_itr->expiration,
+      expiration_time >= s_itr->expiration,
       "Already an existing stake to this account with later expiration time"
     );
   }
@@ -338,9 +398,6 @@ void boidtoken::stake(
   //  1) has sufficient liquid balance
   //  2) has sufficient staked, undelegated balance && not staking to self
   if (use_staked_balance) {
-  
-    delegation_t deleg_t(get_self(), from.value);
-    auto deleg = deleg_t.find(from.value);
 
     check(
       deleg != deleg_t.end() &&
@@ -444,6 +501,8 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   check(bp != pow_t.end(),
     "No existing boidpower entry for account"
   );
+  if (bp->total_delegated.symbol != sym)
+    sync_total_delegated(stake_account, stake_account);
 
   time_point t = current_time_point();
 
@@ -655,31 +714,61 @@ void boidtoken::unstake(
 {
   //require_auth(get_self());
 
-  check(!to_staked_balance, "unstake to stake balance temporarily unavailable");
-  check(!transfer, "unstake for transfers temporarily unavailable");
+  //check(!to_staked_balance, "unstake to stake balance temporarily unavailable");
+  //check(!transfer, "unstake for transfers temporarily unavailable");
   
   print("unstake\n");
   config_t c_t(get_self(), get_self().value);
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
-  
+
+  auto sym = quantity.symbol;
+  power_t p_from_t(get_self(), from.value),
+          p_to_t(get_self(), to.value);
+  auto p_from_itr = p_from_t.find(from.value),
+       p_to_itr = p_to_t.find(to.value);  
   // Can unstake to liquid or staked account out of season with delegator
   if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_balance)\
       && !issuer_unstake\
       && !transfer) {
     require_auth( from );
+    
+    if (p_from_itr == p_from_t.end() ||\
+        p_from_itr->total_delegated.symbol != sym)
+      sync_total_delegated(from, from);
+    if (from != to &&\
+        (p_to_itr == p_to_t.end() ||\
+         p_to_itr->total_delegated.symbol != sym))
+      sync_total_delegated(to, from);
+      
   // Can unstake to liquid or staked account at all times as token issuer
   } else if ((c_itr->stakebreak == STAKE_BREAK_ON || to_staked_balance)\
       && !issuer_unstake\
       && transfer) {
     require_auth(to);
+    
+    if (p_from_itr == p_from_t.end() ||\
+        p_from_itr->total_delegated.symbol != sym)
+      sync_total_delegated(from, to);
+    if (from != to &&\
+        (p_to_itr == p_to_t.end() ||\
+         p_to_itr->total_delegated.symbol != sym))
+      sync_total_delegated(to, to);
+    
   } else {
     check(issuer_unstake, "Must use issuer account to unstake in this way");
     require_auth( get_self() );
+    
+    if (p_from_itr == p_from_t.end() ||\
+        p_from_itr->total_delegated.symbol != sym)
+      sync_total_delegated(from, get_self());
+    if (from != to &&\
+        (p_to_itr == p_to_t.end() ||\
+         p_to_itr->total_delegated.symbol != sym))
+      sync_total_delegated(to, get_self());
   }
 
   // verify symbol
-  auto sym = quantity.symbol;
   stats statstable(get_self(), sym.code().raw());
   const auto &st = statstable.get(sym.code().raw());
   check(sym == st.supply.symbol,
@@ -831,6 +920,7 @@ void boidtoken::initstats(bool wpf_reset)
     }
 }
 
+/*
 void boidtoken::erasetoken()
 {
   require_auth(get_self());
@@ -940,6 +1030,7 @@ void boidtoken::erasedelegs(const name acct)
     ).send();
   }
 }
+*/
 
 void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
 {
@@ -954,7 +1045,8 @@ void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
   });  
 }
 
-void boidtoken::updatebp(const name acct, const float boidpower)
+//FIXME how to set total_delegated correctly for existing stakes without total_delegated entries in power table
+void boidtoken::updatepower(const name acct, const float boidpower)
 {
   check(boidpower >= 0,
     "Can only have zero or positive boidpower");  
@@ -982,7 +1074,8 @@ void boidtoken::updatebp(const name acct, const float boidpower)
       p.total_power_bonus = zerotokens;
       p.total_stake_bonus = zerotokens;
       p.prev_claim_time = zeroseconds;
-      p.total_delegated = zerotokens;
+      p.total_delegated = get_total_delegated(
+        acct, get_self(), true);
     });
   } else {
     p_t.modify(bp, same_payer, [&](auto& p) {
@@ -993,15 +1086,16 @@ void boidtoken::updatebp(const name acct, const float boidpower)
       );
       p.prev_bp_update_time = curr_time;
       if (p.total_delegated.symbol != sym) {
-        p.total_delegated = zerotokens;
+        p.total_delegated = get_total_delegated(
+          acct, get_self(), true);;
       }      
     });
   }
 }
 
-void boidtoken::setbp(
+//FIXME how to set total_delegated correctly for existing stakes without total_delegated entries in power table
+void boidtoken::setpower(
   const name acct,
-  name ram_payer,
   const float boidpower,
   const bool reset_claim_time
 )
@@ -1021,14 +1115,15 @@ void boidtoken::setbp(
 
   auto bp = p_t.find(acct.value);
   if (bp == p_t.end()) {
-    p_t.emplace(ram_payer, [&](auto& p) {
+    p_t.emplace(get_self(), [&](auto& p) {
       p.acct = acct;
       p.prev_bp_update_time = curr_time;
       p.quantity = boidpower;
       p.total_power_bonus = zerotokens;
       p.total_stake_bonus = zerotokens;
       p.prev_claim_time = curr_time;
-      p.total_delegated = zerotokens;
+      p.total_delegated = get_total_delegated(
+        acct, get_self(), true);
     });
   } else {
     p_t.modify(bp, same_payer, [&](auto& p) {
@@ -1038,11 +1133,14 @@ void boidtoken::setbp(
         p.prev_claim_time = curr_time;
       }
       if (p.total_delegated.symbol != sym) {
-        p.total_delegated = zerotokens;
+        p.total_delegated = get_total_delegated(
+          acct, get_self(), true);;
       }
     });
   }
 }
+
+/*
 
 void boidtoken::recyclestake(const name account, const asset amount, bool recycle)
 {
@@ -1125,9 +1223,9 @@ void boidtoken::matchsupply(const name account, const asset quantity)
   });
 }
 
-void boidtoken::matchtotdel(const name account, const asset quantity)
+void boidtoken::matchtotdel(const name account, const asset quantity, bool subtract)
 {
-  if (quantity.amount < 0) {
+  if (subtract) {
     sub_total_delegated(account, quantity, get_self());
   } else {
     add_total_delegated(account, quantity, get_self());
@@ -1144,6 +1242,8 @@ void boidtoken::syncstake(const name account)
   
   add_total_delegated(account, asset{0, symbol("BOID",4)}, get_self());
 }
+
+*/
 
 void boidtoken::setstakediff(const float stake_difficulty)
 {
@@ -1310,6 +1410,7 @@ void boidtoken::setbpconst(const float const_decay)
   });
 }
 
+/*
 void boidtoken::resetbonus(const name account)
 {
   require_auth( get_self() );
@@ -1336,6 +1437,7 @@ void boidtoken::resetpowtm(const name account)
     });
   }
 }
+*/
 
 /*
 void boidtoken::emplacestake(
@@ -1592,9 +1694,9 @@ void boidtoken::add_stake(
       c.total_staked += quantity;
   });
   if (transfer) {  
-    add_total_delegated(to, quantity, from);
+    add_total_delegated(to, quantity, ram_payer);
   } else {
-    add_total_delegated(from, quantity, from);
+    add_total_delegated(from, quantity, ram_payer);
   }
 }
 
@@ -1735,38 +1837,13 @@ void boidtoken::sub_total_delegated(
   power_t p_t(_self, account.value);
   auto p_itr = p_t.find(account.value);
   symbol sym = symbol("BOID",4);
-  delegation_t d_t(get_self(), account.value);
-  auto d_itr = d_t.find(account.value);  
-
-  if (p_itr != p_t.end()) {
-    if (p_itr->total_delegated.symbol != sym) {
-      check(d_itr != d_t.end(),
-        "No self-delegation exists for this account");     
-      p_t.modify(p_itr, same_payer, [&](auto& p) {
-        p.total_delegated = d_itr->quantity - quantity;
-      });
-    } else {
-      p_t.modify(p_itr, same_payer, [&](auto& p) {
-        p.total_delegated -= quantity;
-      }); 
-    }
-  } else {
-    time_point t = current_time_point();
-    microseconds curr_time = t.time_since_epoch(),
-                 zeroseconds = microseconds(0);
-    asset zerotokens = asset{0, sym};
-      check(d_itr != d_t.end(),
-        "No self-delegation exists for this account");    
-    p_t.emplace(ram_payer, [&](auto& p) {
-      p.acct = account;
-      p.prev_bp_update_time = curr_time;
-      p.quantity = 0;
-      p.total_power_bonus = zerotokens;
-      p.total_stake_bonus = zerotokens;
-      p.prev_claim_time = curr_time;
-      p.total_delegated = d_itr->quantity - quantity;
-    });
-  }
+  check(p_itr != p_t.end() &&\
+        p_itr ->total_delegated.symbol == sym,
+    "Must first sync total delegated");  
+  
+  p_t.modify(p_itr, same_payer, [&](auto& p) {
+    p.total_delegated -= quantity;
+  });
 }
 
 //TODO get rid of extra stuff after contract fix
@@ -1779,26 +1856,66 @@ void boidtoken::add_total_delegated(
   power_t p_t(_self, account.value);
   auto p_itr = p_t.find(account.value);
   symbol sym = symbol("BOID",4);
-  asset zerotokens = asset{0, sym};
-  delegation_t d_t(get_self(), account.value);
-  auto d_itr = d_t.find(account.value);
-  asset existing = d_itr == d_t.end() ?
-    zerotokens : d_itr->quantity;
-  if (p_itr != p_t.end()) {
-    if (p_itr->total_delegated.symbol != sym)
+  check(p_itr != p_t.end() &&\
+        p_itr ->total_delegated.symbol == sym,
+    "Must first sync total delegated");
+  p_t.modify(p_itr, same_payer, [&](auto& p) {
+    p.total_delegated += quantity;
+  });
+}
 
-      p_t.modify(p_itr, same_payer, [&](auto& p) {
-        p.total_delegated = existing + quantity;
-      });
-    else
-      p_t.modify(p_itr, same_payer, [&](auto& p) {
-        p.total_delegated += quantity;
-      });
+//TODO remove ram_payer param
+asset boidtoken::get_total_delegated(
+  name account,
+  name ram_payer,
+  bool iterate
+)
+{
+  symbol sym = symbol("BOID",4);
+  asset zerotokens = asset{0, sym};
+  if (!iterate) {
+    power_t p_t(_self, account.value);
+    auto p_itr = p_t.find(account.value);
+    symbol sym = symbol("BOID",4);
+    check(p_itr != p_t.end() &&\
+          p_itr ->total_delegated.symbol == sym,
+      "Must first sync total delegated");
+    return p_itr->total_delegated;
+  } else {
+    delegation_t d_t(get_self(), account.value);
+    asset total_delegated = zerotokens;
+    for (auto d_itr = d_t.begin(); d_itr != d_t.end(); d_itr++) {
+      total_delegated += d_itr->quantity;
+    }
+    stake_t s_t(get_self(), account.value);
+    for (auto s_itr = s_t.begin(); s_itr != s_t.end(); s_itr++) {
+      total_delegated += s_itr->trans_quantity;
+    }
+
+    return total_delegated;
+  }
+}
+
+void boidtoken::sync_total_delegated(
+  name account,
+  name ram_payer
+)
+{
+  asset total_delegated = get_total_delegated(
+    account, ram_payer, true);
+  
+  power_t p_t(_self, account.value);
+  auto p_itr = p_t.find(account.value);
+  
+  if (p_itr != p_t.end()) {
+    p_t.modify(p_itr, same_payer, [&](auto& p) {
+      p.total_delegated = total_delegated;
+    });
   } else {
     time_point t = current_time_point();
     microseconds curr_time = t.time_since_epoch(),
                  zeroseconds = microseconds(0);
-    asset zerotokens = asset{0, sym};
+    asset zerotokens = asset{0, total_delegated.symbol};
     p_t.emplace(ram_payer, [&](auto& p) {
       p.acct = account;
       p.prev_bp_update_time = curr_time;
@@ -1806,30 +1923,9 @@ void boidtoken::add_total_delegated(
       p.total_power_bonus = zerotokens;
       p.total_stake_bonus = zerotokens;
       p.prev_claim_time = curr_time;
-      p.total_delegated = existing + quantity;
+      p.total_delegated = total_delegated;
     });
-  }
-}
-
-//TODO get rid of extra stuff after contract fix
-asset boidtoken::get_total_delegated(
-  name account,
-  name ram_payer
-)
-{
-  power_t p_t(_self, account.value);
-  auto p_itr = p_t.find(account.value);
-  symbol sym = symbol("BOID",4);
-  asset zerotokens = asset{0, sym};
-  if (p_itr != p_t.end()) {
-    if (p_itr->total_delegated.symbol == sym)
-      return p_itr->total_delegated;
-    else
-      add_total_delegated(account, zerotokens, ram_payer);
-  } else {
-    add_total_delegated(account, zerotokens, ram_payer);
-  }
-  return zerotokens;
+  }  
 }
 
 asset boidtoken::get_balance(

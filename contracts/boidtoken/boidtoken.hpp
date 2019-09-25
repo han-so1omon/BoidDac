@@ -44,7 +44,8 @@
 #define STAKE_BREAK_OFF 0 // Can not stake
 #define STAKE_BREAK_ON 1 // Can stake
 
-#define TIME_MULT 86400 // seconds
+#define TIME_MULT 1 // seconds
+//#define TIME_MULT 86400 // seconds
 #define MICROSEC_MULT 1e6
 #define DAY_MICROSEC 86400e6
 
@@ -96,7 +97,7 @@ CONTRACT boidtoken : public contract
      */
     ACTION recycle(name account, asset quantity);
 
-    ACTION reclaim(name account, name token_holder, string memo);
+    //ACTION reclaim(name account, name token_holder, string memo);
 
     ACTION open( const name& owner, const symbol& symbol, const name& ram_payer );
 
@@ -183,6 +184,7 @@ CONTRACT boidtoken : public contract
      */
     ACTION initstats(bool wpf_reset);
     
+    /*
     ACTION erasetoken();
     
     ACTION erasestats();
@@ -202,33 +204,35 @@ CONTRACT boidtoken : public contract
     ACTION erasedeleg(const name from, const name to);
 
     ACTION erasedelegs(const name acct);
-
+    */
+    
     ACTION setstakeinfo(
       const int num_accts,
       const asset total_staked
     );
 
-    ACTION updatebp(
+    ACTION updatepower(
       const name acct,
       const float boidpower
     );
     
-    ACTION setbp(
+    ACTION setpower(
       const name acct,
-      const name ram_payer,
       const float boidpower,
       const bool reset_claim_time
     );
     
+    /*
     ACTION recyclestake(const name account, const asset amount, bool recycle);
     
     ACTION matchstake(const name account, const asset quantity, bool subtract);
     
     ACTION matchsupply(const name account, const asset quantity);
     
-    ACTION matchtotdel(const name account, const asset quantity);
+    ACTION matchtotdel(const name account, const asset quantity, bool subtract);
       
     ACTION syncstake(const name account);
+    */
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -259,11 +263,11 @@ CONTRACT boidtoken : public contract
 
     ACTION setbpconst(const float const_decay);
 
-    ACTION resetbonus(const name account);
+    //ACTION resetbonus(const name account);
 
-    ACTION resetpowtm(const name account);
+    //ACTION resetpowtm(const name account);
 
-    /*
+/*
     ACTION emplacestake(
       name            from,
       name            to,
@@ -284,7 +288,7 @@ CONTRACT boidtoken : public contract
       asset         trans_quantity,
       uint32_t      trans_expiration
     );
-    */
+*/
 
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
@@ -556,6 +560,12 @@ CONTRACT boidtoken : public contract
     
     asset get_total_delegated(
       name account,
+      name ram_payer,
+      bool iterate
+    );
+    
+    void sync_total_delegated(
+      name account,
       name ram_payer
     );
     
@@ -570,7 +580,7 @@ EOSIO_DISPATCH(boidtoken,
     (create)
     (issue)
     (recycle)
-    (reclaim)
+    //(reclaim)
     (open)
     (close)
     (transfer)
@@ -581,6 +591,7 @@ EOSIO_DISPATCH(boidtoken,
     (claim)
     (unstake)
     (initstats)
+    /*
     (erasetoken)
     (erasestats)
     (eraseacct)
@@ -591,14 +602,17 @@ EOSIO_DISPATCH(boidtoken,
     (erasestake)
     (erasedeleg)
     (erasedelegs)
+    */
     (setstakeinfo)
-    (updatebp)
-    (setbp)
+    (updatepower)
+    (setpower)
+    /*
     (recyclestake)
     (matchstake)
     (matchsupply)
     (matchtotdel)    
     (syncstake)
+    */
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
@@ -612,12 +626,12 @@ EOSIO_DISPATCH(boidtoken,
     (setbpdecay)
     (setbpexp)
     (setbpconst)
+    /*
     (resetbonus)
     (resetpowtm)
-    //(emplacestake)
-    //(emplacedeleg)
-//    (testissue)
-//    (vramtransfer)
+    (emplacestake)
+    (emplacedeleg)
+    */
 )
 
 float boidtoken::update_boidpower(
