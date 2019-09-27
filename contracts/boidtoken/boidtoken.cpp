@@ -918,6 +918,7 @@ void boidtoken::initstats(bool wpf_reset)
     }
 }
 
+/*
 void boidtoken::erasetoken()
 {
   require_auth(get_self());
@@ -1027,6 +1028,7 @@ void boidtoken::erasedelegs(const name acct)
     ).send();
   }
 }
+*/
 
 void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
 {
