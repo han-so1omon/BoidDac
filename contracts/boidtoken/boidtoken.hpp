@@ -263,9 +263,9 @@ CONTRACT boidtoken : public contract
 
     ACTION setbpconst(const float const_decay);
 
-    //ACTION resetbonus(const name account);
+    ACTION resetbonus(const name account);
 
-    //ACTION resetpowtm(const name account);
+    ACTION resetpowtm(const name account);
 
 /*
     ACTION emplacestake(
@@ -626,9 +626,9 @@ EOSIO_DISPATCH(boidtoken,
     (setbpdecay)
     (setbpexp)
     (setbpconst)
-    /*
     (resetbonus)
     (resetpowtm)
+    /*
     (emplacestake)
     (emplacedeleg)
     */
@@ -644,15 +644,17 @@ float boidtoken::update_boidpower(
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
   //return bpNew;
+  float dtReal = dt*TIME_MULT;
   print("bpprev: ", bpPrev);
   print("bpnew: ", bpNew);
-  print("dt: ", dt);
-  float quantity = bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
-    pow(bpNew, 1-c_itr->boidpower_update_exp)-\
+  print("dt: ", dtReal);
+  
+  float quantity = bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal)+\
+    pow(bpNew, 1.0-c_itr->boidpower_update_exp)-\
     dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay;
 
-  print("decay param: ",pow(1-c_itr->boidpower_decay_rate,dt));
-  print("decay: ", bpPrev - bpPrev*pow(1-c_itr->boidpower_decay_rate,dt));
+  print("decay param: ",pow(1.0-c_itr->boidpower_decay_rate,dtReal));
+  print("decay: ", bpPrev - bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal));
   print("const decay: ", dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay);
   print("quantity: ", quantity);
 

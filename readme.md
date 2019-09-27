@@ -1,4 +1,4 @@
-TODO fix staking
+TODO update total staked parameter
 TODO press briefing for new contract
   Relevant actions
   Action variables

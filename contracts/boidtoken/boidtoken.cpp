@@ -306,7 +306,6 @@ void boidtoken::stakebreak(uint8_t on_switch)
   });
 }
 
-//FIXME update to use boidpower contract
 /* Stake tokens with a specified account
  *  - Add account to stake table or add amount staked to existing account
  *  - Specify staking period
@@ -357,7 +356,6 @@ void boidtoken::stake(
        p_to_itr->total_delegated.symbol != sym))
     sync_total_delegated(to, from);
 
-  
   delegation_t deleg_t(get_self(), from.value);
   auto deleg = deleg_t.find(from.value);
   asset available;
@@ -369,7 +367,7 @@ void boidtoken::stake(
   }
   
   check(quantity <= available,
-    "transfer staking more than available balance");    
+    "staking more than available balance");    
   
   stake_t s_t(get_self(), to.value);
   
@@ -463,7 +461,7 @@ void boidtoken::sendmessage(name acct, string memo)
 void
 boidtoken::claim(name stake_account, float percentage_to_stake)
 {
-  require_auth(get_self());
+  //require_auth(get_self());
 
   require_auth(stake_account);
   // print("claim \n");
@@ -530,7 +528,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
     c_itr->powered_stake_multiplier*boidpower*precision_coef,
     c_itr->max_powered_stake_ratio*c_itr->total_staked.amount
   );
-  
+  print("min: ", c_itr->max_powered_stake_ratio*c_itr->total_staked.amount);
   print("powered stake amount: ", powered_stake_amount);
   powered_stake = asset{
     (int64_t)powered_stake_amount, sym
@@ -920,7 +918,6 @@ void boidtoken::initstats(bool wpf_reset)
     }
 }
 
-/*
 void boidtoken::erasetoken()
 {
   require_auth(get_self());
@@ -1030,7 +1027,6 @@ void boidtoken::erasedelegs(const name acct)
     ).send();
   }
 }
-*/
 
 void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
 {
@@ -1410,7 +1406,6 @@ void boidtoken::setbpconst(const float const_decay)
   });
 }
 
-/*
 void boidtoken::resetbonus(const name account)
 {
   require_auth( get_self() );
@@ -1437,7 +1432,6 @@ void boidtoken::resetpowtm(const name account)
     });
   }
 }
-*/
 
 /*
 void boidtoken::emplacestake(
@@ -1788,8 +1782,8 @@ void boidtoken::get_stake_bonus(
   *wpf_payout = asset{wpf_payout_amount, sym};
   *wpf_payout = *wpf_payout > c_itr->max_wpf_payout ?
     c_itr->max_wpf_payout : *wpf_payout;
-  print("staked amount: ", staked.amount);
-  print("powered staked amount: ", powered_staked.amount);
+  //print("staked amount: ", staked.amount);
+  //print("powered staked amount: ", powered_staked.amount);
   print("stake coef: ", stake_coef);
   print("wpf amt: ", wpf_amt);
   print("wpf payout: ", wpf_payout->to_string());
