@@ -162,7 +162,11 @@ CONTRACT boidtoken : public contract
      * \param accountContractOwner - owner of account contract and account table
      * \param _stake_account - account claiming token bonus
      */
-    ACTION claim(name stake_account, float percentage_to_stake);
+    ACTION claim(
+      name stake_account,
+      float percentage_to_stake,
+      bool issuer_claim
+    );
 
     /** \brief Unstake tokens for specified _stake_account
      *
@@ -193,7 +197,11 @@ CONTRACT boidtoken : public contract
 
     ACTION erasebp(const name acct);
 
+    */
+
     ACTION erasepow(const name acct);
+
+    /*
 
     ACTION erasestk(const name from, const name to);
 
@@ -265,9 +273,8 @@ CONTRACT boidtoken : public contract
 
     ACTION resetbonus(const name account);
 
-    ACTION resetpowtm(const name account);
+    ACTION resetpowtm(const name account, bool bonus);
 
-/*
     ACTION emplacestake(
       name            from,
       name            to,
@@ -288,7 +295,6 @@ CONTRACT boidtoken : public contract
       asset         trans_quantity,
       uint32_t      trans_expiration
     );
-*/
 
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
@@ -596,7 +602,9 @@ EOSIO_DISPATCH(boidtoken,
     (erasestats)
     (eraseacct)
     (erasebp)
+    */
     (erasepow)
+    /*
     (erasestk)
     (erasestks)
     (erasestake)
@@ -628,10 +636,8 @@ EOSIO_DISPATCH(boidtoken,
     (setbpconst)
     (resetbonus)
     (resetpowtm)
-    /*
     (emplacestake)
     (emplacedeleg)
-    */
 )
 
 float boidtoken::update_boidpower(

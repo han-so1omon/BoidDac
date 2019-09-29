@@ -391,7 +391,7 @@ void boidtoken::stake(
   }
 
   string memo, account_type;
-  
+
   // Assert either:
   //  1) has sufficient liquid balance
   //  2) has sufficient staked, undelegated balance && not staking to self
@@ -458,12 +458,20 @@ void boidtoken::sendmessage(name acct, string memo)
 
 /* Claim token-staking bonus for specified account
  */
+//TODO add auto claim
+//TODO research 3rd party permission adding for this specific function
 void
-boidtoken::claim(name stake_account, float percentage_to_stake)
+boidtoken::claim(
+  name stake_account,
+  float percentage_to_stake,
+  bool issuer_claim
+)
 {
-  //require_auth(get_self());
-
-  require_auth(stake_account);
+  if (issuer_claim) {
+    require_auth(get_self());
+  } else {
+    require_auth(stake_account);
+  }
   // print("claim \n");
   config_t c_t(get_self(), get_self().value);
   auto c_itr = c_t.find(0);
@@ -482,7 +490,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   check(existing != statstable.end(),
     "symbol does not exist, create token with symbol before using said token");
   const auto &st = *existing;
-  
+
   asset zerotokens = asset{0,sym},
         total_payout = zerotokens,
         power_payout = zerotokens,
@@ -493,14 +501,17 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         expired_received_tokens = zerotokens,
         expired_delegated_tokens = zerotokens;
 
+  name ram_payer = issuer_claim ? st.issuer : stake_account;
+
   power_t pow_t(get_self(), stake_account.value);    
   auto bp = pow_t.find(stake_account.value);
 
-  check(bp != pow_t.end(),
-    "No existing boidpower entry for account"
-  );
-  if (bp->total_delegated.symbol != sym)
-    sync_total_delegated(stake_account, stake_account);
+  if (bp == pow_t.end() ||\
+      bp->total_delegated.symbol != sym) {
+    sync_total_delegated(stake_account, ram_payer);
+  }
+  bp = pow_t.find(stake_account.value);
+
 
   time_point t = current_time_point();
 
@@ -564,7 +575,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
 
       if (it->expiration != zeroseconds && it->expiration < curr_time && it->from != it->to) {
         sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
-        add_stake(it->from, it->from, it->quantity, from_self_expiration, stake_account, false);
+        add_stake(it->from, it->from, it->quantity, from_self_expiration, ram_payer, false);
       }
       s_t.modify(it, same_payer, [&](auto& s) {
         s.prev_claim_time = curr_time;
@@ -590,7 +601,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
 
       if (it->trans_expiration != zeroseconds && it->trans_expiration < curr_time && it->from != it->to) {
         sub_stake(it->from, it->to, it->trans_quantity, it->trans_expiration, same_payer, true);
-        add_stake(it->to, it->to, it->trans_quantity, self_expiration, stake_account, false);
+        add_stake(it->to, it->to, it->trans_quantity, self_expiration, ram_payer, false);
       }
       
       s_t.modify(it, same_payer, [&](auto& s) {
@@ -609,7 +620,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
   for (auto it=deleg_t.begin(); it!=deleg_t.end(); it++) {
     if (it->expiration != zeroseconds && it->expiration < curr_time && it->from != it->to) {
       sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
-      add_stake(it->from, it->from, it->quantity, self_expiration, stake_account, false);
+      add_stake(it->from, it->from, it->quantity, self_expiration, ram_payer, false);
     }
     if (it->trans_expiration != zeroseconds && it->trans_expiration < curr_time && it->from != it->to) {
       microseconds to_self_expiration;
@@ -621,7 +632,7 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
         to_self_expiration = to_self_deleg->expiration;
       }
       sub_stake(it->from, it->to, it->trans_quantity, it->trans_expiration, same_payer, true);
-      add_stake(it->to, it->to, it->trans_quantity, to_self_expiration, stake_account, false);
+      add_stake(it->to, it->to, it->trans_quantity, to_self_expiration, ram_payer, false);
     }
   }
 
@@ -658,17 +669,20 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
       s.supply += total_payout;
     });
     asset self_payout = power_payout + stake_payout;
-    add_balance(stake_account, self_payout, stake_account);
+    
+    add_balance(stake_account, self_payout, ram_payer);
     
     int64_t self_stake_payout_amount = 
       (int64_t)(percentage_to_stake/100)*self_payout.amount;
     self_stake_payout += asset{self_stake_payout_amount, sym};
     if (self_stake_payout_amount > 0 ||\
         self_stake_payout_amount >= c_itr->min_stake.amount) {
-      sub_balance(stake_account, self_stake_payout, stake_account);
-      add_stake(stake_account, stake_account, self_stake_payout, self_expiration, stake_account, false); 
+          
+      sub_balance(stake_account, self_stake_payout, ram_payer);
+      add_stake(stake_account, stake_account, self_stake_payout, self_expiration, ram_payer, false); 
     }
-    pow_t.modify(bp, stake_account, [&](auto&p) {
+    if (ram_payer == st.issuer) ram_payer = same_payer;
+    pow_t.modify(bp, ram_payer, [&](auto&p) {
       p.prev_claim_time = curr_time;
       p.total_power_bonus += power_payout;
       p.total_stake_bonus += stake_payout;
@@ -677,23 +691,25 @@ boidtoken::claim(name stake_account, float percentage_to_stake)
     });
   }
 
-  string memo = "account:  " + stake_account.to_string() +\
-     "\naction: claim" +\
-     "\nstake bonus: " + stake_payout.to_string() +\
-     "\npower bonus: " + power_payout.to_string() +\
-     "\nwpf contribution: " + wpf_payout.to_string() +\
-     "\npercentage to self stake: " + self_stake_payout.to_string() +\
-     "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
-     "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
-  
-  //TODO add to worker_proposal_fund
-  
-  action(
-    permission_level{stake_account,"active"_n},
-    get_self(),
-    "sendmessage"_n,
-    std::make_tuple(stake_account, memo)
-  ).send();
+  if (!issuer_claim) {
+    string memo = "account:  " + stake_account.to_string() +\
+       "\naction: claim" +\
+       "\nstake bonus: " + stake_payout.to_string() +\
+       "\npower bonus: " + power_payout.to_string() +\
+       "\nwpf contribution: " + wpf_payout.to_string() +\
+       "\npercentage to self stake: " + self_stake_payout.to_string() +\
+       "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
+       "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
+    
+    //TODO add to worker_proposal_fund
+    
+    action(
+      permission_level{stake_account,"active"_n},
+      get_self(),
+      "sendmessage"_n,
+      std::make_tuple(stake_account, memo)
+    ).send();
+  }
 }
 
 /* Unstake tokens for specified _stake_account
@@ -962,6 +978,7 @@ void boidtoken::erasebp(const name acct)
   if (bp_itr!= bps.end())
     bps.erase(bp_itr);
 }
+*/
 
 void boidtoken::erasepow(const name acct)
 {
@@ -972,6 +989,7 @@ void boidtoken::erasepow(const name acct)
     pow_t.erase(p_itr);
 }
 
+/*
 void boidtoken::erasestk(const name from, const name to)
 {
   require_auth(get_self());
@@ -980,7 +998,6 @@ void boidtoken::erasestk(const name from, const name to)
   if (s_itr != s_t.end())
     s_t.erase(s_itr);  
 }
-
 
 void boidtoken::erasestks(const name acct)
 {
@@ -1422,7 +1439,7 @@ void boidtoken::resetbonus(const name account)
   }
 }
 
-void boidtoken::resetpowtm(const name account)
+void boidtoken::resetpowtm(const name account, bool current)
 {
   require_auth( get_self() );
   power_t p_t(_self, account.value);
@@ -1435,7 +1452,6 @@ void boidtoken::resetpowtm(const name account)
   }
 }
 
-/*
 void boidtoken::emplacestake(
   name            from,
   name            to,
@@ -1489,7 +1505,6 @@ void boidtoken::emplacedeleg(
     a.trans_expiration = microseconds(trans_expiration);
   });
 }
-*/
 
 /* Subtract value from specified account
  */
@@ -1921,7 +1936,7 @@ void boidtoken::sync_total_delegated(
       p.prev_claim_time = curr_time;
       p.total_delegated = total_delegated;
     });
-  }  
+  }
 }
 
 asset boidtoken::get_balance(
