@@ -1,291 +1,128 @@
 /**
  *  @file
  *  @copyright TODO
- */
- 
- //TODO fix authorization requirements
- 
-// DSP pays for RAM needed for the cache table (default is _self)
-#define DAPP_RAM_PAYER current_provider
+*/
+
 #include "boidpower.hpp"
+#include <math.h>
+#include <inttypes.h>
+#include <stdio.h>
 
-using namespace eosio;
-
-ACTION
-boidpower::create(
-  name accountContractOwner,
-  name owner,
-  string devname)
-{
-  require_auth(owner);
-  /*
-  eosio_assert( accountExists(accountContractOwner,owner),
-    "account does not exist" );
-    */
-  addDevice(owner,devname);
-}
-
-ACTION
-boidpower::erase(
-  name owner,
-  uint64_t num)
-{
-  require_auth(owner);
-  removeDevice(owner,num);
-}
-
-ACTION 
-boidpower::changeowner(
-  name accountContractOwner,
-  name owner,
-  uint64_t num)
-{
-  require_auth(owner);
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  //TODO eosio_assert(owner account exists)
-  auto to = devices.find(num);
-  eosio_assert(to != devices.end(), "device does not exist");
-  /*
-  eosio_assert( accountExists(accountContractOwner,owner),
-    "account does not exist" );
-    */
-
-  //require_auth(to->owner); //FIXME add this in
-  devices.modify(to, get_self(),[&](auto& a) {
-    a.owner = owner;
-    a.open = false;
-  });
-}
-
-ACTION
-boidpower::freedevice(
-  name accountContractOwner,
-  name owner,
-  uint64_t num)
-{
-  require_auth(owner);
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  //TODO eosio_assert(owner account exists)
-  auto to = devices.find(num);
-  eosio_assert(to != devices.end(), "device does not exist");
-  /*
-  eosio_assert( accountExists(accountContractOwner,owner),
-    "account does not exist" );
-    */
-
-  if (!to->owner.to_string().empty()) {
-    require_auth(to->owner);
-  }
-  devices.modify(to, get_self(),[&](auto& a) {
-    a.owner = name("");
-    a.open = false;
-    a.isFree = true;
-  });  
-}
-
-ACTION
-boidpower::assignpower(
-  uint64_t num,
-  uint64_t quantity)
+void boidpower::regregistrar(name registrar)
 {
   require_auth(get_self());
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
   
-  //TODO eosio_assert(owner account exists)
-  auto to = devices.find(num);
-  eosio_assert(to != devices.end(), "device does not exist");
-  devices.modify( to, get_self(), [&]( auto& a ) {
-    a.power = quantity;
-  });
-}
-
-ACTION
-boidpower::open( name owner, uint64_t num, bool open )
-{
-  require_auth(owner);
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  
-  auto to = devices.find(num);
-  eosio_assert(to != devices.end(), "device does not exist");
-  devices.modify( to, get_self(), [&]( auto& a ) {
-    a.open = open;
-  });
-}
-
-//TODO
-/* 
-  Open device to changes
- */
-ACTION
-boidpower::freeze(
-  name owner,
-  uint64_t num,
-  bool freeze)
-{
-  require_auth(get_self());
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  
-  auto to = devices.find(num);
-  eosio_assert(to != devices.end(), "device does not exist");
-  devices.modify( to, get_self(), [&]( auto& a ) {
-    a.freeze = freeze;
-  });  
-}
-
-void
-boidpower::addDevice(
-  name owner,
-  string devname)
-{
-  require_auth(owner);
-
-  device_t devices(
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-
-  uint64_t nextDevNum = getAvailableDevNum();
-  
-  auto dev = devices.find(nextDevNum);
-
-  eosio_assert(dev == devices.end(),
-    "Internal error: new device number not available");
-
-  devices.emplace(get_self(),[&](auto& a) {
-    a.num = nextDevNum;
-    a.vanityName = devname;
-    a.owner = owner;
-    a.open = false;
-  });
-}
-
-void
-boidpower::removeDevice(
-  name owner,
-  uint64_t num)
-{
-  require_auth(owner);
-  device_t devices( 
-    get_self(), // contract
-    get_self().value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  
-  auto dev = devices.find(num);
-  eosio_assert(dev != devices.end(),
-    "Internal error: Team number does not exist");
-  removeDevNum(num);
-  devices.erase(dev);
-}
-
-uint64_t
-boidpower::getAvailableDevNum()
-{
-  uint64_t availableDevNum;
-  devnum_t devnums(
-    get_self(),
-    get_self().value
-  );
-  
-  auto devnumItr = devnums.find(0);
-  if (devnumItr == devnums.end()) {
-    devnums.emplace(get_self(),[&](auto& a) {
-      a.dummy = 0;
-      a.freeInc = 0;
-    });
-  }
-  
-  if (!devnumItr->otherFree.empty()) {
-    availableDevNum = devnumItr->otherFree.back();
-    devnums.modify(devnumItr, get_self(), [&](auto& a) {
-      a.otherFree.pop_back();
+  if (cfg_i == cfg_t.end()) {
+    cfg_t.emplace(get_self(), [&](auto& a) {
+      a.id = 0;
+      a.registrar = registrar;
     });
   } else {
-    availableDevNum = devnumItr->freeInc;
-    devnums.modify(devnumItr, get_self(), [&](auto& a) {
-      a.freeInc++;
+    cfg_t.modify(cfg_i, get_self(), [&](auto& a) {
+      a.registrar = registrar;
     });
   }
-  return availableDevNum;
 }
 
-void
-boidpower::removeDevNum(
-  uint64_t num)
+void boidpower::regvalidator(name validator, float weight)
 {
-  devnum_t devnums(
-    get_self(),
-    get_self().value
-  );
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
   
-  auto devnumItr = devnums.find(0);
-  eosio_assert(devnumItr != devnums.end(),
-    "Problem with device number generator: generator table not found");
+  validator_t val_t(get_self(), cfg.registrar.value);
+  auto val_i = val_t.find(validator.value);
+  if (val_i == val_t.end()) {
+    val_t.emplace(cfg.registrar, [&](auto& a) {
+      a.account = validator;
+      a.weight = weight;
+    });
+  } else {
+    val_t.modify(val_i, cfg.registrar, [&](auto& a){
+      a.weight = weight;
+    });
+  }
+}
+
+void boidpower::updateboinc(
+  name validator,
+  name account,
+  uint64_t device_key,
+  uint64_t power_round,
+  float rating
+)
+{
+  require_auth(validator);
+  validator_t val_t(get_self(), validator.value);
+  auto val_i = val_t.find(validator.value);
+  check(val_i != val_t.end(), "Account not registered as validator");
+  const auto& val = *val_i;
   
-  devnums.modify(devnumItr, get_self(), [&](auto& a){
-    eosio_assert(
-      std::find(a.otherFree.begin(), a.otherFree.end(), num)
-      == a.otherFree.end(),
-      "Problem with device number generator: Duplicate free device numbers found"
-    );
+  rating_t r_t(get_self(), account.value);
+  auto r_i = r_t.find(device_key);
+  /*
+  if (r_i == r_t.end()) {
+    //TODO send message if new device
+    r_t.emplace(validator, [&](auto& a) {
+      a.device_key = device_key;
+      a.reports[validator.value] = powers;
+      a.rounds[validator.value] = power_round;
+    });
+  } else {
+    r_t.modify(r_i, validator, [&](auto& a) {
+      a.reports[validator.value] = powers;
+      a.rounds[validator.value] = power_round;      
+    });
+  }
+  */
+}
+
+void boidpower::updateraven(
+  name validator,
+  name account,
+  uint64_t device_key,
+  uint64_t power_round,
+  float rating
+)
+{
+  require_auth(validator);
+  validator_t val_t(get_self(), validator.value);
+  auto val_i = val_t.find(validator.value);
+  check(val_i != val_t.end(), "Account not registered as validator");
+  const auto& val = *val_i;
+  
+  rating_t r_t(get_self(), account.value);
+  auto r_i = r_t.find(device_key);
+  /*
+  if (r_i == r_t.end()) {
+    //TODO send message if new device
+    r_t.emplace(validator, [&](auto& a) {
+      a.device_key = device_key;
+      a.reports[validator.value] = powers;
+      a.rounds[validator.value] = power_round;
+    });
+  } else {
+    r_t.modify(r_i, validator, [&](auto& a) {
+      a.reports[validator.value] = powers;
+      a.rounds[validator.value] = power_round;      
+    });
+  }
+  */
+}
+
+void boidpower::setminweight(float min_weight)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
+  
+  cfg_t.modify(cfg_i, cfg.registrar, [&](auto& a) {
+    a.min_weight = min_weight;
   });
-}
-
-bool
-boidpower::accountExists(
-  name accountContractOwner,
-  name acctname)
-{
-  account_t accounts( 
-    accountContractOwner, // contract
-    accountContractOwner.value, // scope
-    1024,  // optional: shards per table
-    64,  // optional: buckets per shard
-    true, // optional: pin shards in RAM - (buckets per shard) X (shards per table) X 32B - 2MB in this example
-    false // optional: pin buckets in RAM - keeps most of the data in RAM. should be evicted manually after the process
-  );
-  auto acct = accounts.find(acctname.value);
-  return acct != accounts.end();
 }

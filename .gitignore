@@ -19,6 +19,8 @@ coldtoken/
 deepfreeze/
 boidtoken.abi
 boidtoken.wasm
+boidpower.abi
+boidpower.wasm
 contracts/coldtoken
 .eosproj.bak
 tokentest.tar.gz

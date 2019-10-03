@@ -1,3 +1,4 @@
+TODO change contract owner to token issuer
 TODO update total staked parameter
 TODO press briefing for new contract
   Relevant actions

@@ -1,6 +1,6 @@
 /**
  *  @file
- *  @copyright defined in eos/LICENSE.txt
+ *  @copyright TODO
 */
 
 #include "boidtoken.hpp"
@@ -291,7 +291,14 @@ void boidtoken::transtake(
 
 void boidtoken::stakebreak(uint8_t on_switch)
 {
-  require_auth( get_self() );
+  symbol sym = symbol("BOID",4);
+  stats statstable(get_self(), sym.code().raw());
+  auto existing = statstable.find(sym.code().raw());
+  check(existing != statstable.end(),
+      "symbol does not exist, create token with symbol before issuing said token");
+  const auto &st = *existing;
+
+  require_auth(st.issuer);
   config_t c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");
@@ -467,11 +474,6 @@ boidtoken::claim(
   bool issuer_claim
 )
 {
-  if (issuer_claim) {
-    require_auth(get_self());
-  } else {
-    require_auth(stake_account);
-  }
   // print("claim \n");
   config_t c_t(get_self(), get_self().value);
   auto c_itr = c_t.find(0);
@@ -490,6 +492,12 @@ boidtoken::claim(
   check(existing != statstable.end(),
     "symbol does not exist, create token with symbol before using said token");
   const auto &st = *existing;
+
+  if (issuer_claim) {
+    require_auth(st.issuer);
+  } else {
+    require_auth(stake_account);
+  }
 
   asset zerotokens = asset{0,sym},
         total_payout = zerotokens,
@@ -737,6 +745,13 @@ void boidtoken::unstake(
   check(c_itr != c_t.end(), "Must first initstats");  
 
   auto sym = quantity.symbol;
+
+  // verify symbol
+  stats statstable(get_self(), sym.code().raw());
+  const auto &st = statstable.get(sym.code().raw());
+  check(sym == st.supply.symbol,
+      "symbol precision mismatch");
+  
   power_t p_from_t(get_self(), from.value),
           p_to_t(get_self(), to.value);
   auto p_from_itr = p_from_t.find(from.value),
@@ -770,8 +785,7 @@ void boidtoken::unstake(
       sync_total_delegated(to, to);
     
   } else {
-    check(issuer_unstake, "Must use issuer account to unstake in this way");
-    require_auth( get_self() );
+    require_auth(st.issuer);
     
     if (p_from_itr == p_from_t.end() ||\
         p_from_itr->total_delegated.symbol != sym)
@@ -781,12 +795,6 @@ void boidtoken::unstake(
          p_to_itr->total_delegated.symbol != sym))
       sync_total_delegated(to, get_self());
   }
-
-  // verify symbol
-  stats statstable(get_self(), sym.code().raw());
-  const auto &st = statstable.get(sym.code().raw());
-  check(sym == st.supply.symbol,
-      "symbol precision mismatch");
 
   stake_t s_t(get_self(), to.value);
   auto s_itr = s_t.find(from.value);
@@ -866,83 +874,94 @@ void boidtoken::unstake(
  */
 void boidtoken::initstats(bool wpf_reset)
 {
-    print("initstats\n");
-    require_auth( get_self() );
-    config_t c_t (get_self(), get_self().value);
-    auto c_itr = c_t.find(0);
-    auto sym = symbol("BOID",4);
-    asset cleartokens = asset{0, sym};
+  print("initstats\n");
+  require_auth( get_self() );
+  config_t c_t (get_self(), get_self().value);
+  auto c_itr = c_t.find(0);
+  auto sym = symbol("BOID",4);
+  asset cleartokens = asset{0, sym};
 
-    float precision_coef = pow(10,sym.precision());
-    
-    if (c_itr == c_t.end())
-    {
-        c_t.emplace( get_self(), [&](auto &c) {
+  // verify symbol
+  stats statstable(get_self(), sym.code().raw());
+  const auto &st = statstable.get(sym.code().raw());
+  check(sym == st.supply.symbol,
+      "symbol precision mismatch");
+  require_auth(st.issuer);
 
-            c.config_id = 0;
-            c.stakebreak = STAKE_BREAK_ON;
+  float precision_coef = pow(10,sym.precision());
+  
+  if (c_itr == c_t.end())
+  {
+      c_t.emplace( get_self(), [&](auto &c) {
 
-            c.total_season_bonus = cleartokens;
-            
-            c.bonus = cleartokens;
-            c.total_staked = cleartokens;
-            c.active_accounts = 0;
+          c.config_id = 0;
+          c.stakebreak = STAKE_BREAK_ON;
 
-            int64_t min_stake = (int64_t)precision_coef*1e5;
-            c.min_stake = asset{min_stake, sym};
-            c.power_difficulty = 25e9;
-            c.stake_difficulty = 11e10;
-            c.powered_stake_multiplier = 100;
-            c.power_bonus_max_rate = 5.8e-7;
-            c.max_powered_stake_ratio = .05;
-            
-            c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};
+          c.total_season_bonus = cleartokens;
+          
+          c.bonus = cleartokens;
+          c.total_staked = cleartokens;
+          c.active_accounts = 0;
+
+          int64_t min_stake = (int64_t)precision_coef*1e5;
+          c.min_stake = asset{min_stake, sym};
+          c.power_difficulty = 25e9;
+          c.stake_difficulty = 11e10;
+          c.powered_stake_multiplier = 100;
+          c.power_bonus_max_rate = 5.8e-7;
+          c.max_powered_stake_ratio = .05;
+          
+          c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};
+          c.worker_proposal_fund = cleartokens;
+          c.boidpower_decay_rate = 9.9e-8;
+          c.boidpower_update_exp = 0.05;
+          c.boidpower_const_decay = 100;
+      });
+  }
+  else
+  {
+      c_t.modify(c_itr, get_self(), [&](auto &c) {
+
+          c.stakebreak = STAKE_BREAK_ON;
+
+          c.total_season_bonus = cleartokens;
+          
+          c.bonus = cleartokens;
+          c.total_staked = cleartokens;
+          c.active_accounts = 0;
+
+          int64_t min_stake = (int64_t)precision_coef*1e5;
+          c.min_stake = asset{min_stake, sym};
+          c.power_difficulty = 25e9;
+          c.stake_difficulty = 11e10;
+          c.powered_stake_multiplier = 100;
+          c.power_bonus_max_rate = 5.8e-7;
+          c.max_powered_stake_ratio = .05;
+          
+          c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};            
+          if (wpf_reset) {
             c.worker_proposal_fund = cleartokens;
-            c.boidpower_decay_rate = 9.9e-8;
-            c.boidpower_update_exp = 0.05;
-            c.boidpower_const_decay = 100;
-        });
-    }
-    else
-    {
-        c_t.modify(c_itr, get_self(), [&](auto &c) {
-
-            c.stakebreak = STAKE_BREAK_ON;
-
-            c.total_season_bonus = cleartokens;
-            
-            c.bonus = cleartokens;
-            c.total_staked = cleartokens;
-            c.active_accounts = 0;
-
-            int64_t min_stake = (int64_t)precision_coef*1e5;
-            c.min_stake = asset{min_stake, sym};
-            c.power_difficulty = 25e9;
-            c.stake_difficulty = 11e10;
-            c.powered_stake_multiplier = 100;
-            c.power_bonus_max_rate = 5.8e-7;
-            c.max_powered_stake_ratio = .05;
-            
-            c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};            
-            if (wpf_reset) {
-              c.worker_proposal_fund = cleartokens;
-            }  
-            c.boidpower_decay_rate = 9.9e-8;
-            c.boidpower_update_exp = 0.05;
-            c.boidpower_const_decay = 100;
-        });
-    }
+          }  
+          c.boidpower_decay_rate = 9.9e-8;
+          c.boidpower_update_exp = 0.05;
+          c.boidpower_const_decay = 100;
+      });
+  }
 }
 
-/*
 void boidtoken::erasetoken()
 {
-  require_auth(get_self());
   auto sym = symbol("BOID",4);
   stats statstable(
     get_self(),
     sym.code().raw()
   );
+  // verify symbol
+  const auto &st = statstable.get(sym.code().raw());
+  check(sym == st.supply.symbol,
+      "symbol precision mismatch");
+  require_auth(st.issuer);  
+  
   auto token_itr = statstable.find(sym.code().raw());
   if (token_itr != statstable.end())
     statstable.erase(token_itr);
@@ -978,7 +997,6 @@ void boidtoken::erasebp(const name acct)
   if (bp_itr!= bps.end())
     bps.erase(bp_itr);
 }
-*/
 
 void boidtoken::erasepow(const name acct)
 {
@@ -989,7 +1007,6 @@ void boidtoken::erasepow(const name acct)
     pow_t.erase(p_itr);
 }
 
-/*
 void boidtoken::erasestk(const name from, const name to)
 {
   require_auth(get_self());
@@ -1045,7 +1062,6 @@ void boidtoken::erasedelegs(const name acct)
     ).send();
   }
 }
-*/
 
 void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
 {
@@ -1752,8 +1768,10 @@ void boidtoken::claim_for_stake(
   
   check(claim_time <= curr_time, "invalid payout date");
   
+  /*
   if (start_time < c_itr->season_start)
     start_time = c_itr->season_start;
+  */
     
   get_stake_bonus(
     start_time, claim_time, staked, powered_staked,

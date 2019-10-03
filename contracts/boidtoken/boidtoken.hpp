@@ -5,8 +5,6 @@
  *  @author errcsool
  */
 
-//TODO method to insert specific stake
-//     method to insert specific account params
 #pragma once
 
 #include <string>
@@ -14,8 +12,6 @@
 #include <cmath>
 
 #include <eosio/eosio.hpp>
-//#include <eosio/serialize.hpp>
-//#include <eosio/singleton.hpp>
 #include <eosio/multi_index.hpp>
 #include <eosio/dispatcher.hpp>
 #include <eosio/contract.hpp>
@@ -23,13 +19,6 @@
 #include <eosio/system.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/action.hpp>
-//#include <eosio/binary_extension.hpp>
-//#include <eosio/datastream.hpp>
-//#include <eosio/print.hpp>
-//#include <eosio/ignore.hpp>
-//#include <eosio/crypto.hpp>
-//#include <eosio/varint.hpp>
-//#include <eosio/fixed_bytes.hpp>
 #include <eosio/symbol.hpp>
 #include <eosio/name.hpp>
 
@@ -188,7 +177,6 @@ CONTRACT boidtoken : public contract
      */
     ACTION initstats(bool wpf_reset);
     
-    /*
     ACTION erasetoken();
     
     ACTION erasestats();
@@ -197,11 +185,7 @@ CONTRACT boidtoken : public contract
 
     ACTION erasebp(const name acct);
 
-    */
-
     ACTION erasepow(const name acct);
-
-    /*
 
     ACTION erasestk(const name from, const name to);
 
@@ -212,8 +196,7 @@ CONTRACT boidtoken : public contract
     ACTION erasedeleg(const name from, const name to);
 
     ACTION erasedelegs(const name acct);
-    */
-    
+
     ACTION setstakeinfo(
       const int num_accts,
       const asset total_staked
@@ -579,7 +562,6 @@ CONTRACT boidtoken : public contract
       name account
     );
     
-    public:
 };
 
 EOSIO_DISPATCH(boidtoken,
@@ -597,20 +579,16 @@ EOSIO_DISPATCH(boidtoken,
     (claim)
     (unstake)
     (initstats)
-    /*
     (erasetoken)
     (erasestats)
     (eraseacct)
     (erasebp)
-    */
     (erasepow)
-    /*
     (erasestk)
     (erasestks)
     (erasestake)
     (erasedeleg)
     (erasedelegs)
-    */
     (setstakeinfo)
     (updatepower)
     (setpower)
@@ -640,6 +618,8 @@ EOSIO_DISPATCH(boidtoken,
     (emplacedeleg)
 )
 
+// TODO max boidpower update
+//      push new boidpower at end of equation
 float boidtoken::update_boidpower(
       float bpPrev,
       float bpNew,
@@ -654,15 +634,14 @@ float boidtoken::update_boidpower(
   print("bpprev: ", bpPrev);
   print("bpnew: ", bpNew);
   print("dt: ", dtReal);
-  
-  float quantity = bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal)+\
-    pow(bpNew, 1.0-c_itr->boidpower_update_exp)-\
-    dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay;
+
+  float quantity = bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal)-\
+    dtReal/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay;
 
   print("decay param: ",pow(1.0-c_itr->boidpower_decay_rate,dtReal));
   print("decay: ", bpPrev - bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal));
   print("const decay: ", dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay);
   print("quantity: ", quantity);
 
-  return fmax(quantity, 0);
+  return fmax(quantity, 0) + pow(bpNew, 1.0-c_itr->boidpower_update_exp);
 }
