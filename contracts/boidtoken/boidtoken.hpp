@@ -176,7 +176,7 @@ CONTRACT boidtoken : public contract
     /** \brief Initialize config table
      */
     ACTION initstats(bool wpf_reset);
-    
+    /*
     ACTION erasetoken();
     
     ACTION erasestats();
@@ -201,6 +201,7 @@ CONTRACT boidtoken : public contract
       const int num_accts,
       const asset total_staked
     );
+    */
 
     ACTION updatepower(
       const name acct,
@@ -219,11 +220,13 @@ CONTRACT boidtoken : public contract
     ACTION matchstake(const name account, const asset quantity, bool subtract);
     
     ACTION matchsupply(const name account, const asset quantity);
-    
+  */
     ACTION matchtotdel(const name account, const asset quantity, bool subtract);
-      
+    /*
     ACTION syncstake(const name account);
     */
+    
+    ACTION syncwpf(const asset quantity);
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -258,6 +261,7 @@ CONTRACT boidtoken : public contract
 
     ACTION resetpowtm(const name account, bool bonus);
 
+    /*
     ACTION emplacestake(
       name            from,
       name            to,
@@ -278,6 +282,7 @@ CONTRACT boidtoken : public contract
       asset         trans_quantity,
       uint32_t      trans_expiration
     );
+    */
 
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
@@ -579,6 +584,7 @@ EOSIO_DISPATCH(boidtoken,
     (claim)
     (unstake)
     (initstats)
+    /*
     (erasetoken)
     (erasestats)
     (eraseacct)
@@ -590,15 +596,19 @@ EOSIO_DISPATCH(boidtoken,
     (erasedeleg)
     (erasedelegs)
     (setstakeinfo)
+    */
     (updatepower)
     (setpower)
     /*
     (recyclestake)
     (matchstake)
     (matchsupply)
+    */
     (matchtotdel)    
+    /*
     (syncstake)
     */
+    (syncwpf)
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
@@ -614,12 +624,12 @@ EOSIO_DISPATCH(boidtoken,
     (setbpconst)
     (resetbonus)
     (resetpowtm)
+    /*
     (emplacestake)
     (emplacedeleg)
+    */
 )
 
-// TODO max boidpower update
-//      push new boidpower at end of equation
 float boidtoken::update_boidpower(
       float bpPrev,
       float bpNew,

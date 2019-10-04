@@ -528,7 +528,6 @@ boidtoken::claim(
 
   float boidpower = update_boidpower(
     bp->quantity,
-    //bp->quantity, //FIXME degugging
     0,
     (curr_time - bp->prev_bp_update_time).count()
   );
@@ -686,7 +685,6 @@ boidtoken::claim(
     if (self_stake_payout_amount > 0 ||\
         self_stake_payout_amount >= c_itr->min_stake.amount) {
           
-      sub_balance(stake_account, self_stake_payout, ram_payer);
       add_stake(stake_account, stake_account, self_stake_payout, self_expiration, ram_payer, false); 
     }
     if (ram_payer == st.issuer) ram_payer = same_payer;
@@ -696,6 +694,10 @@ boidtoken::claim(
       p.total_stake_bonus += stake_payout;
       p.quantity = boidpower;
       p.prev_bp_update_time = curr_time;
+    });
+    
+    c_t.modify(c_itr, same_payer, [&](auto& a) {
+      a.worker_proposal_fund += wpf_payout;
     });
   }
 
@@ -708,8 +710,6 @@ boidtoken::claim(
        "\npercentage to self stake: " + self_stake_payout.to_string() +\
        "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
        "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
-    
-    //TODO add to worker_proposal_fund
     
     action(
       permission_level{stake_account,"active"_n},
@@ -837,7 +837,6 @@ void boidtoken::unstake(
     microseconds(0) : curr_time + microseconds(time_limit*MICROSEC_MULT);
 
   if (to_staked_balance && to != from)  {
-
     sub_stake(from, to, quantity, expiration_time, from, transfer);
     if (transfer) {
       delegation_t to_self_deleg_t(get_self(), to.value);
@@ -860,13 +859,6 @@ void boidtoken::unstake(
       "Can only unstake to liquid balance during season break"
     );
     sub_stake(from, to, quantity, expiration_time, from, transfer);
-    /*
-    if (transfer) {
-      add_balance(to, quantity, to);
-    } else {
-      add_balance(from, quantity, from);
-    }
-    */
   }
 }
 
@@ -949,6 +941,7 @@ void boidtoken::initstats(bool wpf_reset)
   }
 }
 
+/*
 void boidtoken::erasetoken()
 {
   auto sym = symbol("BOID",4);
@@ -1075,6 +1068,7 @@ void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
       c.stakebreak = STAKE_BREAK_OFF;
   });  
 }
+*/
 
 //FIXME how to set total_delegated correctly for existing stakes without total_delegated entries in power table
 void boidtoken::updatepower(const name acct, const float boidpower)
@@ -1253,16 +1247,17 @@ void boidtoken::matchsupply(const name account, const asset quantity)
     s.supply += quantity;
   });
 }
-
+*/
 void boidtoken::matchtotdel(const name account, const asset quantity, bool subtract)
 {
+  require_auth(get_self());
   if (subtract) {
     sub_total_delegated(account, quantity, get_self());
   } else {
     add_total_delegated(account, quantity, get_self());
   }
 }
-
+/*
 void boidtoken::syncstake(const name account)
 {
   require_auth( get_self() );
@@ -1275,6 +1270,17 @@ void boidtoken::syncstake(const name account)
 }
 
 */
+
+void boidtoken::syncwpf(const asset quantity)
+{
+  require_auth(get_self());
+  config_t c_t (_self, _self.value);
+  auto c_itr = c_t.find(0);
+  check(c_itr != c_t.end(), "Must first initstats");  
+  c_t.modify(c_itr, _self, [&](auto &c) {
+      c.worker_proposal_fund += quantity;
+  });
+}
 
 void boidtoken::setstakediff(const float stake_difficulty)
 {
@@ -1468,6 +1474,7 @@ void boidtoken::resetpowtm(const name account, bool current)
   }
 }
 
+/*
 void boidtoken::emplacestake(
   name            from,
   name            to,
@@ -1521,6 +1528,7 @@ void boidtoken::emplacedeleg(
     a.trans_expiration = microseconds(trans_expiration);
   });
 }
+*/
 
 /* Subtract value from specified account
  */

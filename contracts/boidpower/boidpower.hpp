@@ -50,6 +50,13 @@ Validator weighting consensus
 Update boidpower on next round start
 */
 
+//TODO add in delvalidator
+//TODO add in delregistrar
+//TODO change updateboinc|raven to updaterate and add type parameter
+//TODO add in addprotocol
+//TODO rating table scope is validator and table row includes account but account is not used for querying
+//TODO regdevice for a given account
+//TODO add in table to track when validators submit new data over old unvalidated info
 CONTRACT boidpower : public contract
 {
   public:
@@ -73,9 +80,10 @@ CONTRACT boidpower : public contract
       uint64_t device_key, 
       uint64_t round,
       float rating
-    );    
+    );
 
     ACTION setminweight(float min_weight);
+    
   private:
     TABLE power {
       uint64_t                type;
@@ -86,7 +94,7 @@ CONTRACT boidpower : public contract
       }
     };
     typedef eosio::multi_index<"powers"_n, power> power_t;
-  
+
     /*!
       power rating table
      */
@@ -116,6 +124,7 @@ CONTRACT boidpower : public contract
     /*!
       configuration table
      */   
+    //TODO add protocols in set in config
     TABLE config {
       uint64_t        id;
       name            registrar;

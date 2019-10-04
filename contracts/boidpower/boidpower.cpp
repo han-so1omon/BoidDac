@@ -57,7 +57,12 @@ void boidpower::updateboinc(
 )
 {
   require_auth(validator);
-  validator_t val_t(get_self(), validator.value);
+  
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  const auto& cfg = *cfg_i;
+  
+  validator_t val_t(get_self(), cfg.registrar.value);
   auto val_i = val_t.find(validator.value);
   check(val_i != val_t.end(), "Account not registered as validator");
   const auto& val = *val_i;
@@ -90,7 +95,11 @@ void boidpower::updateraven(
 )
 {
   require_auth(validator);
-  validator_t val_t(get_self(), validator.value);
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  const auto& cfg = *cfg_i;
+  
+  validator_t val_t(get_self(), cfg.registrar.value);
   auto val_i = val_t.find(validator.value);
   check(val_i != val_t.end(), "Account not registered as validator");
   const auto& val = *val_i;
