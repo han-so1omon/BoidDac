@@ -1022,16 +1022,18 @@ void boidtoken::erasestks(const name acct)
     ).send();
   }
 }
+*/
 
-void boidtoken::erasestake(const name acct)
+void boidtoken::erasestakes()
 {
   require_auth(get_self());
   staketable s_t(get_self(), get_self().value);
-  auto s_itr = s_t.find(acct.value);
-  if (s_itr != s_t.end())
-    s_t.erase(s_itr);
+  for (auto it=s_t.begin(); it!=s_t.end(); it++) {
+    s_t.erase(it);
+  }
 }
 
+/*
 void boidtoken::erasedeleg(const name from, const name to)
 {
   require_auth(get_self());

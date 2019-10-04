@@ -190,9 +190,11 @@ CONTRACT boidtoken : public contract
     ACTION erasestk(const name from, const name to);
 
     ACTION erasestks(const name acct);
+    */
 
-    ACTION erasestake(const name acct);
-
+    ACTION erasestakes();
+    
+    /*
     ACTION erasedeleg(const name from, const name to);
 
     ACTION erasedelegs(const name acct);
@@ -592,7 +594,9 @@ EOSIO_DISPATCH(boidtoken,
     (erasepow)
     (erasestk)
     (erasestks)
-    (erasestake)
+    */
+    (erasestakes)
+    /*
     (erasedeleg)
     (erasedelegs)
     (setstakeinfo)
