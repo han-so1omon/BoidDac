@@ -46,11 +46,6 @@ using eosio::const_mem_fun;
 using eosio::check;
 using eosio::microseconds;
 using eosio::time_point;
-/*
-  - Allow BOID tokens to be staked towards another account
-  - Allow BOID token staking to be redirected to another account at any time
-  - Team bonus should be tied to token votes
- */
 
 CONTRACT boidtoken : public contract
 {

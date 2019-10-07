@@ -33,8 +33,8 @@ using eosio::check;
 using eosio::microseconds;
 using eosio::time_point;
 
-#define BOINCPOWER 0
-#define RAVENPOWER 1
+#define NULL_PROTOCOL 0
+#define HOUR_MICROSECS 3600e6
 
 /*
 Power rating table for devices
@@ -66,29 +66,48 @@ CONTRACT boidpower : public contract
     
     ACTION regvalidator(name validator, float weight);
     
-    ACTION updateboinc(
+    ACTION delvalidator(name validator);
+    
+    ACTION updaterating(
       name validator,
       name account,
       uint64_t device_key, 
-      uint64_t round,
+      uint64_t round_start,
+      uint64_t round_end,
       float rating
+      uint32_t protocol_type
     );
     
-    ACTION updateraven(
-      name validator,
-      name account,
-      uint64_t device_key, 
-      uint64_t round,
-      float rating
-    );
+    ACTION addprotocol(string protocol_name, string description);
+    
+    ACTION regdevice(name validator, name owner, uint64_t device_key);
+    
+    ACTION regdevprotoc(name owner, uint64_t device_key, uint64_t protocol_type);
 
     ACTION setminweight(float min_weight);
     
   private:
+  
+    void reset_ratings(uint64_t device_key, uint64_t type);  
+    inline bool same_round(
+      uint64_t round_start, uint64_t round_end,
+      uint64_t real_round_start, uint64_t real_round_end
+    );
+    inline bool valid_round(uint64_t round_start, uint64_t round_end);
+    float get_weight(uint64_t device_key, uint64_t type);
+    float get_median_rating(uint64_t device_key, uint64_t type);
+    inline uint64_t get_closest_round(uint64_t t);
+  
+    /*!
+      power table
+      scope : device_key
+      index : protocol type
+     */
     TABLE power {
+      set<uint64_t,float>     ratings;
       uint64_t                type;
-      float                   rating;
-      uint64_t                round;
+      microseconds            round_start;
+      microseconds            round_end;
       uint64_t        primary_key() const {
         return type;
       }
@@ -96,24 +115,41 @@ CONTRACT boidpower : public contract
     typedef eosio::multi_index<"powers"_n, power> power_t;
 
     /*!
-      power rating table
+      device table
+      scope : device_key
+      index : protocol type
      */
-    TABLE rating {
-      uint64_t                device_key;
-      vector<uint64_t>        validators;
+    TABLE device {
+      uint64_t              protocol_type;
 
       uint64_t        primary_key () const {
-        return device_key;
+        return protocol_type;
       }
     };
-    typedef eosio::multi_index<"ratings"_n, rating> rating_t;
+    typedef eosio::multi_index<"devices"_n, device> device_t;
+
+    /*!
+      account table
+      scope : owner account
+      index : device_key
+     */    
+    TABLE account {
+      uint64_t          device_key;
+      
+      uint64_t        primary_key () const {
+        return device_key;
+      }      
+    }
+    typedef eosio::multi_index<"accounts"_n, account> account_t;
 
     /*!
       validator table
+      scope : registrar account
+      index : validator account
      */   
     TABLE validator {
-      name            account;
-      float           weight;
+      set<uint64_t,float>     weights;
+      name                    account;
       
       uint64_t        primary_key() const {
         return account.value;
@@ -123,11 +159,14 @@ CONTRACT boidpower : public contract
 
     /*!
       configuration table
+      scope : contract account
+      index : 0 (dummy)
      */   
     //TODO add protocols in set in config
     TABLE config {
-      uint64_t        id;
       name            registrar;
+      name            boidtoken_c;
+      uint64_t        id;
       float           min_weight;
       
       uint64_t        primary_key() const {
@@ -135,13 +174,32 @@ CONTRACT boidpower : public contract
       }
     };
     typedef eosio::multi_index<"configs"_n, config> config_t;
+    
+    /*!
+      protocol table
+      scope : registrar account
+      index : protocol type
+     */
+    TABLE protocol {
+      uint64_t        type;
+      string          name;
+      string          description;
+      
+      uint64_t        primary_key() const {
+        return type;
+      }
+    }
+    typedef eosio::multi_index<"protocols"_n, protocol> protocol_t;
 };
 
 
 EOSIO_DISPATCH(boidpower,
   (regregistrar)
   (regvalidator)
-  (updateboinc)
-  (updateraven)
+  (delvalidator)
+  (updaterating)
+  (addprotocol)
+  (regdevice)
+  (regdevprotoc)
   (setminweight)
 )

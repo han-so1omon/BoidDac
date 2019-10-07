@@ -72,7 +72,6 @@ void boidtoken::issue(name to, asset quantity, string memo)
 
     if (to != st.issuer)
     {
-        //transfer(st.issuer, to, quantity, memo);
         action(
             permission_level{st.issuer,"active"_n},
             get_self(),
