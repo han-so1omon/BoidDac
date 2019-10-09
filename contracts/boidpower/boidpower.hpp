@@ -88,7 +88,7 @@ CONTRACT boidpower : public contract
     
     ACTION regdevice(name owner, uint64_t device_key, bool registrar_registration);
     
-    ACTION regdevprot(name owner, uint64_t device_key, uint64_t protocol_type);
+    ACTION regdevprot(name owner, uint64_t device_key, uint64_t protocol_type, bool registrar_registration);
 
     ACTION setminweight(float min_weight);
 

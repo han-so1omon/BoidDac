@@ -308,7 +308,7 @@ void boidpower::regdevice(name owner, uint64_t device_key, bool registrar_regist
   });
 }
 
-void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_type)
+void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_type, bool registrar_registration)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -321,14 +321,21 @@ void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_ty
   account_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
   check(acct_i != acct_t.end(), "Device not registered with account");
-  
-  require_auth(owner);
+ 
+  name payer;
+  if (registrar_registration) {
+    require_auth(cfg.registrar);
+    payer = cfg.registrar;
+  } else {
+    require_auth(owner);
+    payer = owner;
+  }
   
   device_t dev_t(get_self(), device_key);
   auto dev_i = dev_t.find(protocol_type);
   check(dev_i == dev_t.end(), "Protocol already registered for device");
   
-  dev_t.emplace(owner, [&](auto& a){
+  dev_t.emplace(payer, [&](auto& a){
     a.protocol_type = protocol_type;
   });
 }
