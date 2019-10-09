@@ -9,7 +9,9 @@
 
 #include <string>
 #include <set>
+#include <map>
 #include <cmath>
+#include <algorithm>
 
 #include <eosio/eosio.hpp>
 #include <eosio/multi_index.hpp>
@@ -28,6 +30,7 @@ using namespace eosio;
 using std::string;
 using std::vector;
 using std::set;
+using std::map;
 using eosio::const_mem_fun;
 using eosio::check;
 using eosio::microseconds;
@@ -50,23 +53,20 @@ Validator weighting consensus
 Update boidpower on next round start
 */
 
-//TODO add in delvalidator
-//TODO add in delregistrar
-//TODO change updateboinc|raven to updaterate and add type parameter
-//TODO add in addprotocol
-//TODO rating table scope is validator and table row includes account but account is not used for querying
-//TODO regdevice for a given account
-//TODO add in table to track when validators submit new data over old unvalidated info
+//TODO update protocol difficulty
+//TODO add in outliers per protocol
 CONTRACT boidpower : public contract
 {
   public:
     using contract::contract;
     
-    ACTION regregistrar(name registrar);
+    ACTION regregistrar(name registrar, name tokencontract);
     
-    ACTION regvalidator(name validator, float weight);
+    ACTION regvalidator(name validator);
     
     ACTION delvalidator(name validator);
+    
+    ACTION addvalprot(name validator, uint64_t protocol_type, float weight);
     
     ACTION updaterating(
       name validator,
@@ -74,17 +74,37 @@ CONTRACT boidpower : public contract
       uint64_t device_key, 
       uint64_t round_start,
       uint64_t round_end,
-      float rating
-      uint32_t protocol_type
+      float rating,
+      uint64_t protocol_type
     );
     
-    ACTION addprotocol(string protocol_name, string description);
+    //ACTION testupdate(name contract, name account, name permission);
     
-    ACTION regdevice(name validator, name owner, uint64_t device_key);
+    ACTION addprotocol(string protocol_name, string description, string meta, float difficulty);
     
-    ACTION regdevprotoc(name owner, uint64_t device_key, uint64_t protocol_type);
+    ACTION newprotdiff(uint64_t protocol_type, float difficulty);
+    
+    ACTION newprotmeta(uint64_t protocol_type, string meta);
+    
+    ACTION regdevice(name owner, uint64_t device_key, bool registrar_registration);
+    
+    ACTION regdevprot(name owner, uint64_t device_key, uint64_t protocol_type);
 
     ACTION setminweight(float min_weight);
+
+    template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
+    {
+        check(q >= 0.0 && q <= 1.0, "Quartile just be percentage between 0 and 1");
+    
+        const auto n  = x.size();
+        const auto id = (n - 1) * q;
+        const auto lo = floor(id);
+        const auto hi = ceil(id);
+        const auto qs = x[lo];
+        const auto h  = (id - lo);
+    
+        return (1.0 - h) * qs + h * x[hi];
+    }
     
   private:
   
@@ -104,7 +124,7 @@ CONTRACT boidpower : public contract
       index : protocol type
      */
     TABLE power {
-      set<uint64_t,float>     ratings;
+      map<uint64_t,float>     ratings;
       uint64_t                type;
       microseconds            round_start;
       microseconds            round_end;
@@ -139,7 +159,7 @@ CONTRACT boidpower : public contract
       uint64_t        primary_key () const {
         return device_key;
       }      
-    }
+    };
     typedef eosio::multi_index<"accounts"_n, account> account_t;
 
     /*!
@@ -148,8 +168,13 @@ CONTRACT boidpower : public contract
       index : validator account
      */   
     TABLE validator {
-      set<uint64_t,float>     weights;
+      map<uint64_t,float>     weights;
       name                    account;
+      asset                   total_payout;
+      uint64_t                num_validations;
+      uint64_t                num_outliers;
+      uint64_t                num_overwrites;
+      uint64_t                num_unpaid_validations;
       
       uint64_t        primary_key() const {
         return account.value;
@@ -162,7 +187,6 @@ CONTRACT boidpower : public contract
       scope : contract account
       index : 0 (dummy)
      */   
-    //TODO add protocols in set in config
     TABLE config {
       name            registrar;
       name            boidtoken_c;
@@ -182,24 +206,29 @@ CONTRACT boidpower : public contract
      */
     TABLE protocol {
       uint64_t        type;
-      string          name;
+      string          protocol_name;
       string          description;
+      string          meta;
+      float           difficulty; //TODO add ability to change difficulty
       
       uint64_t        primary_key() const {
         return type;
       }
-    }
+    };
     typedef eosio::multi_index<"protocols"_n, protocol> protocol_t;
 };
-
 
 EOSIO_DISPATCH(boidpower,
   (regregistrar)
   (regvalidator)
   (delvalidator)
+  (addvalprot)
   (updaterating)
+  //(testupdate)
   (addprotocol)
+  (newprotdiff)
+  (newprotmeta)
   (regdevice)
-  (regdevprotoc)
+  (regdevprot)
   (setminweight)
 )

@@ -1076,6 +1076,7 @@ void boidtoken::updatepower(const name acct, const float boidpower)
 {
   check(boidpower >= 0,
     "Can only have zero or positive boidpower");  
+  //require_auth(permission_level(get_self(), "poweroracle"_n));
   require_auth(get_self());
   
   power_t p_t(get_self(), acct.value);
