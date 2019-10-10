@@ -17,6 +17,7 @@
 #include <eosio/multi_index.hpp>
 #include <eosio/dispatcher.hpp>
 #include <eosio/contract.hpp>
+#include <eosio/crypto.hpp>
 #include <eosio/time.hpp>
 #include <eosio/system.hpp>
 #include <eosio/asset.hpp>
@@ -86,10 +87,8 @@ CONTRACT boidpower : public contract
     
     ACTION newprotmeta(uint64_t protocol_type, string meta);
     
-    ACTION regdevice(name owner, uint64_t device_key, bool registrar_registration);
+    ACTION regdevice(name owner, string device_name, uint64_t protocol_type, bool registrar_registration);
     
-    ACTION regdevprot(name owner, uint64_t device_key, uint64_t protocol_type, bool registrar_registration);
-
     ACTION regpayacct(name payout_account);
 
     ACTION payout(name validator, bool registrar_payout);
@@ -142,17 +141,28 @@ CONTRACT boidpower : public contract
 
     /*!
       device table
-      scope : device_key
-      index : protocol type
+      scope : protocol_type
+      index : device_key (sha512 hash + collision_modifier)
+      2ary index : sha512 hash of device_name
      */
     TABLE device {
-      uint64_t              protocol_type;
+      uint64_t              device_key;
+      string                device_name;
+      uint64_t              collision_modifier;
 
       uint64_t        primary_key () const {
-        return protocol_type;
+        return device_key;
+      }
+
+      checksum256     by_device_name () const {
+        return eosio::sha256(device_name.c_str(),device_name.length());
       }
     };
-    typedef eosio::multi_index<"devices"_n, device> device_t;
+    typedef eosio::multi_index<"devices"_n, device,
+      indexed_by<
+        name("devicename"), const_mem_fun<device, checksum256, &device::by_device_name>
+      >
+    > device_t;
 
     /*!
       account table
@@ -161,7 +171,8 @@ CONTRACT boidpower : public contract
      */    
     TABLE devaccount {
       uint64_t          device_key;
-      
+      string            device_name;
+
       uint64_t        primary_key () const {
         return device_key;
       }      
@@ -247,7 +258,7 @@ EOSIO_DISPATCH(boidpower,
   (newprotdiff)
   (newprotmeta)
   (regdevice)
-  (regdevprot)
+  //(regdevprot)
   (regpayacct)
   (payout)
   (setminweight)

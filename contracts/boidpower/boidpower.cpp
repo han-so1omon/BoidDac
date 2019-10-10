@@ -119,8 +119,8 @@ void boidpower::updaterating(
   auto acct_i = acct_t.find(device_key);
   check(acct_i != acct_t.end(), "Device does not belong to account");  
 
-  device_t dev_t(get_self(), device_key);
-  auto dev_i = dev_t.find(type);
+  device_t dev_t(get_self(), type);
+  auto dev_i = dev_t.find(device_key);
   check(dev_i != dev_t.end(), "Protocol not registered for device");
 
   power_t p_t(get_self(), device_key);
@@ -278,7 +278,7 @@ void boidpower::newprotmeta(uint64_t protocol_type, string meta)
   });
 }
 
-void boidpower::regdevice(name owner, uint64_t device_key, bool registrar_registration)
+void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type, bool registrar_registration)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -296,28 +296,42 @@ void boidpower::regdevice(name owner, uint64_t device_key, bool registrar_regist
   accounts boidaccounts(cfg.boidtoken_c, owner.value);
   auto owner_acct = boidaccounts.find(symbol("BOID",4).code().raw());
   check(owner_acct != boidaccounts.end(), "Owner account must exist in boidtoken contract");
-  
-  //TODO check for boid acct in boidtoken contract
+
+  protocol_t protoc_t(get_self(), cfg.registrar.value);
+  auto protoc_i = protoc_t.find(protocol_type);
+  check(protoc_i != protoc_t.end(), "Protocol does not exist"); 
+
+  device_t dev_t(get_self(), protocol_type);
+  checksum256 device_hash = sha256(device_name.c_str(),device_name.length());
+  auto devname_t = dev_t.get_index<name("devicename")>();
+  auto devname_i = devname_t.find(device_hash);
+  bool valid_name = true;
+  uint64_t collision_modifier = 0;
+  while (devname_i != devname_t.end()) {
+    if (devname_i->device_name == device_name) valid_name = false;
+    collision_modifier++;
+  }
+  check(valid_name, "Device already registered");
+
+  uint64_t device_key = ((uint64_t)(device_hash.data())) + collision_modifier;
+
   devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
   check(acct_i == acct_t.end(), "Device already registered with account");
   
-  device_t dev_t(get_self(), device_key);
-  check(std::distance(dev_t.cbegin(),dev_t.cend()) == 0, "Device attempting to be re-registered");
-  
   acct_t.emplace(payer, [&](auto& a) {
     a.device_key = device_key;
+    a.device_name = device_name;
   });
 
-  protocol_t protoc_t(get_self(), cfg.registrar.value);
-  auto protoc_i = protoc_t.find(NULL_PROTOCOL);
-  check(protoc_i != protoc_t.end(), "Protocol does not exist"); 
-
   dev_t.emplace(payer, [&](auto& a) {
-    a.protocol_type = NULL_PROTOCOL;
+    a.device_key = device_key;
+    a.device_name = device_name;
+    a.collision_modifier = collision_modifier;
   });
 }
 
+/*
 void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_type, bool registrar_registration)
 {
   config_t cfg_t(get_self(), get_self().value);
@@ -349,6 +363,7 @@ void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_ty
     a.protocol_type = protocol_type;
   });
 }
+*/
 
 void boidpower::regpayacct(name payout_account)
 {
