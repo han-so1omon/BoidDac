@@ -19,6 +19,8 @@ void boidpower::regregistrar(name registrar, name tokencontract)
       a.id = 0;
       a.registrar = registrar;
       a.boidtoken_c = tokencontract;
+      a.min_weight = 100;
+      a.payout_multiplier = 0.01;
     });
   } else {
     cfg_t.modify(cfg_i, get_self(), [&](auto& a) {
@@ -36,6 +38,10 @@ void boidpower::regvalidator(name validator)
   const auto& cfg = *cfg_i;
   require_auth(cfg.registrar);
   
+  accounts acct_t(cfg.boidtoken_c, validator.value);
+  auto val_acct = acct_t.find(symbol("BOID",4).code().raw());
+  check(val_acct != acct_t.end(), "Validator account must exist in boidtoken contract");
+
   validator_t val_t(get_self(), cfg.registrar.value);
   auto val_i = val_t.find(validator.value);
   check(val_i == val_t.end(), "Validator already registered");
@@ -109,7 +115,7 @@ void boidpower::updaterating(
   check(protoc_i != protoc_t.end(), "Protocol does not exist");  
   check(type != NULL_PROTOCOL, "Can not update rating for null protocol");
 
-  account_t acct_t(get_self(), account.value);
+  devaccount_t acct_t(get_self(), account.value);
   auto acct_i = acct_t.find(device_key);
   check(acct_i != acct_t.end(), "Device does not belong to account");  
 
@@ -286,9 +292,13 @@ void boidpower::regdevice(name owner, uint64_t device_key, bool registrar_regist
     require_auth(owner);
     payer = owner;
   }
+
+  accounts boidaccounts(cfg.boidtoken_c, owner.value);
+  auto owner_acct = boidaccounts.find(symbol("BOID",4).code().raw());
+  check(owner_acct != boidaccounts.end(), "Owner account must exist in boidtoken contract");
   
   //TODO check for boid acct in boidtoken contract
-  account_t acct_t(get_self(), owner.value);
+  devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
   check(acct_i == acct_t.end(), "Device already registered with account");
   
@@ -318,7 +328,7 @@ void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_ty
   auto protoc_i = protoc_t.find(protocol_type);
   check(protoc_i != protoc_t.end(), "Protocol does not exist");
 
-  account_t acct_t(get_self(), owner.value);
+  devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
   check(acct_i != acct_t.end(), "Device not registered with account");
  
@@ -340,6 +350,60 @@ void boidpower::regdevprot(name owner, uint64_t device_key, uint64_t protocol_ty
   });
 }
 
+void boidpower::regpayacct(name payout_account)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
+
+  accounts acct_t(cfg.boidtoken_c, payout_account.value);
+  auto val_acct = acct_t.find(symbol("BOID",4).code().raw());
+  check(val_acct != acct_t.end(), "Payout account must exist in boidtoken contract");
+
+  cfg_t.modify(cfg_i, get_self(), [&](auto& a) {
+    a.payout_account = payout_account;
+  });
+}
+
+void boidpower::payout(name validator, bool registrar_payout)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+
+  validator_t val_t(get_self(), cfg.registrar.value);
+  auto val_i = val_t.find(validator.value);
+  check(val_i != val_t.end(), "Account not registered as validator");
+
+  check(registrar_payout, "Only registrar can issue payouts at this time");
+  if (registrar_payout) require_auth(cfg.registrar);
+  else require_auth(validator);
+
+  symbol sym = symbol("BOID",4);
+  float precision_coef = pow(10,4);
+  int64_t payout_amount = 
+    (int64_t)precision_coef*cfg.payout_multiplier*val_i->num_unpaid_validations;
+  asset payout_quantity = asset{payout_amount,sym};
+
+  string memo =
+    "Payout of " + payout_quantity.to_string() +\
+    " tokens to validator " +\
+    validator.to_string();
+  action(
+    permission_level{cfg.payout_account,"poweroracle"_n},
+    cfg.boidtoken_c,
+    "transfer"_n,
+    std::make_tuple(cfg.payout_account, validator, payout_quantity, memo)
+  ).send();
+
+  val_t.modify(val_i, same_payer, [&](auto& a){
+    a.num_unpaid_validations = 0;
+  });
+}
+
 void boidpower::setminweight(float min_weight)
 {
   config_t cfg_t(get_self(), get_self().value);
@@ -352,7 +416,20 @@ void boidpower::setminweight(float min_weight)
     a.min_weight = min_weight;
   });
 }
+
+void boidpower::setpayoutmul(float payout_multiplier)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
   
+  cfg_t.modify(cfg_i, cfg.registrar, [&](auto& a) {
+    a.payout_multiplier = payout_multiplier;
+  });
+}
+
 void boidpower::reset_ratings(uint64_t device_key, uint64_t type)
 {
   power_t p_t(get_self(), device_key);

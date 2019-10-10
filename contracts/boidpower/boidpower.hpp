@@ -90,7 +90,13 @@ CONTRACT boidpower : public contract
     
     ACTION regdevprot(name owner, uint64_t device_key, uint64_t protocol_type, bool registrar_registration);
 
+    ACTION regpayacct(name payout_account);
+
+    ACTION payout(name validator, bool registrar_payout);
+
     ACTION setminweight(float min_weight);
+
+    ACTION setpayoutmul(float payout_multiplier);
 
     template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
     {
@@ -153,14 +159,23 @@ CONTRACT boidpower : public contract
       scope : owner account
       index : device_key
      */    
-    TABLE account {
+    TABLE devaccount {
       uint64_t          device_key;
       
       uint64_t        primary_key () const {
         return device_key;
       }      
     };
-    typedef eosio::multi_index<"accounts"_n, account> account_t;
+    typedef eosio::multi_index<"devaccounts"_n, devaccount> devaccount_t;
+
+
+    TABLE account {
+        asset balance;
+        
+        uint64_t primary_key() const { return balance.symbol.code().raw();}
+    };
+
+    typedef eosio::multi_index<"accounts"_n, account> accounts;
 
     /*!
       validator table
@@ -175,6 +190,7 @@ CONTRACT boidpower : public contract
       uint64_t                num_outliers;
       uint64_t                num_overwrites;
       uint64_t                num_unpaid_validations;
+      //microseconds            previous_payout_time;
       
       uint64_t        primary_key() const {
         return account.value;
@@ -192,6 +208,8 @@ CONTRACT boidpower : public contract
       name            boidtoken_c;
       uint64_t        id;
       float           min_weight;
+      name            payout_account;
+      float           payout_multiplier;
       
       uint64_t        primary_key() const {
         return id;
@@ -230,5 +248,8 @@ EOSIO_DISPATCH(boidpower,
   (newprotmeta)
   (regdevice)
   (regdevprot)
+  (regpayacct)
+  (payout)
   (setminweight)
+  (setpayoutmul)
 )
