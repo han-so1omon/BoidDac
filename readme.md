@@ -1,4 +1,9 @@
-TODO change contract owner to token issuer
+TODO switch claim to transfer
+TODO claim calculator simulator in javascript
+TODO auto claim functionality
+  Talk about this with Seth on Friday
+TODO look at liquidram/liquidaccounts/liquidcpu
+  Do a writeup
 TODO update total staked parameter
 TODO press briefing for new contract
   Relevant actions

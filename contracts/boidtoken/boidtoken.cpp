@@ -119,27 +119,6 @@ void boidtoken::recycle(name account, asset quantity)
   });
 }
 
-/*
-void boidtoken::reclaim(name account, name token_holder, string memo)
-{
-  require_auth(get_self());
-  auto sym = symbol("BOID",4);
-  stats statstable(_self, sym.code().raw());
-  const auto &st = statstable.get(sym.code().raw());
-
-  require_recipient(account);
-  require_recipient(token_holder);
-  
-  accounts accts(get_self(), account.value);
-  const auto &acct = accts.get(sym.code().raw(),"can't find account");
-
-  check(memo.size() <= 256, "memo has more than 256 bytes");
-
-  sub_balance(account, acct.balance, same_payer);
-  add_balance(token_holder, acct.balance, get_self());
-}
-*/
-
 void boidtoken::open( const name& owner, const symbol& symbol, const name& ram_payer )
 {
    require_auth( ram_payer );
@@ -464,7 +443,7 @@ void boidtoken::sendmessage(name acct, string memo)
 
 /* Claim token-staking bonus for specified account
  */
-//TODO add auto claim
+//TODO transfers foraccount and wpf bonuses
 //TODO research 3rd party permission adding for this specific function
 void
 boidtoken::claim(
@@ -671,13 +650,32 @@ boidtoken::claim(
       "All payouts must be zero or positive quantities"
     );
 
+    asset self_payout = power_payout + stake_payout;
+
+    /*
     statstable.modify(st, same_payer, [&](auto& s) {
       s.supply += total_payout;
     });
-    asset self_payout = power_payout + stake_payout;
-    
-    add_balance(stake_account, self_payout, ram_payer);
-    
+        
+    add_balance(st.issuer, self_payout, ram_payer);
+    */
+
+    string memo = "account:  " + stake_account.to_string() +\
+       "\naction: claim" +\
+       "\nstake bonus: " + stake_payout.to_string() +\
+       "\npower bonus: " + power_payout.to_string() +\
+       "\nwpf contribution: " + wpf_payout.to_string() +\
+       "\npercentage to self stake: " + self_stake_payout.to_string() +\
+       "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
+       "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
+
+    action(
+      permission_level{st.issuer,"active"_n},
+      get_self(),
+      "issue"_n,
+      std::make_tuple(stake_account, self_payout, memo)
+    ).send();
+
     int64_t self_stake_payout_amount = 
       (int64_t)(percentage_to_stake/100)*self_payout.amount;
     self_stake_payout += asset{self_stake_payout_amount, sym};
@@ -694,28 +692,21 @@ boidtoken::claim(
       p.quantity = boidpower;
       p.prev_bp_update_time = curr_time;
     });
-    
+
+    if (wpf_payout != zerotokens) {
+      action(
+        permission_level{st.issuer,"active"_n},
+        get_self(),
+        "issue"_n,
+        std::make_tuple(c_itr->worker_proposal_fund_proxy, wpf_payout, memo)
+      ).send();
+    }
+
+    /*
     c_t.modify(c_itr, same_payer, [&](auto& a) {
       a.worker_proposal_fund += wpf_payout;
     });
-  }
-
-  if (!issuer_claim) {
-    string memo = "account:  " + stake_account.to_string() +\
-       "\naction: claim" +\
-       "\nstake bonus: " + stake_payout.to_string() +\
-       "\npower bonus: " + power_payout.to_string() +\
-       "\nwpf contribution: " + wpf_payout.to_string() +\
-       "\npercentage to self stake: " + self_stake_payout.to_string() +\
-       "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
-       "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
-    
-    action(
-      permission_level{stake_account,"active"_n},
-      get_self(),
-      "sendmessage"_n,
-      std::make_tuple(stake_account, memo)
-    ).send();
+    */
   }
 }
 
@@ -940,89 +931,6 @@ void boidtoken::initstats(bool wpf_reset)
   }
 }
 
-/*
-void boidtoken::erasetoken()
-{
-  auto sym = symbol("BOID",4);
-  stats statstable(
-    get_self(),
-    sym.code().raw()
-  );
-  // verify symbol
-  const auto &st = statstable.get(sym.code().raw());
-  check(sym == st.supply.symbol,
-      "symbol precision mismatch");
-  require_auth(st.issuer);  
-  
-  auto token_itr = statstable.find(sym.code().raw());
-  if (token_itr != statstable.end())
-    statstable.erase(token_itr);
-}
-
-void boidtoken::erasestats()
-{
-  require_auth(get_self());
-  auto sym = symbol("BOID",4);
-  config_t c_t(get_self(), get_self().value);
-  auto c_itr = c_t.find(0);
-  if (c_itr != c_t.end())
-    c_t.erase(c_itr);
-}
-
-void boidtoken::eraseacct(const name acct, bool expect_empty)
-{
-  require_auth(get_self());
-  accounts acct_t(get_self(), acct.value);
-  auto a_itr = acct_t.find(symbol("BOID",4).code().raw());
-  if (expect_empty)
-    check( a_itr == acct_t.end() || a_itr->balance.amount == 0,
-           "Account balance not empty");
-  if (a_itr != acct_t.end())
-    acct_t.erase(a_itr);
-}
-
-void boidtoken::erasebp(const name acct)
-{
-  require_auth(get_self());
-  boidpowers bps(get_self(), get_self().value);
-  auto bp_itr = bps.find(acct.value);
-  if (bp_itr!= bps.end())
-    bps.erase(bp_itr);
-}
-
-void boidtoken::erasepow(const name acct)
-{
-  require_auth(get_self());
-  power_t pow_t(get_self(), acct.value);    
-  auto p_itr = pow_t.find(acct.value);
-  if (p_itr != pow_t.end())
-    pow_t.erase(p_itr);
-}
-
-void boidtoken::erasestk(const name from, const name to)
-{
-  require_auth(get_self());
-  stake_t s_t(get_self(), to.value);
-  auto s_itr = s_t.find(from.value);
-  if (s_itr != s_t.end())
-    s_t.erase(s_itr);  
-}
-
-void boidtoken::erasestks(const name acct)
-{
-  require_auth(get_self());
-  stake_t s_t(get_self(), acct.value);
-  for (auto it = s_t.begin(); it != s_t.end(); it++) {
-    action(
-      permission_level{get_self(),"active"_n},
-      get_self(),
-      "erasestk"_n,
-      std::make_tuple(it->from, acct)
-    ).send();
-  }
-}
-*/
-
 void boidtoken::erasestakes()
 {
   require_auth(get_self());
@@ -1031,45 +939,6 @@ void boidtoken::erasestakes()
     s_t.erase(it);
   }
 }
-
-/*
-void boidtoken::erasedeleg(const name from, const name to)
-{
-  require_auth(get_self());
-  delegation_t d_t(get_self(), from.value);
-  auto d_itr = d_t.find(to.value);
-  if (d_itr != d_t.end())
-    d_t.erase(d_itr);
-}
-
-
-void boidtoken::erasedelegs(const name acct)
-{
-  require_auth(get_self());
-  delegation_t d_t(get_self(), acct.value);
-  for (auto it = d_t.begin(); it != d_t.end(); it++) {
-    action(
-      permission_level{get_self(),"active"_n},
-      get_self(),
-      "erasedeleg"_n,
-      std::make_tuple(acct, it->to)
-    ).send();
-  }
-}
-
-void boidtoken::setstakeinfo(const int num_accts, const asset total_staked)
-{
-  require_auth( get_self() );
-  config_t c_t (_self, _self.value);
-  auto c_itr = c_t.find(0);
-  check(c_itr != c_t.end(), "Must first initstats");  
-  c_t.modify(c_itr, _self, [&](auto &c) {
-      c.active_accounts = num_accts;
-      c.total_staked = total_staked;
-      c.stakebreak = STAKE_BREAK_OFF;
-  });  
-}
-*/
 
 //FIXME how to set total_delegated correctly for existing stakes without total_delegated entries in power table
 void boidtoken::updatepower(const name acct, const float boidpower)
@@ -1167,89 +1036,6 @@ void boidtoken::setpower(
   }
 }
 
-/*
-
-void boidtoken::recyclestake(const name account, const asset amount, bool recycle)
-{
-  require_auth( get_self() );
-  symbol sym = amount.symbol;
-  accounts accts(get_self(), account.value);
-  const auto& a_itr = accts.find(sym.code().raw());
-  check(a_itr != accts.end(),
-    "Must have BOID account");
-  
-  stats statstable(get_self(), sym.code().raw());
-  auto existing = statstable.find(sym.code().raw());
-  check(existing != statstable.end(),
-    "symbol does not exist, create token with symbol before using said token");
-  const auto &st = *existing;
- 
-  staketable stake_table_old(get_self(), get_self().value);
-  auto stake_old = stake_table_old.find(account.value);
-  check(stake_old != stake_table_old.end(),
-    "Can only recyclestake on accounts with stakes in old stake table"
-  );
- 
-  sub_balance(account, amount, same_payer);
-
-  if (recycle) {
-    statstable.modify(st, get_self(), [&](auto &s) {
-      s.supply -= amount;
-      if (s.supply.amount < 0) {
-        print("Warning: recycle sets   supply below 0. Please check this out. Setting supply to 0"); 
-        s.supply = asset{0, amount.symbol};
-      }
-    }); 
-  }
-}
-
-void boidtoken::matchstake(const name account, const asset quantity, const bool subtract){
-  require_auth( get_self() );
-  
-  if (!subtract) {
-    add_balance(account, quantity, get_self());
-    delegation_t curr_deleg_t(get_self(), account.value);
-    auto curr_deleg = curr_deleg_t.find(account.value); 
-    add_total_delegated(account, asset{0, quantity.symbol}, get_self());
-  } else {
-    symbol sym = quantity.symbol;
-    
-    stats statstable(get_self(), sym.code().raw());
-    auto existing = statstable.find(sym.code().raw());
-    check(existing != statstable.end(),
-      "symbol does not exist, create token with symbol before using said token");
-    const auto &st = *existing;
-
-    delegation_t deleg_t(get_self(), account.value);
-    auto deleg = deleg_t.find(account.value);
-    
-    sub_stake(account, account, quantity, deleg->expiration, same_payer, false);    
-    
-    delegation_t new_deleg_t(get_self(), account.value);
-    auto new_deleg = new_deleg_t.find(account.value);    
-    add_balance(account, new_deleg->quantity, get_self());
-  }
-}
-
-void boidtoken::matchsupply(const name account, const asset quantity)
-{
-  require_auth( get_self() );
-  symbol sym = quantity.symbol;
-
-  stats statstable(get_self(), sym.code().raw());
-  auto existing = statstable.find(sym.code().raw());
-  check(existing != statstable.end(),
-    "symbol does not exist, create token with symbol before using said token");
-  const auto &st = *existing;
-
-  check(st.supply + quantity <= st.max_supply,
-    "Matching supply this way causes token supply to exceed maximum, please ensure that all parameters are correct");
-    
-  statstable.modify(st, get_self(), [&](auto &s) {
-    s.supply += quantity;
-  });
-}
-*/
 void boidtoken::matchtotdel(const name account, const asset quantity, bool subtract)
 {
   require_auth(get_self());
@@ -1259,19 +1045,12 @@ void boidtoken::matchtotdel(const name account, const asset quantity, bool subtr
     add_total_delegated(account, quantity, get_self());
   }
 }
-/*
-void boidtoken::syncstake(const name account)
-{
-  require_auth( get_self() );
-  delegation_t deleg_t(get_self(), account.value);
-  auto deleg = deleg_t.find(account.value);
-  check(deleg != deleg_t.end(),
-    "delegation must exist");
-  
-  add_total_delegated(account, asset{0, symbol("BOID",4)}, get_self());
-}
 
-*/
+void boidtoken::synctotdel(const name account)
+{
+  require_auth(get_self());
+  sync_total_delegated(account, get_self());
+}
 
 void boidtoken::syncwpf(const asset quantity)
 {
@@ -1475,62 +1254,6 @@ void boidtoken::resetpowtm(const name account, bool current)
     });
   }
 }
-
-/*
-void boidtoken::emplacestake(
-  name            from,
-  name            to,
-  asset           quantity,
-  asset           my_bonus,
-  uint32_t        expiration,
-  uint32_t        prev_claim_time,
-  asset           trans_quantity,
-  uint32_t        trans_expiration,
-  uint32_t        trans_prev_claim_time
-)
-{
-  require_auth(get_self());
-  stake_t s_t(get_self(), to.value);
-  auto s_itr = s_t.find(from.value);
-  check(s_itr == s_t.end(),
-    "Stake must not already exist");
-  s_t.emplace(get_self(), [&](auto& a){
-    a.from = from;
-    a.to = to;
-    a.quantity = quantity;
-    a.my_bonus = my_bonus;
-    a.expiration = microseconds(expiration);
-    a.prev_claim_time = microseconds(prev_claim_time);
-    a.trans_quantity = trans_quantity;
-    a.trans_expiration = microseconds(trans_expiration);
-    a.trans_prev_claim_time = microseconds(trans_prev_claim_time);
-  });
-}
-
-void boidtoken::emplacedeleg(
-  name          from,
-  name          to,
-  asset         quantity,
-  uint32_t      expiration,
-  asset         trans_quantity,
-  uint32_t      trans_expiration
-)
-{
-  require_auth(get_self());
-  delegation_t d_t(get_self(), from.value);
-  auto d_itr = d_t.find(to.value);
-  check(d_itr == d_t.end(),
-    "Delegation must not already exist");
-  d_t.emplace(get_self(), [&](auto& a){
-    a.from = from;
-    a.to = to;
-    a.quantity = quantity;
-    a.expiration = microseconds(expiration);
-    a.trans_quantity = trans_quantity;    
-    a.trans_expiration = microseconds(trans_expiration);
-  });
-}
-*/
 
 /* Subtract value from specified account
  */

@@ -303,7 +303,7 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
 
   device_t dev_t(get_self(), protocol_type);
   checksum256 device_hash = sha256(device_name.c_str(),device_name.length());
-  auto devname_t = dev_t.get_index<name("devicename")>();
+  auto devname_t = dev_t.get_index<"devicename"_n>();
   auto devname_i = devname_t.find(device_hash);
   bool valid_name = true;
   uint64_t collision_modifier = 0;
@@ -313,7 +313,10 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   }
   check(valid_name, "Device already registered");
 
-  uint64_t device_key = ((uint64_t)(device_hash.data())) + collision_modifier;
+  uint64_t device_key;
+  memcpy(&device_key, device_hash.data(), 64);
+  device_key += collision_modifier;
+  print("device hash: ", device_hash, "\ndevice key: ", device_key);
 
   devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);

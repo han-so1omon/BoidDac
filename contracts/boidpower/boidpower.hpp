@@ -7,11 +7,13 @@
 
 #pragma once
 
+#include <cstring>
 #include <string>
 #include <set>
 #include <map>
 #include <cmath>
 #include <algorithm>
+#include <array>
 
 #include <eosio/eosio.hpp>
 #include <eosio/multi_index.hpp>
@@ -142,8 +144,8 @@ CONTRACT boidpower : public contract
     /*!
       device table
       scope : protocol_type
-      index : device_key (sha512 hash + collision_modifier)
-      2ary index : sha512 hash of device_name
+      index : device_key (sha256 hash + collision_modifier)
+      2ary index : sha256 hash of device_name
      */
     TABLE device {
       uint64_t              device_key;
@@ -160,7 +162,7 @@ CONTRACT boidpower : public contract
     };
     typedef eosio::multi_index<"devices"_n, device,
       indexed_by<
-        name("devicename"), const_mem_fun<device, checksum256, &device::by_device_name>
+        "devicename"_n, const_mem_fun<device, checksum256, &device::by_device_name>
       >
     > device_t;
 
@@ -178,7 +180,6 @@ CONTRACT boidpower : public contract
       }      
     };
     typedef eosio::multi_index<"devaccounts"_n, devaccount> devaccount_t;
-
 
     TABLE account {
         asset balance;

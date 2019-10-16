@@ -171,34 +171,8 @@ CONTRACT boidtoken : public contract
     /** \brief Initialize config table
      */
     ACTION initstats(bool wpf_reset);
-    /*
-    ACTION erasetoken();
-    
-    ACTION erasestats();
-    
-    ACTION eraseacct(const name acct, bool expect_empty);
-
-    ACTION erasebp(const name acct);
-
-    ACTION erasepow(const name acct);
-
-    ACTION erasestk(const name from, const name to);
-
-    ACTION erasestks(const name acct);
-    */
 
     ACTION erasestakes();
-    
-    /*
-    ACTION erasedeleg(const name from, const name to);
-
-    ACTION erasedelegs(const name acct);
-
-    ACTION setstakeinfo(
-      const int num_accts,
-      const asset total_staked
-    );
-    */
 
     ACTION updatepower(
       const name acct,
@@ -211,17 +185,9 @@ CONTRACT boidtoken : public contract
       const bool reset_claim_time
     );
     
-    /*
-    ACTION recyclestake(const name account, const asset amount, bool recycle);
-    
-    ACTION matchstake(const name account, const asset quantity, bool subtract);
-    
-    ACTION matchsupply(const name account, const asset quantity);
-  */
     ACTION matchtotdel(const name account, const asset quantity, bool subtract);
-    /*
-    ACTION syncstake(const name account);
-    */
+
+    ACTION synctotdel(const name account);
     
     ACTION syncwpf(const asset quantity);
     
@@ -242,7 +208,7 @@ CONTRACT boidtoken : public contract
     
     ACTION setmaxwpfpay(const asset max_wpf_payout);
     
-    ACTION setwpfproxy(const name proxy);
+    ACTION setwpfproxy(const name wpf_proxy);
     
     ACTION collectwpf();
     
@@ -315,6 +281,7 @@ CONTRACT boidtoken : public contract
         uint8_t         stakebreak; /**< Activate stake break period */
         asset           bonus; /**< Stake bonus type */
         microseconds    season_start;
+        microseconds    season_length;
         asset           total_season_bonus;
 
         // bookkeeping:
@@ -337,7 +304,6 @@ CONTRACT boidtoken : public contract
 
         float           boidpower_decay_rate;
         float           boidpower_update_exp;
-        float           boidpower_const_decay;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
     };
@@ -581,32 +547,11 @@ EOSIO_DISPATCH(boidtoken,
     (claim)
     (unstake)
     (initstats)
-    /*
-    (erasetoken)
-    (erasestats)
-    (eraseacct)
-    (erasebp)
-    (erasepow)
-    (erasestk)
-    (erasestks)
-    */
     (erasestakes)
-    /*
-    (erasedeleg)
-    (erasedelegs)
-    (setstakeinfo)
-    */
     (updatepower)
     (setpower)
-    /*
-    (recyclestake)
-    (matchstake)
-    (matchsupply)
-    */
-    (matchtotdel)    
-    /*
-    (syncstake)
-    */
+    (matchtotdel)
+    (synctotdel)
     (syncwpf)
     (setstakediff)
     (setpowerdiff)
@@ -623,10 +568,6 @@ EOSIO_DISPATCH(boidtoken,
     (setbpconst)
     (resetbonus)
     (resetpowtm)
-    /*
-    (emplacestake)
-    (emplacedeleg)
-    */
 )
 
 float boidtoken::update_boidpower(
