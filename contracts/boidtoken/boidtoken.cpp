@@ -1578,6 +1578,10 @@ void boidtoken::get_power_bonus(
     (float)(boidpower/c_itr->power_difficulty),
     c_itr->power_bonus_max_rate
   );
+
+  if (start_time.count() == 0) {
+    start_time = claim_time;
+  }
   
   *power_payout =
     asset{
