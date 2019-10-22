@@ -5,8 +5,6 @@
  *  @author errcsool
  */
 
-//TODO method to insert specific stake
-//     method to insert specific account params
 #pragma once
 
 #include <string>
@@ -14,8 +12,6 @@
 #include <cmath>
 
 #include <eosio/eosio.hpp>
-//#include <eosio/serialize.hpp>
-//#include <eosio/singleton.hpp>
 #include <eosio/multi_index.hpp>
 #include <eosio/dispatcher.hpp>
 #include <eosio/contract.hpp>
@@ -23,13 +19,6 @@
 #include <eosio/system.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/action.hpp>
-//#include <eosio/binary_extension.hpp>
-//#include <eosio/datastream.hpp>
-//#include <eosio/print.hpp>
-//#include <eosio/ignore.hpp>
-//#include <eosio/crypto.hpp>
-//#include <eosio/varint.hpp>
-//#include <eosio/fixed_bytes.hpp>
 #include <eosio/symbol.hpp>
 #include <eosio/name.hpp>
 
@@ -44,7 +33,8 @@
 #define STAKE_BREAK_OFF 0 // Can not stake
 #define STAKE_BREAK_ON 1 // Can stake
 
-#define TIME_MULT 86400 // seconds
+#define TIME_MULT 1 // seconds
+//#define TIME_MULT 86400 // seconds
 #define MICROSEC_MULT 1e6
 #define DAY_MICROSEC 86400e6
 
@@ -56,11 +46,6 @@ using eosio::const_mem_fun;
 using eosio::check;
 using eosio::microseconds;
 using eosio::time_point;
-/*
-  - Allow BOID tokens to be staked towards another account
-  - Allow BOID token staking to be redirected to another account at any time
-  - Team bonus should be tied to token votes
- */
 
 CONTRACT boidtoken : public contract
 {
@@ -96,7 +81,7 @@ CONTRACT boidtoken : public contract
      */
     ACTION recycle(name account, asset quantity);
 
-    ACTION reclaim(name account, name token_holder, string memo);
+    //ACTION reclaim(name account, name token_holder, string memo);
 
     ACTION open( const name& owner, const symbol& symbol, const name& ram_payer );
 
@@ -161,7 +146,11 @@ CONTRACT boidtoken : public contract
      * \param accountContractOwner - owner of account contract and account table
      * \param _stake_account - account claiming token bonus
      */
-    ACTION claim(name stake_account, float percentage_to_stake);
+    ACTION claim(
+      name stake_account,
+      float percentage_to_stake,
+      bool issuer_claim
+    );
 
     /** \brief Unstake tokens for specified _stake_account
      *
@@ -182,41 +171,25 @@ CONTRACT boidtoken : public contract
     /** \brief Initialize config table
      */
     ACTION initstats(bool wpf_reset);
-    
-    ACTION erasetoken();
-    
-    ACTION erasestats();
-    
-    ACTION eraseacct(const name acct, bool expect_empty);
 
-    ACTION erasebp(const name acct);
+    ACTION erasestakes();
 
-    ACTION erasepow(const name acct);
-
-    ACTION erasestk(const name from, const name to);
-
-    ACTION erasestks(const name acct);
-
-    ACTION erasestake(const name acct);
-
-    ACTION erasedeleg(const name from, const name to);
-
-    ACTION erasedelegs(const name acct);
-
-    ACTION setstakeinfo(
-      const int num_accts,
-      const asset total_staked
-    );
-
-    ACTION updatebp(
+    ACTION updatepower(
       const name acct,
       const float boidpower
     );
     
-    ACTION setbp(
+    ACTION setpower(
       const name acct,
-      const float boidpower
+      const float boidpower,
+      const bool reset_claim_time
     );
+    
+    ACTION matchtotdel(const name account, const asset quantity, bool subtract);
+
+    ACTION synctotdel(const name account);
+    
+    ACTION syncwpf(const asset quantity);
     
     ACTION setstakediff(const float stake_difficulty);
     
@@ -235,7 +208,7 @@ CONTRACT boidtoken : public contract
     
     ACTION setmaxwpfpay(const asset max_wpf_payout);
     
-    ACTION setwpfproxy(const name proxy);
+    ACTION setwpfproxy(const name wpf_proxy);
     
     ACTION collectwpf();
     
@@ -249,7 +222,30 @@ CONTRACT boidtoken : public contract
 
     ACTION resetbonus(const name account);
 
-    ACTION resetpowtm(const name account);
+    ACTION resetpowtm(const name account, bool bonus);
+
+    /*
+    ACTION emplacestake(
+      name            from,
+      name            to,
+      asset           quantity,
+      asset           my_bonus,
+      uint32_t        expiration,
+      uint32_t        prev_claim_time,
+      asset           trans_quantity,
+      uint32_t        trans_expiration,
+      uint32_t        trans_prev_claim_time
+    );
+
+    ACTION emplacedeleg(
+      name          from,
+      name          to,
+      asset         quantity,
+      uint32_t      expiration,
+      asset         trans_quantity,
+      uint32_t      trans_expiration
+    );
+    */
 
     /**
       \brief Test issue function for legacy issuing. Used to test vramtransfer()
@@ -285,6 +281,7 @@ CONTRACT boidtoken : public contract
         uint8_t         stakebreak; /**< Activate stake break period */
         asset           bonus; /**< Stake bonus type */
         microseconds    season_start;
+        microseconds    season_length;
         asset           total_season_bonus;
 
         // bookkeeping:
@@ -304,10 +301,9 @@ CONTRACT boidtoken : public contract
         asset           max_wpf_payout;
         asset           worker_proposal_fund;
         name            worker_proposal_fund_proxy;
-        
+
         float           boidpower_decay_rate;
         float           boidpower_update_exp;
-        float           boidpower_const_decay;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
     };
@@ -378,6 +374,7 @@ CONTRACT boidtoken : public contract
         asset             total_stake_bonus;
         microseconds      prev_claim_time;
         microseconds      prev_bp_update_time;
+        asset             total_delegated;
 
         uint64_t primary_key() const {
           return acct.value;
@@ -504,16 +501,42 @@ CONTRACT boidtoken : public contract
       microseconds claim_time,
       float boidpower,
       asset* power_payout
-    );  
+    );
     
-    public:
+    void add_total_delegated(
+      name account,
+      asset quantity,
+      name ram_payer
+    );
+    
+    void sub_total_delegated(
+      name account,
+      asset quantity,
+      name ram_payer
+    );
+    
+    asset get_total_delegated(
+      name account,
+      name ram_payer,
+      bool iterate
+    );
+    
+    void sync_total_delegated(
+      name account,
+      name ram_payer
+    );
+    
+    asset get_balance(
+      name account
+    );
+    
 };
 
 EOSIO_DISPATCH(boidtoken,
     (create)
     (issue)
     (recycle)
-    (reclaim)
+    //(reclaim)
     (open)
     (close)
     (transfer)
@@ -524,19 +547,12 @@ EOSIO_DISPATCH(boidtoken,
     (claim)
     (unstake)
     (initstats)
-    (erasetoken)
-    (erasestats)
-    (eraseacct)
-    (erasebp)
-    (erasepow)
-    (erasestk)
-    (erasestks)
-    (erasestake)
-    (erasedeleg)
-    (erasedelegs)
-    (setstakeinfo)
-    (updatebp)
-    (setbp)
+    (erasestakes)
+    (updatepower)
+    (setpower)
+    (matchtotdel)
+    (synctotdel)
+    (syncwpf)
     (setstakediff)
     (setpowerdiff)
     (setpowerrate)
@@ -552,8 +568,6 @@ EOSIO_DISPATCH(boidtoken,
     (setbpconst)
     (resetbonus)
     (resetpowtm)
-//    (testissue)
-//    (vramtransfer)
 )
 
 float boidtoken::update_boidpower(
@@ -566,17 +580,18 @@ float boidtoken::update_boidpower(
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
   //return bpNew;
+  float dtReal = dt*TIME_MULT;
   print("bpprev: ", bpPrev);
   print("bpnew: ", bpNew);
-  print("dt: ", dt);
-  float quantity = bpPrev*pow(1-c_itr->boidpower_decay_rate,dt)+\
-    pow(bpNew, 1-c_itr->boidpower_update_exp)-\
-    dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay;
+  print("dt: ", dtReal);
 
-  print("decay param: ",pow(1-c_itr->boidpower_decay_rate,dt));
-  print("decay: ", bpPrev - bpPrev*pow(1-c_itr->boidpower_decay_rate,dt));
+  float quantity = bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal)-\
+    dtReal/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay;
+
+  print("decay param: ",pow(1.0-c_itr->boidpower_decay_rate,dtReal));
+  print("decay: ", bpPrev - bpPrev*pow(1.0-c_itr->boidpower_decay_rate,dtReal));
   print("const decay: ", dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay);
   print("quantity: ", quantity);
 
-  return fmax(quantity, 0);
+  return fmax(quantity, 0) + pow(bpNew, 1.0-c_itr->boidpower_update_exp);
 }

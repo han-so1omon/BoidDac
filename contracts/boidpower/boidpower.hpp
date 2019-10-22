@@ -1,261 +1,267 @@
 /**
  *  @file
  *  @copyright TODO
- *  @brief Manage devices and associated boidpower
+ *  @brief Boidpower oracle
  *  @author errcsool
  */
- 
+
 #pragma once
 
-#include <vector>
-#include <functional>
+#include <cstring>
+#include <string>
+#include <set>
+#include <map>
+#include <cmath>
+#include <algorithm>
+#include <array>
 
-#include "dappservices/log.hpp"
-#include "dappservices/plist.hpp"
-#include "dappservices/plisttree.hpp"
-#include "dappservices/multi_index.hpp"
+#include <eosio/eosio.hpp>
+#include <eosio/multi_index.hpp>
+#include <eosio/dispatcher.hpp>
+#include <eosio/contract.hpp>
+#include <eosio/crypto.hpp>
+#include <eosio/time.hpp>
+#include <eosio/system.hpp>
+#include <eosio/asset.hpp>
+#include <eosio/action.hpp>
+#include <eosio/symbol.hpp>
+#include <eosio/name.hpp>
 
-#include "boidcommon/boidcommon.hpp"
+#include "boidcommon/defines.hpp"
+
+using namespace eosio;
+using std::string;
+using std::vector;
+using std::set;
+using std::map;
+using eosio::const_mem_fun;
+using eosio::check;
+using eosio::microseconds;
+using eosio::time_point;
+
+#define NULL_PROTOCOL 0
+#define HOUR_MICROSECS 3600e6
 
 /*
-  Sources of boidpower
- */
-#define POWER_SOURCE_MINING 0 //!< Crypto mining boidpower source
-#define POWER_SOURCE_BOINC  1 //!< BOINC boidpower source
-#define POWER_SOURCE_VRAM   2 //!< vRam boidpower source
+Power rating table for devices
+  Scope : account
+  Primary key : device name
+  Row contains vector of validators and power reports
+  Current validator takes over ram payment for row
+  Rows get overwritten every round
+Update power rating table
+Validator table
+Register validator
+Validator weighting consensus
+Update boidpower on next round start
+*/
 
-#define DAPPSERVICES_ACTIONS() \
-  XSIGNAL_DAPPSERVICE_ACTION \
-  LOG_DAPPSERVICE_ACTIONS \
-  IPFS_DAPPSERVICE_ACTIONS
+//TODO update protocol difficulty
+//TODO add in outliers per protocol
+CONTRACT boidpower : public contract
+{
+  public:
+    using contract::contract;
+    
+    ACTION regregistrar(name registrar, name tokencontract);
+    
+    ACTION regvalidator(name validator);
+    
+    ACTION delvalidator(name validator);
+    
+    ACTION addvalprot(name validator, uint64_t protocol_type, float weight);
+    
+    ACTION updaterating(
+      name validator,
+      name account,
+      uint64_t device_key, 
+      uint64_t round_start,
+      uint64_t round_end,
+      float rating,
+      uint64_t protocol_type
+    );
+    
+    //ACTION testupdate(name contract, name account, name permission);
+    
+    ACTION addprotocol(string protocol_name, string description, string meta, float difficulty);
+    
+    ACTION newprotdiff(uint64_t protocol_type, float difficulty);
+    
+    ACTION newprotmeta(uint64_t protocol_type, string meta);
+    
+    ACTION regdevice(name owner, string device_name, uint64_t protocol_type, bool registrar_registration);
+    
+    ACTION regpayacct(name payout_account);
 
-#define DAPPSERVICE_ACTIONS_COMMANDS() \
-  IPFS_SVC_COMMANDS()LOG_SVC_COMMANDS() 
+    ACTION payout(name validator, bool registrar_payout);
 
-#define CONTRACT_NAME() boidpower
+    ACTION setminweight(float min_weight);
 
-namespace eosiosystem {
-   class system_contract;
-}
+    ACTION setpayoutmul(float payout_multiplier);
 
-using std::string;
+    template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
+    {
+        check(q >= 0.0 && q <= 1.0, "Quartile just be percentage between 0 and 1");
+    
+        const auto n  = x.size();
+        const auto id = (n - 1) * q;
+        const auto lo = floor(id);
+        const auto hi = ceil(id);
+        const auto qs = x[lo];
+        const auto h  = (id - lo);
+    
+        return (1.0 - h) * qs + h * x[hi];
+    }
+    
+  private:
+  
+    void reset_ratings(uint64_t device_key, uint64_t type);  
+    inline bool same_round(
+      uint64_t round_start, uint64_t round_end,
+      uint64_t real_round_start, uint64_t real_round_end
+    );
+    inline bool valid_round(uint64_t round_start, uint64_t round_end);
+    float get_weight(uint64_t device_key, uint64_t type);
+    float get_median_rating(uint64_t device_key, uint64_t type);
+    inline uint64_t get_closest_round(uint64_t t);
+  
+    /*!
+      power table
+      scope : device_key
+      index : protocol type
+     */
+    TABLE power {
+      map<uint64_t,float>     ratings;
+      uint64_t                type;
+      microseconds            round_start;
+      microseconds            round_end;
+      uint64_t        primary_key() const {
+        return type;
+      }
+    };
+    typedef eosio::multi_index<"powers"_n, power> power_t;
 
-/*!
-  Devices are globally unique (atomic) objects in the boid network.
-  Devices are responsible for computations on BOID network
-  Devices + boidpower serve as a form of KYC
- */
-CONTRACT_START()
-   public:
+    /*!
+      device table
+      scope : protocol_type
+      index : device_key (sha256 hash + collision_modifier)
+      2ary index : sha256 hash of device_name
+     */
+    TABLE device {
+      uint64_t              device_key;
+      string                device_name;
+      uint64_t              collision_modifier;
 
-      /** 
-        @brief Create device
-        @param accountContractOwner - owner of boidaccounts contract
-        @param owner - device owner
-        @param devname - name of device
-       */
-      ACTION create(
-        name accountContractOwner,
-        name owner,
-        string devname);
-      
-      /**
-        @brief Erase device
-        @param owner - owner of device
-        @param devname - name of device to erase
-       */
-      ACTION erase(
-        name owner,
-        uint64_t num);
-      
-      /**
-        Wbrief Change device owner
-        @param accountContractOwner - owner of boidaccounts contract`
-        @param owner - new device owner
-        @param devname - name of device to change
-       */
-      ACTION changeowner(
-        name accountContractOwner,
-        name owner,
-        uint64_t num);
+      uint64_t        primary_key () const {
+        return device_key;
+      }
+
+      checksum256     by_device_name () const {
+        return eosio::sha256(device_name.c_str(),device_name.length());
+      }
+    };
+    typedef eosio::multi_index<"devices"_n, device,
+      indexed_by<
+        "devicename"_n, const_mem_fun<device, checksum256, &device::by_device_name>
+      >
+    > device_t;
+
+    /*!
+      account table
+      scope : owner account
+      index : device_key
+     */    
+    TABLE devaccount {
+      uint64_t          device_key;
+      string            device_name;
+
+      uint64_t        primary_key () const {
+        return device_key;
+      }      
+    };
+    typedef eosio::multi_index<"devaccounts"_n, devaccount> devaccount_t;
+
+    TABLE account {
+        asset balance;
         
-      /**
-        @brief Free device from owner
-        @param accountContractOwner - owner of boidaccounts contract
-        @param owner - owner of device to free
-        @param devname - name of device to free
-       */
-      ACTION freedevice(
-        name accountContractOwner,
-        name owner,
-        uint64_t num);
-        
-      /**
-        @brief Assign device to boidpower quantity
-        @param devname - name of device to assign power
-        @param quantity - amount of power
-       */
-      ACTION assignpower( 
-        uint64_t num,
-        uint64_t quantity);
-      
-      /**
-        @brief Open device to changes
-        @param owner - owner of device to open
-        @param devname - name of device to open
-        @param open - whether to open or close device
-       */
-      ACTION open(
-        name owner,
-        uint64_t num,
-        bool open);
-        
-      /**
-        @brief Freeze device from contributing
-        @param owner - owner of device to freeze
-        @param devname - name of device to freeze
-        @param freeze - whether to freeze or unfreeze device
-       */
-      ACTION freeze(
-        name owner,
-        uint64_t num,
-        bool freeze);
-      
-      /**
-        @brief Insert named device into device table
-        @param owner - owner of device
-        @param devname - name of device
-        @return true if device successfully added to device table
-       */
-      void addDevice(
-        name owner,
-        string devname);
-      
-      /**
-        @brief Remove named device from device table
-        @param owner - owner of device
-        @param devname - name of device
-        @return true if device successfully added to device table
-       */
-      void removeDevice(
-        name owner,
-        uint64_t num);
-      
-      /**
-        @brief Get available hash for device table
-        @param hash - starting point for search
-        @return available hash value
-       */
-      uint64_t getAvailableDevNum();
-      
-      void removeDevNum(
-        uint64_t num);
-      
-      /**
-        @brief Check if account exists
-        @param accountContractOwner - owner of boidaccounts contract
-        @param acctname - name of account to check
-        @return true if account exists, else false
-       */
-      bool accountExists( 
-        name accountContractOwner,
-        name acctname);
-               
-   private:
-   
-      /*!
-        open device number table. because auto-increment is not yet supported
-        */
-      TABLE devnum {
-        uint64_t dummy;
-        uint64_t freeInc;
-        std::vector<uint64_t> otherFree;
-        
-        uint64_t primary_key()const { return dummy; }
-      };
-      typedef eosio::multi_index<"devnum"_n, devnum> devnum_t;
+        uint64_t primary_key() const { return balance.symbol.code().raw();}
+    };
 
-      /*!
-        vRam table for storing boid devices
-       */
-      TABLE device {
-         uint64_t num; /**< Hash of device name */
-         string vanityName; /**< Device name string */
-         uint64_t power; /**< Associated boidpower */
-         name owner; /**< Owner of device */
-         name ownerNode; /**< Deprecated */
-         bool open; /**< Device can be reassigned */
-         uint64_t isFree; /**< Device has no owner */
-         bool freeze; /**< Device is not available for use */
-         std::map<uint8_t,uint64_t> powerSources; /**< Contribution types for */
+    typedef eosio::multi_index<"accounts"_n, account> accounts;
 
-         uint64_t primary_key()const { return num; } //!< Index table by device hash
-         uint64_t by_free()const { return isFree; } //!< Secondary index by free devices
-      };
-      typedef dapp::multi_index<
-        "device"_n,
-        device,
-        eosio::indexed_by<
-          "free"_n,
-          const_mem_fun<
-            device,
-            uint64_t,
-            &device::by_free
-          >
-        >
-      > device_t;
+    /*!
+      validator table
+      scope : registrar account
+      index : validator account
+     */   
+    TABLE validator {
+      map<uint64_t,float>     weights;
+      name                    account;
+      asset                   total_payout;
+      uint64_t                num_validations;
+      uint64_t                num_outliers;
+      uint64_t                num_overwrites;
+      uint64_t                num_unpaid_validations;
+      //microseconds            previous_payout_time;
       
-      typedef eosio::multi_index<".device"_n, device> device_t_v_abi;
-      TABLE deviceshards {
-          std::vector<char> shard_uri;
-          uint64_t shard;
-          uint64_t primary_key() const { return shard; }
-      };
-      typedef eosio::multi_index<"device"_n, deviceshards> device_t_abi;
+      uint64_t        primary_key() const {
+        return account.value;
+      }
+    };
+    typedef eosio::multi_index<"validators"_n, validator> validator_t;
 
-      /*!
-        vRam table for storing boid accounts
-       */
-      TABLE account {
-         name acctname; /**< Name of account */
-         uint64_t power; /**< Associated boidpower of account */
-         std::map<string,uint8_t> teams; /**< Associated teams */
-         std::map<uint64_t,uint8_t> nodes; /**< Associated nodes */
-         std::map<string,uint8_t> devices; /**< Associated devices */
- 
-         uint64_t primary_key()const { return acctname.value; } //!< Index account by name
-      };
-      // accounts table (vram)
-      typedef dapp::multi_index<"account"_n, account> account_t;
+    /*!
+      configuration table
+      scope : contract account
+      index : 0 (dummy)
+     */   
+    TABLE config {
+      name            registrar;
+      name            boidtoken_c;
+      uint64_t        id;
+      float           min_weight;
+      name            payout_account;
+      float           payout_multiplier;
       
-      typedef eosio::multi_index<".account"_n, account> account_t_v_abi;
-      TABLE accountshards {
-          std::vector<char> shard_uri;
-          uint64_t shard;
-          uint64_t primary_key() const { return shard; }
-      };
-      typedef eosio::multi_index<"account"_n, accountshards> account_t_abi;
+      uint64_t        primary_key() const {
+        return id;
+      }
+    };
+    typedef eosio::multi_index<"configs"_n, config> config_t;
+    
+    /*!
+      protocol table
+      scope : registrar account
+      index : protocol type
+     */
+    TABLE protocol {
+      uint64_t        type;
+      string          protocol_name;
+      string          description;
+      string          meta;
+      float           difficulty; //TODO add ability to change difficulty
       
-      /*!
-        Eos Ram table for storing configuration for boidpower
-        equation
-       */
-      TABLE bp_config {
-         uint64_t max; /**< Max possible boidpower */
-         uint64_t decayTimeConstant; /**< Time decay constant for boidpower equation */
-         uint64_t dummy; /**< Dummy variable for indexing */
+      uint64_t        primary_key() const {
+        return type;
+      }
+    };
+    typedef eosio::multi_index<"protocols"_n, protocol> protocol_t;
+};
 
-         uint64_t primary_key()const { return dummy; } //!< Dummy indexing
-      };
-
-      typedef eosio::multi_index<"config"_n, bp_config> config;
-
-CONTRACT_END(
-  (create)
-  (erase)
-  (changeowner)
-  (freedevice)
-  (assignpower)
-  (open)
-  (freeze)
+EOSIO_DISPATCH(boidpower,
+  (regregistrar)
+  (regvalidator)
+  (delvalidator)
+  (addvalprot)
+  (updaterating)
+  //(testupdate)
+  (addprotocol)
+  (newprotdiff)
+  (newprotmeta)
+  (regdevice)
+  //(regdevprot)
+  (regpayacct)
+  (payout)
+  (setminweight)
+  (setpayoutmul)
 )
