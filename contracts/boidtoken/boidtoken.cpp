@@ -430,7 +430,7 @@ void boidtoken::stake(
     permission_level{get_self(),"active"_n},
     get_self(),
     "sendmessage"_n,
-    std::make_tuple(from, memo)
+    std::make_tuple(get_self(), memo)
   ).send();
 }
 

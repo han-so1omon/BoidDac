@@ -21,6 +21,10 @@ boidtoken.abi
 boidtoken.wasm
 boidpower.abi
 boidpower.wasm
+dacdirectory.abi
+dacdirectory.wasm
+*.abi
+*.wasm
 contracts/coldtoken
 .eosproj.bak
 tokentest.tar.gz

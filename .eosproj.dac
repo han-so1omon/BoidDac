@@ -1,0 +1,21 @@
+{
+  "main": "contracts/dac/dacdirectory/dacdirectory.cpp",
+  "contract": "dacproposals",
+  "include": "./contracts",
+  "resource": "",
+  "cdt": "v1.6.2",
+  "output": "./build/dac/dacdirectory/dacdirectory.wasm",
+  "scripts": {
+    "build": "mkdir -p ./build/dac/daccustodian && mkdir -p ./build/dac/dacdirectory && mkdir -p ./build/dac/dacescrow && mkdir -p ./build/dac/dacmultisigs && mkdir -p ./build/dac/dacproposals && eosio-cpp -abigen -I ./contracts -I. -contract dacdirectory -o ./build/dac/dacdirectory/dacdirectory.wasm ./contracts/dac/dacdirectory/dacdirectory.cpp && cp ./build/dac/dacdirectory/* ./ && eosio-cpp -abigen -I ./contracts -I. -contract daccustodian -o ./build/dac/daccustodian/daccustodian.wasm ./contracts/dac/daccustodian/daccustodian.cpp && cp ./build/dac/daccustodian/* ./ && eosio-cpp -abigen -I ./contracts -I. -contract dacmultisigs -o ./build/dac/dacmultisigs/dacmultisigs.wasm ./contracts/dac/dacmultisigs/dacmultisigs.cpp && cp ./build/dac/dacmultisigs/* ./ && eosio-cpp -abigen -I ./contracts -I. -contract dacproposals -o ./build/dac/dacproposals/dacproposals.wasm ./contracts/dac/dacproposals/dacproposals.cpp && cp ./build/dac/dacescrow/* ./ && eosio-cpp -abigen -I ./contracts -I. -contract dacescrow -o ./build/dac/dacescrow/dacescrow.wasm ./contracts/dac/dacescrow/dacescrow.cpp && cp ./build/dac/dacescrow/* ./"
+  },
+  "deploy": {
+    "target": "both",
+    "mainnet": "",
+    "kylin": "",
+    "jungle": "",
+    "local": ""
+  },
+  "test": {
+    "npmClient": "npm"
+  }
+}
