@@ -1,6 +1,6 @@
 {
   "main": "contracts/boidtoken/boidtoken.cpp",
-  "contract": "boidpower",
+  "contract": "boidtoken",
   "include": "./contracts",
   "resource": "",
   "cdt": "v1.6.2",
