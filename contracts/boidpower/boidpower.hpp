@@ -83,11 +83,11 @@ CONTRACT boidpower : public contract
     
     //ACTION testupdate(name contract, name account, name permission);
     
-    ACTION addprotocol(string protocol_name, string description, string meta, float difficulty);
+    ACTION addprotocol(string protocol_name, string description, float difficulty, map<string, string> meta);
     
     ACTION newprotdiff(uint64_t protocol_type, float difficulty);
     
-    ACTION newprotmeta(uint64_t protocol_type, string meta);
+    ACTION newprotmeta(uint64_t protocol_type, map<string, string> meta);
     
     ACTION regdevice(name owner, string device_name, uint64_t protocol_type, bool registrar_registration);
     
@@ -98,6 +98,8 @@ CONTRACT boidpower : public contract
     ACTION setminweight(float min_weight);
 
     ACTION setpayoutmul(float payout_multiplier);
+
+    ACTION delprotocol(uint64_t protocol_type);
 
     template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
     {
@@ -124,6 +126,8 @@ CONTRACT boidpower : public contract
     float get_weight(uint64_t device_key, uint64_t type);
     float get_median_rating(uint64_t device_key, uint64_t type);
     inline uint64_t get_closest_round(uint64_t t);
+    inline uint64_t hash2key(checksum256 hash);
+    void check_meta(map<string, string> meta);
   
     /*!
       power table
@@ -239,6 +243,7 @@ CONTRACT boidpower : public contract
       string          protocol_name;
       string          description;
       string          meta;
+      //map<string, string> meta;
       float           difficulty; //TODO add ability to change difficulty
       
       uint64_t        primary_key() const {

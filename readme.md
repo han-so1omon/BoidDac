@@ -1,4 +1,7 @@
-TODO switch claim to transfer
+TODO prefixes to devices upon regdevice
+  Put prefixes in protocols table
+TODO swap ownership action for devices
+TODO 
 TODO claim calculator simulator in javascript
 TODO auto claim functionality
   Talk about this with Seth on Friday

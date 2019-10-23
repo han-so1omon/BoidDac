@@ -216,7 +216,7 @@ CONTRACT boidtoken : public contract
         
     ACTION setbpdecay(const float decay);
     
-    ACTION setbpexp(const float update_exp);
+    ACTION setbpmult(const float update_exp);
 
     ACTION setbpconst(const float const_decay);
 
@@ -339,7 +339,7 @@ CONTRACT boidtoken : public contract
         name            worker_proposal_fund_proxy;
 
         float           boidpower_decay_rate;
-        float           boidpower_update_exp;
+        float           boidpower_update_mult;
         float           boidpower_const_decay;
 
         uint64_t    primary_key() const { return config_id; } //!< Index by config id
@@ -564,7 +564,7 @@ EOSIO_DISPATCH(boidtoken,
     (collectwpf)
     (recyclewpf)
     (setbpdecay)
-    (setbpexp)
+    (setbpmult)
     (setbpconst)
     (resetbonus)
     (resetpowtm)
@@ -593,5 +593,5 @@ float boidtoken::update_boidpower(
   print("const decay: ", dt/DAY_MICROSEC*TIME_MULT*c_itr->boidpower_const_decay);
   print("quantity: ", quantity);
 
-  return fmax(quantity, 0) + pow(bpNew, 1.0-c_itr->boidpower_update_exp);
+  return fmax(quantity, 0) + bpNew*c_itr->boidpower_update_mult;
 }

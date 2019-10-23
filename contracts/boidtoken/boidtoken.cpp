@@ -427,7 +427,7 @@ void boidtoken::stake(
        "\ntimeout " + std::to_string(time_limit) + " seconds";
   
   action(
-    permission_level{from,"active"_n},
+    permission_level{get_self(),"active"_n},
     get_self(),
     "sendmessage"_n,
     std::make_tuple(from, memo)
@@ -896,7 +896,7 @@ void boidtoken::initstats(bool wpf_reset)
           c.max_wpf_payout = asset{(int64_t)(10000*precision_coef), sym};
           c.worker_proposal_fund = cleartokens;
           c.boidpower_decay_rate = 9.9e-8;
-          c.boidpower_update_exp = 0.05;
+          c.boidpower_update_mult = 0.05;
           c.boidpower_const_decay = 100;
       });
   }
@@ -925,7 +925,7 @@ void boidtoken::initstats(bool wpf_reset)
             c.worker_proposal_fund = cleartokens;
           }  
           c.boidpower_decay_rate = 9.9e-8;
-          c.boidpower_update_exp = 0.05;
+          c.boidpower_update_mult = 0.05;
           c.boidpower_const_decay = 100;
       });
   }
@@ -1206,14 +1206,14 @@ void boidtoken::setbpdecay(const float decay)
   });
 }
 
-void boidtoken::setbpexp(const float update_exp)
+void boidtoken::setbpmult(const float update_mult)
 {
   require_auth( get_self() );
   config_t c_t (_self, _self.value);
   auto c_itr = c_t.find(0);
   check(c_itr != c_t.end(), "Must first initstats");  
   c_t.modify(c_itr, _self, [&](auto &c) {
-      c.boidpower_update_exp = update_exp;
+      c.boidpower_update_mult = update_mult;
   });
 }
 
@@ -1579,6 +1579,10 @@ void boidtoken::get_power_bonus(
     c_itr->power_bonus_max_rate
   );
   
+  if (start_time.count() == 0) {
+    start_time = claim_time;
+  }
+
   *power_payout =
     asset{
       (int64_t)(power_coef*(claim_time - start_time).count()*TIME_MULT),

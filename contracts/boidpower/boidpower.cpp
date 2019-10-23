@@ -8,6 +8,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+// ------------------------ Action methods
+
 void boidpower::regregistrar(name registrar, name tokencontract)
 {
   require_auth(get_self());
@@ -206,7 +208,7 @@ void boidpower::testupdate(name contract, name account, name permission)
 }
 */
 
-void boidpower::addprotocol(string protocol_name, string description, string meta, float difficulty)
+void boidpower::addprotocol(string protocol_name, string description, float difficulty, map<string, string> meta)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -230,6 +232,8 @@ void boidpower::addprotocol(string protocol_name, string description, string met
       "Must first register null protocol with name `null` and description `null protocol`"
     );
   }
+
+  //check_meta(meta);
   
   protoc_t.emplace(cfg.registrar, [&](auto& a) {
     if (protocol_name == "null")
@@ -239,7 +243,7 @@ void boidpower::addprotocol(string protocol_name, string description, string met
       a.type = protoc_t.available_primary_key();
     a.protocol_name = protocol_name;
     a.description = description;
-    a.meta = meta;
+    //a.meta = meta;
     a.difficulty = difficulty;
   });
 }
@@ -261,7 +265,7 @@ void boidpower::newprotdiff(uint64_t protocol_type, float difficulty)
   });
 }
 
-void boidpower::newprotmeta(uint64_t protocol_type, string meta)
+void boidpower::newprotmeta(uint64_t protocol_type, map<string, string> meta)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -273,8 +277,10 @@ void boidpower::newprotmeta(uint64_t protocol_type, string meta)
   auto protoc_i = protoc_t.find(protocol_type);
   check(protoc_i != protoc_t.end(), "Protocol does not exist");
   
+  //check_meta(meta);
+
   protoc_t.modify(protoc_i, same_payer, [&](auto& a) {
-    a.meta = meta;
+    //a.meta = meta;
   });
 }
 
@@ -302,7 +308,8 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   check(protoc_i != protoc_t.end(), "Protocol does not exist"); 
 
   device_t dev_t(get_self(), protocol_type);
-  checksum256 device_hash = sha256(device_name.c_str(),device_name.length());
+  string prefixed_name = "hi";//protoc_i->meta["prefix"] + device_name;
+  checksum256 device_hash = sha256(prefixed_name.c_str(),prefixed_name.length());
   auto devname_t = dev_t.get_index<"devicename"_n>();
   auto devname_i = devname_t.find(device_hash);
   bool valid_name = true;
@@ -313,10 +320,9 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   }
   check(valid_name, "Device already registered");
 
-  uint64_t device_key;
-  memcpy(&device_key, device_hash.data(), 64);
+  auto arr = device_hash.extract_as_byte_array().data();
+  uint64_t device_key = hash2key(device_hash);
   device_key += collision_modifier;
-  print("device hash: ", device_hash, "\ndevice key: ", device_key);
 
   devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
@@ -448,6 +454,21 @@ void boidpower::setpayoutmul(float payout_multiplier)
   });
 }
 
+void boidpower::delprotocol(uint64_t protocol_type){
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
+  
+  protocol_t protoc_t(get_self(), cfg.registrar.value);
+  auto protoc_i = protoc_t.find(protocol_type);
+  check(protoc_i != protoc_t.end(), "Protocol does not exist");
+  
+  protoc_t.erase(protoc_i);
+}
+
+// ------------------------ Non-action methods
 void boidpower::reset_ratings(uint64_t device_key, uint64_t type)
 {
   power_t p_t(get_self(), device_key);
@@ -555,3 +576,26 @@ uint64_t boidpower::get_closest_round(uint64_t t)
 {
   return HOUR_MICROSECS*((uint64_t)round((float)t/(float)HOUR_MICROSECS));
 }
+
+uint64_t boidpower::hash2key(checksum256 hash)
+{
+  auto arr = hash.extract_as_byte_array();
+  uint64_t key = 0;
+  key = (uint64_t)arr[7] << (56) |\
+        (uint64_t)arr[6] << (48) |\
+        (uint64_t)arr[5] << (40) |\
+        (uint64_t)arr[4] << (32) |\
+        (uint64_t)arr[3] << (24) |\
+        (uint64_t)arr[2] << (16) |\
+        (uint64_t)arr[1] << (8) |\
+        (uint64_t)arr[0] << (0);
+  return key;
+}
+
+/*
+void boidpower::check_meta(map<string, string> meta)
+{
+  check(meta.contains("prefix"), "protocol metadata must contain prefix");
+  check(meta.contains("endpoint"), "protocol metadata must contain endpoint"); 
+}
+*/
