@@ -115,7 +115,6 @@ void boidpower::updaterating(
   protocol_t protoc_t(get_self(), cfg.registrar.value);
   auto protoc_i = protoc_t.find(type);
   check(protoc_i != protoc_t.end(), "Protocol does not exist");  
-  check(type != NULL_PROTOCOL, "Can not update rating for null protocol");
 
   devaccount_t acct_t(get_self(), account.value);
   auto acct_i = acct_t.find(device_key);
@@ -225,22 +224,12 @@ void boidpower::addprotocol(string protocol_name, string description, float diff
       "Protocol already exists with this name. Refer to existing protocol description to see if they may be the same."
     );
   }
-  
-  if (std::distance(protoc_t.cbegin(),protoc_t.cend()) == 0) {
-    check(
-      protocol_name == "null" && description == "null protocol",
-      "Must first register null protocol with name `null` and description `null protocol`"
-    );
-  }
 
   //check_meta(meta);
   
   protoc_t.emplace(cfg.registrar, [&](auto& a) {
-    if (protocol_name == "null")
-      a.type = NULL_PROTOCOL;
-    else
-      //could also do sha256 on protocol_name    
-      a.type = protoc_t.available_primary_key();
+    //could also do sha256 on protocol_name    
+    a.type = protoc_t.available_primary_key();
     a.protocol_name = protocol_name;
     a.description = description;
     //a.meta = meta;
@@ -466,6 +455,21 @@ void boidpower::delprotocol(uint64_t protocol_type){
   check(protoc_i != protoc_t.end(), "Protocol does not exist");
   
   protoc_t.erase(protoc_i);
+}
+
+void boidpower::deldevice(uint64_t protocol_type, uint64_t devnum)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
+  
+  device_t dev_t(get_self(), devnum);
+  auto dev_i = dev_t.find(protocol_type);
+  check(dev_i != dev_t.end(), "Protocol does not exist");
+  
+  dev_t.erase(dev_i);
 }
 
 // ------------------------ Non-action methods

@@ -39,7 +39,6 @@ using eosio::check;
 using eosio::microseconds;
 using eosio::time_point;
 
-#define NULL_PROTOCOL 0
 #define HOUR_MICROSECS 3600e6
 
 /*
@@ -100,6 +99,8 @@ CONTRACT boidpower : public contract
     ACTION setpayoutmul(float payout_multiplier);
 
     ACTION delprotocol(uint64_t protocol_type);
+    
+    ACTION deldevice(uint64_t protocol_type, uint64_t devnum);
 
     template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
     {
@@ -269,4 +270,6 @@ EOSIO_DISPATCH(boidpower,
   (payout)
   (setminweight)
   (setpayoutmul)
+  (delprotocol)
+  (deldevice)
 )
