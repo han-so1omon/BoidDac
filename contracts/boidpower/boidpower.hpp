@@ -103,7 +103,7 @@ CONTRACT boidpower : public contract
     
     ACTION deldevice(uint64_t protocol_type, uint64_t devnum);
 
-    ACTION delaccount(name account);
+    ACTION delaccount(name account, uint64_t devnum);
 
     template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
     {

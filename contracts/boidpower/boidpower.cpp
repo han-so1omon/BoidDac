@@ -309,12 +309,12 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   
   acct_t.emplace(payer, [&](auto& a) {
     a.device_key = device_key;
-    a.device_name = device_name;
+    a.device_name = prefixed_name;
   });
 
   dev_t.emplace(payer, [&](auto& a) {
     a.device_key = device_key;
-    a.device_name = device_name;
+    a.device_name = prefixed_name;
     a.collision_modifier = collision_modifier;
     a.units = 0;
   });
@@ -429,7 +429,7 @@ void boidpower::deldevice(uint64_t protocol_type, uint64_t devnum)
   dev_t.erase(dev_i);
 }
 
-void boidpower::delaccount(name account)
+void boidpower::delaccount(name account, uint64_t devnum)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -438,10 +438,9 @@ void boidpower::delaccount(name account)
   require_auth(cfg.registrar);
   
   devaccount_t acct_t(get_self(), account.value);
-  auto it = acct_t.begin();
-  while(it!=acct_t.end()) {
-    acct_t.erase(it);
-  }
+  auto acct_i = acct_t.find(devnum);
+  check(acct_i != acct_t.end(), "Device does not exist for this account");
+  acct_t.erase(acct_i);
 }
 
 // ------------------------ Non-action methods
