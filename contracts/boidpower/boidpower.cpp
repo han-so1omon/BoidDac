@@ -438,7 +438,8 @@ void boidpower::delaccount(name account)
   require_auth(cfg.registrar);
   
   devaccount_t acct_t(get_self(), account.value);
-  for (auto it = acct_t.begin(); it != acct_t.end(); it++) {
+  auto it = acct_t.begin();
+  while(it!=acct_t.end()) {
     acct_t.erase(it);
   }
 }
