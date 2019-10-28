@@ -429,6 +429,20 @@ void boidpower::deldevice(uint64_t protocol_type, uint64_t devnum)
   dev_t.erase(dev_i);
 }
 
+void boidpower::delaccount(name account)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  require_auth(cfg.registrar);
+  
+  devaccount_t acct_t(get_self(), account.value);
+  for (auto it = acct_t.begin(); it != acct_t.end(); it++) {
+    acct_t.erase(it);
+  }
+}
+
 // ------------------------ Non-action methods
 void boidpower::reset_ratings(uint64_t device_key, uint64_t type)
 {
