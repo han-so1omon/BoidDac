@@ -157,7 +157,7 @@ CONTRACT boidpower : public contract
       uint64_t              device_key;
       string                device_name;
       uint64_t              collision_modifier;
-      uint64_t              units;
+      //uint64_t              units;
 
 
       uint64_t        primary_key () const {

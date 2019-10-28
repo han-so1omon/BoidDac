@@ -180,7 +180,7 @@ void boidpower::updaterating(
       std::make_tuple(account, median_value)
     ).send();
     dev_t.modify(dev_i, same_payer, [&](auto& a) {
-      a.units += median_units;
+      //a.units += median_units;
     });
     reset_validators = true;
   }
@@ -316,7 +316,7 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
     a.device_key = device_key;
     a.device_name = device_name;
     a.collision_modifier = collision_modifier;
-    a.units = 0;
+    //a.units = 0;
   });
 }
 
