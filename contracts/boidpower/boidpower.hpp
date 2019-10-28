@@ -154,10 +154,12 @@ CONTRACT boidpower : public contract
       scope : protocol_type
       index : device_key (sha256 hash + collision_modifier)
       2ary index : sha256 hash of device_name
+      3ary index : device owner value
      */
     TABLE device {
       uint64_t              device_key;
       string                device_name;
+      name                  owner;
       uint64_t              collision_modifier;
       uint64_t              units;
 
@@ -169,10 +171,17 @@ CONTRACT boidpower : public contract
       checksum256     by_device_name () const {
         return eosio::sha256(device_name.c_str(),device_name.length());
       }
+
+      uint64_t        by_device_owner () const {
+        return owner.value;
+      }
     };
     typedef eosio::multi_index<"devices"_n, device,
       indexed_by<
         "devicename"_n, const_mem_fun<device, checksum256, &device::by_device_name>
+      >,
+      indexed_by<
+        "deviceowner"_n, const_mem_fun<device, uint64_t, &device::by_device_owner>
       >
     > device_t;
 
@@ -180,7 +189,8 @@ CONTRACT boidpower : public contract
       account table
       scope : owner account
       index : device_key
-     */    
+     */   
+    /* 
     TABLE devaccount {
       uint64_t          device_key;
       string            device_name;
@@ -190,6 +200,8 @@ CONTRACT boidpower : public contract
       }      
     };
     typedef eosio::multi_index<"devaccounts"_n, devaccount> devaccount_t;
+    */
+
 
     TABLE account {
         asset balance;

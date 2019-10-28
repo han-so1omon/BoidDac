@@ -117,13 +117,16 @@ void boidpower::updaterating(
   auto protoc_i = protoc_t.find(type);
   check(protoc_i != protoc_t.end(), "Protocol does not exist");  
 
-  devaccount_t acct_t(get_self(), account.value);
+  /*
+  devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
-  check(acct_i != acct_t.end(), "Device does not belong to account");  
+  check(acct_i != acct_t.end(), "Device not registered with account");
+   */
 
   device_t dev_t(get_self(), type);
   auto dev_i = dev_t.find(device_key);
   check(dev_i != dev_t.end(), "Protocol not registered for device");
+  check(dev_i->owner != account, "Device does not belong to account");
 
   power_t p_t(get_self(), device_key);
   auto p_i = p_t.find(type);
@@ -303,6 +306,7 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   uint64_t device_key = hash2key(device_hash);
   device_key += collision_modifier;
 
+/*
   devaccount_t acct_t(get_self(), owner.value);
   auto acct_i = acct_t.find(device_key);
   check(acct_i == acct_t.end(), "Device already registered with account");
@@ -311,10 +315,12 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
     a.device_key = device_key;
     a.device_name = prefixed_name;
   });
+*/
 
   dev_t.emplace(payer, [&](auto& a) {
     a.device_key = device_key;
     a.device_name = prefixed_name;
+    a.owner = owner;
     a.collision_modifier = collision_modifier;
     a.units = 0;
   });
@@ -436,11 +442,12 @@ void boidpower::delaccount(name account, uint64_t devnum)
   check(cfg_i != cfg_t.end(),"Must first add configuration");
   const auto& cfg = *cfg_i;
   require_auth(cfg.registrar);
-  
+  /*
   devaccount_t acct_t(get_self(), account.value);
   auto acct_i = acct_t.find(devnum);
   check(acct_i != acct_t.end(), "Device does not exist for this account");
   acct_t.erase(acct_i);
+  */
 }
 
 // ------------------------ Non-action methods
