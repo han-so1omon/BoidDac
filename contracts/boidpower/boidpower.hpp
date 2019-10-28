@@ -77,16 +77,17 @@ CONTRACT boidpower : public contract
       uint64_t round_start,
       uint64_t round_end,
       float rating,
+      uint64_t units,
       uint64_t protocol_type
     );
     
     //ACTION testupdate(name contract, name account, name permission);
     
-    ACTION addprotocol(string protocol_name, string description, float difficulty, map<string, string> meta);
+    ACTION addprotocol(string protocol_name, string description, float difficulty, string meta);
     
     ACTION newprotdiff(uint64_t protocol_type, float difficulty);
     
-    ACTION newprotmeta(uint64_t protocol_type, map<string, string> meta);
+    ACTION newprotmeta(uint64_t protocol_type, string meta);
     
     ACTION regdevice(name owner, string device_name, uint64_t protocol_type, bool registrar_registration);
     
@@ -125,10 +126,9 @@ CONTRACT boidpower : public contract
     );
     inline bool valid_round(uint64_t round_start, uint64_t round_end);
     float get_weight(uint64_t device_key, uint64_t type);
-    float get_median_rating(uint64_t device_key, uint64_t type);
+    float get_median_rating(uint64_t device_key, uint64_t type, uint64_t* units);
     inline uint64_t get_closest_round(uint64_t t);
     inline uint64_t hash2key(checksum256 hash);
-    void check_meta(map<string, string> meta);
   
     /*!
       power table
@@ -137,6 +137,7 @@ CONTRACT boidpower : public contract
      */
     TABLE power {
       map<uint64_t,float>     ratings;
+      map<uint64_t,uint64_t>  units;
       uint64_t                type;
       microseconds            round_start;
       microseconds            round_end;
@@ -156,6 +157,8 @@ CONTRACT boidpower : public contract
       uint64_t              device_key;
       string                device_name;
       uint64_t              collision_modifier;
+      uint64_t              units;
+
 
       uint64_t        primary_key () const {
         return device_key;
@@ -260,12 +263,10 @@ EOSIO_DISPATCH(boidpower,
   (delvalidator)
   (addvalprot)
   (updaterating)
-  //(testupdate)
   (addprotocol)
   (newprotdiff)
   (newprotmeta)
   (regdevice)
-  //(regdevprot)
   (regpayacct)
   (payout)
   (setminweight)
