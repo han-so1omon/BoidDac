@@ -131,6 +131,9 @@ void boidpower::updaterating(
   check(valid_round(round_start,round_end),
     "Round times invalid");
   
+  check(rating > 0,
+    "Rating must be greater than 0");
+
   uint64_t closest_round_start = get_closest_round(round_start);
   uint64_t closest_round_end = get_closest_round(round_end);
   microseconds closest_round_start_us = microseconds(closest_round_start);
@@ -369,6 +372,10 @@ void boidpower::payout(name validator, bool registrar_payout)
 
   val_t.modify(val_i, same_payer, [&](auto& a){
     a.num_unpaid_validations = 0;
+    if (a.total_payout.symbol.code().raw() != sym.code().raw())
+      a.total_payout = payout_quantity;
+    else
+      a.total_payout += payout_quantity;
   });
 }
 
@@ -434,6 +441,27 @@ void boidpower::delaccount(name account, uint64_t devnum)
   check(cfg_i != cfg_t.end(),"Must first add configuration");
   const auto& cfg = *cfg_i;
   require_auth(cfg.registrar);
+}
+
+void boidpower::delrating(name validator, uint64_t devkey, uint64_t protocol_type)
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Must first add configuration");
+  const auto& cfg = *cfg_i;
+  
+  validator_t val_t(get_self(), cfg.registrar.value);
+  auto val_i = val_t.find(validator.value);
+  check(val_i != val_t.end(), "Account not registered as validator");
+
+  require_auth(validator);
+
+  power_t p_t(get_self(), device_key);
+  auto p_i = p_t.find(type);
+  
+  check(p_i != p_t.end(), "Power rating for device:protocol does not exist");
+  
+  p_t.erase(p_i);
 }
 
 // ------------------------ Non-action methods

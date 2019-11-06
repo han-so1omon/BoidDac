@@ -105,6 +105,8 @@ CONTRACT boidpower : public contract
 
     ACTION delaccount(name account, uint64_t devnum);
 
+    ACTION delrating(name validator, uint64_t devkey, uint64_t protocol_type);
+
     template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
     {
         check(q >= 0.0 && q <= 1.0, "Quartile just be percentage between 0 and 1");
@@ -271,4 +273,5 @@ EOSIO_DISPATCH(boidpower,
   (delprotocol)
   (deldevice)
   (delaccount)
+  (delrating)
 )
