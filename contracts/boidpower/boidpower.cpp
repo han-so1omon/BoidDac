@@ -443,7 +443,7 @@ void boidpower::delaccount(name account, uint64_t devnum)
   require_auth(cfg.registrar);
 }
 
-void boidpower::delrating(name validator, uint64_t devkey, uint64_t protocol_type)
+void boidpower::delrating(name validator, uint64_t device_key, uint64_t protocol_type)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -457,7 +457,7 @@ void boidpower::delrating(name validator, uint64_t devkey, uint64_t protocol_typ
   require_auth(validator);
 
   power_t p_t(get_self(), device_key);
-  auto p_i = p_t.find(type);
+  auto p_i = p_t.find(protocol_type);
   
   check(p_i != p_t.end(), "Power rating for device:protocol does not exist");
   
