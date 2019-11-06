@@ -137,6 +137,7 @@ void boidpower::updaterating(
   microseconds closest_round_end_us = microseconds(closest_round_end);
 
   if (p_i != p_t.end()) {
+    /*
     check(
       rtg.ratings.find(validator.value) == rtg.ratings.end() ||
       !same_round(
@@ -144,6 +145,7 @@ void boidpower::updaterating(
         rtg.round_start.count(),rtg.round_end.count()),
       "Validator attempting to rewrite validation for this round"
     );
+    */
     check(
       closest_round_start >= rtg.round_start.count(),
       "Validator attempting to validate for a prior round"
