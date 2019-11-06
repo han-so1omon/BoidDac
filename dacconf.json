@@ -1,10 +1,12 @@
 {
   "contracts": {
+    "dacauthority": "1115testtest",
     "dacdirectory": "1121testtest",
     "daccustodian": "1122testtest",
     "dacmultisigs": "1123testtest",
     "dacproposals": "1124testtest",
     "eosdactokens": "1125testtest",
-    "dacescrow": "1131testtest"
+    "dacescrow": "1131testtest",
+    "dacowner": "1131testtest"
   }
 }

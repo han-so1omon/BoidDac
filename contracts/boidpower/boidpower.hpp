@@ -27,7 +27,7 @@
 #include <eosio/symbol.hpp>
 #include <eosio/name.hpp>
 
-#include "boidcommon/defines.hpp"
+#include "../boidcommon/defines.hpp"
 
 using namespace eosio;
 using std::string;
@@ -40,6 +40,7 @@ using eosio::microseconds;
 using eosio::time_point;
 
 #define HOUR_MICROSECS 3600e6
+#define ROUND_LENGTH (24 * HOUR_MICROSECS)
 
 /*
 Power rating table for devices
@@ -72,7 +73,6 @@ CONTRACT boidpower : public contract
     
     ACTION updaterating(
       name validator,
-      name account,
       uint64_t device_key, 
       uint64_t round_start,
       uint64_t round_end,
@@ -184,23 +184,6 @@ CONTRACT boidpower : public contract
         "deviceowner"_n, const_mem_fun<device, uint64_t, &device::by_device_owner>
       >
     > device_t;
-
-    /*!
-      account table
-      scope : owner account
-      index : device_key
-     */   
-    /* 
-    TABLE devaccount {
-      uint64_t          device_key;
-      string            device_name;
-
-      uint64_t        primary_key () const {
-        return device_key;
-      }      
-    };
-    typedef eosio::multi_index<"devaccounts"_n, devaccount> devaccount_t;
-    */
 
 
     TABLE account {

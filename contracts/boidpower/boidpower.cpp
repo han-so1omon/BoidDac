@@ -92,7 +92,6 @@ void boidpower::delvalidator(name validator)
 
 void boidpower::updaterating(
   name validator,
-  name account,
   uint64_t device_key,
   uint64_t round_start,
   uint64_t round_end,
@@ -117,16 +116,13 @@ void boidpower::updaterating(
   auto protoc_i = protoc_t.find(type);
   check(protoc_i != protoc_t.end(), "Protocol does not exist");  
 
-  /*
-  devaccount_t acct_t(get_self(), owner.value);
-  auto acct_i = acct_t.find(device_key);
-  check(acct_i != acct_t.end(), "Device not registered with account");
-   */
-
   device_t dev_t(get_self(), type);
   auto dev_i = dev_t.find(device_key);
   check(dev_i != dev_t.end(), "Protocol not registered for device");
-  check(dev_i->owner != account, "Device does not belong to account");
+
+  accounts acct_t(cfg.boidtoken_c, dev_i -> owner.value);
+  auto dev_owner = acct_t.find(symbol("BOID",4).code().raw());
+  check(dev_owner != acct_t.end(), "Account must exist in boidtoken contract");
 
   power_t p_t(get_self(), device_key);
   auto p_i = p_t.find(type);
@@ -134,6 +130,11 @@ void boidpower::updaterating(
 
   check(valid_round(round_start,round_end),
     "Round times invalid");
+  
+  uint64_t closest_round_start = get_closest_round(round_start);
+  uint64_t closest_round_end = get_closest_round(round_end);
+  microseconds closest_round_start_us = microseconds(closest_round_start);
+  microseconds closest_round_end_us = microseconds(closest_round_end);
 
   if (p_i != p_t.end()) {
     check(
@@ -144,7 +145,7 @@ void boidpower::updaterating(
       "Validator attempting to rewrite validation for this round"
     );
     check(
-      get_closest_round(round_start) >= rtg.round_start.count(),
+      closest_round_start >= rtg.round_start.count(),
       "Validator attempting to validate for a prior round"
     );
   }
@@ -154,11 +155,11 @@ void boidpower::updaterating(
       a.type = type;
       a.ratings[validator.value] = rating;
       a.units[validator.value] = units;
-      a.round_start = microseconds(get_closest_round(round_start));
-      a.round_end = microseconds(get_closest_round(round_end));
+      a.round_start = closest_round_start_us;
+      a.round_end = closest_round_end_us;
     });
   } else {
-    if (p_i != p_t.end() && rtg.round_start.count() < round_start) {
+    if (rtg.round_start.count() < round_start) {
       reset_validators = true;
       add_post_reset = true;
       //TODO check if overwriting unvalidated data
@@ -167,8 +168,8 @@ void boidpower::updaterating(
         a.type = type;
         a.ratings[validator.value] = rating;
         a.units[validator.value] = units;
-        a.round_start = microseconds(get_closest_round(round_start));
-        a.round_end = microseconds(get_closest_round(round_end));
+        a.round_start = closest_round_start_us;
+        a.round_end = closest_round_end_us;
       });
     }
   }
@@ -180,7 +181,7 @@ void boidpower::updaterating(
       permission_level{cfg.boidtoken_c,"poweroracle"_n},
       cfg.boidtoken_c,
       "updatepower"_n,
-      std::make_tuple(account, median_value)
+      std::make_tuple(dev_i -> owner, median_value)
     ).send();
     dev_t.modify(dev_i, same_payer, [&](auto& a) {
       a.units += median_units;
@@ -192,14 +193,14 @@ void boidpower::updaterating(
   
   if (add_post_reset) {
     print(
-      "round start: ", get_closest_round(round_start),
-      "\nround end: ", get_closest_round(round_end)
+      "round start: ", closest_round_start,
+      "\nround end: ", closest_round_end
     );
     p_t.modify(p_i, validator, [&](auto& a) {
       a.type = type;
       a.ratings[validator.value] = rating;
-      a.round_start = microseconds(get_closest_round(round_start));
-      a.round_end = microseconds(get_closest_round(round_end));
+      a.round_start = closest_round_start_us;
+      a.round_end = closest_round_end_us;
     });
   }
 }
@@ -305,17 +306,6 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   auto arr = device_hash.extract_as_byte_array().data();
   uint64_t device_key = hash2key(device_hash);
   device_key += collision_modifier;
-
-/*
-  devaccount_t acct_t(get_self(), owner.value);
-  auto acct_i = acct_t.find(device_key);
-  check(acct_i == acct_t.end(), "Device already registered with account");
-  
-  acct_t.emplace(payer, [&](auto& a) {
-    a.device_key = device_key;
-    a.device_name = prefixed_name;
-  });
-*/
 
   dev_t.emplace(payer, [&](auto& a) {
     a.device_key = device_key;
@@ -442,12 +432,6 @@ void boidpower::delaccount(name account, uint64_t devnum)
   check(cfg_i != cfg_t.end(),"Must first add configuration");
   const auto& cfg = *cfg_i;
   require_auth(cfg.registrar);
-  /*
-  devaccount_t acct_t(get_self(), account.value);
-  auto acct_i = acct_t.find(devnum);
-  check(acct_i != acct_t.end(), "Device does not exist for this account");
-  acct_t.erase(acct_i);
-  */
 }
 
 // ------------------------ Non-action methods
@@ -461,7 +445,7 @@ void boidpower::reset_ratings(uint64_t device_key, uint64_t type)
       a.ratings.clear();
       // March forward one round
       a.round_start = microseconds(get_closest_round(a.round_end.count()));
-      a.round_end = microseconds(get_closest_round(a.round_end.count() + HOUR_MICROSECS));
+      a.round_end = microseconds(get_closest_round(a.round_end.count() + ROUND_LENGTH));
     });
   }
 }
@@ -471,8 +455,8 @@ bool boidpower::same_round(
   uint64_t real_round_start, uint64_t real_round_end
 )
 {
-  return llabs(round_start - real_round_start) < 60e6 &&
-         llabs(round_end - real_round_end) < 60e6;
+  return round_start == real_round_start &&
+         round_end == real_round_end;
 }
 
 bool boidpower::valid_round(uint64_t round_start, uint64_t round_end)
@@ -480,10 +464,11 @@ bool boidpower::valid_round(uint64_t round_start, uint64_t round_end)
   print("start: ", round_start);
   print("closest round start: ", get_closest_round(round_start));
   print("end: ", round_end);
-  print("closest round end: ", get_closest_round(round_end));   
-  return llabs(round_start - get_closest_round(round_start)) < 60e6 &&
-         llabs(round_end - get_closest_round(round_end)) < 60e6 &&
-         get_closest_round(round_end) - get_closest_round(round_start) == 3600e6;
+  print("closest round end: ", get_closest_round(round_end));
+  return true;
+  return  llabs(round_start - get_closest_round(round_start)) < 60e6 &&
+          llabs(round_end - get_closest_round(round_end)) < 60e6 &&
+          get_closest_round(round_end) - get_closest_round(round_start) == ROUND_LENGTH;
 }
 
 float boidpower::get_weight(uint64_t device_key, uint64_t type)
@@ -560,7 +545,7 @@ float boidpower::get_median_rating(uint64_t device_key, uint64_t type, uint64_t*
 
 uint64_t boidpower::get_closest_round(uint64_t t)
 {
-  return HOUR_MICROSECS*((uint64_t)round((float)t/(float)HOUR_MICROSECS));
+  return ROUND_LENGTH*((uint64_t)round((float)t/(float)ROUND_LENGTH));
 }
 
 uint64_t boidpower::hash2key(checksum256 hash)
