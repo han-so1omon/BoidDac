@@ -1,9 +1,9 @@
 {
   "main": "contracts/boidtoken/boidtoken.cpp",
-  "contract": "boidtoken",
+  "contract": "boidpower",
   "include": "./contracts",
   "resource": "",
-  cdt": "v1.6.2",
+  "cdt": "v1.6.2",
   "output": "./build/boidtoken/boidtoken.wasm",
   "scripts": {
     "build": "mkdir -p ./build/boidpower && mkdir -p ./build/boidaccounts && mkdir -p ./build/boidteams && mkdir -p ./build/boidnodes && mkdir -p ./build/boidtoken && eosio-cpp -O=s -lto-opt=O2 -abigen -I ./contracts -contract boidpower -o ./build/boidpower/boidpower.wasm contracts/boidpower/boidpower.cpp && cp ./build/boidpower/* ./ && eosio-cpp -O=s -lto-opt=O2 -abigen -I ./contracts -contract boidtoken -o ./build/boidtoken/boidtoken.wasm contracts/boidtoken/boidtoken.cpp && cp ./build/boidtoken/* ./"

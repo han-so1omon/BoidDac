@@ -514,7 +514,7 @@ boidtoken::claim(
 
   auto self_stake = s_t.find(stake_account.value);
   if (self_stake == s_t.end()) {
-    self_expiration = microseconds(0);
+    self_expiration = zeroseconds;
   } else {
     self_expiration = self_stake->expiration;
   }
@@ -524,6 +524,7 @@ boidtoken::claim(
     c_itr->powered_stake_multiplier*boidpower*precision_coef,
     c_itr->max_powered_stake_ratio*c_itr->total_staked.amount
   );
+  print("boidpower: ", boidpower);
   print("min: ", c_itr->max_powered_stake_ratio*c_itr->total_staked.amount);
   print("powered stake amount: ", powered_stake_amount);
   powered_stake = asset{
@@ -553,18 +554,22 @@ boidtoken::claim(
       auto from_self_stake = from_stake.find(it->from.value);
       microseconds from_self_expiration, from_self_trans_expiration;
       if (from_self_stake == from_stake.end()) {
-        from_self_expiration = microseconds(0);
+        from_self_expiration = zeroseconds;
       } else {
         from_self_expiration = from_self_stake->expiration;
       }
 
-      if (it->expiration != zeroseconds && it->expiration < curr_time && it->from != it->to) {
-        sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
-        add_stake(it->from, it->from, it->quantity, from_self_expiration, ram_payer, false);
+      if (it->expiration != zeroseconds && it->expiration < curr_time) {
+        if (it->from != it->to) {
+          sub_stake(it->from, it->to, it->quantity, it->expiration, same_payer, false);
+          add_stake(it->from, it->from, it->quantity, from_self_expiration, ram_payer, false);
+        } else {
+          // Only modify expiration to avoid changing ram payer for self stake upon token return
+          self_expiration = zeroseconds;
+          modify_stake_expiration(it->from, it->to, self_expiration, false);         
+        }
       }
-      s_t.modify(it, same_payer, [&](auto& s) {
-        s.prev_claim_time = curr_time;
-      });
+      modify_claim_time(it->from, it->to, curr_time, false);
     }
 
     if (it->trans_quantity.amount > 0) {
@@ -588,10 +593,8 @@ boidtoken::claim(
         sub_stake(it->from, it->to, it->trans_quantity, it->trans_expiration, same_payer, true);
         add_stake(it->to, it->to, it->trans_quantity, self_expiration, ram_payer, false);
       }
-      
-      s_t.modify(it, same_payer, [&](auto& s) {
-        s.trans_prev_claim_time = curr_time;
-      });
+      modify_claim_time(it->from, it->to, curr_time, true);      
+
     }
   }
   
@@ -612,7 +615,7 @@ boidtoken::claim(
       delegation_t to_deleg_t(get_self(), it->to.value);
       auto to_self_deleg = to_deleg_t.find(it->to.value);
       if (to_self_deleg == to_deleg_t.end()) {
-        to_self_expiration = microseconds(0);
+        to_self_expiration = zeroseconds;
       } else {
         to_self_expiration = to_self_deleg->expiration;
       }
@@ -652,14 +655,6 @@ boidtoken::claim(
 
     asset self_payout = power_payout + stake_payout;
 
-    /*
-    statstable.modify(st, same_payer, [&](auto& s) {
-      s.supply += total_payout;
-    });
-        
-    add_balance(st.issuer, self_payout, ram_payer);
-    */
-
     string memo = "account:  " + stake_account.to_string() +\
        "\naction: claim" +\
        "\nstake bonus: " + stake_payout.to_string() +\
@@ -669,12 +664,14 @@ boidtoken::claim(
        "\nreturning " + expired_received_tokens.to_string() + " expired tokens" +\
        "\nreceiving " + expired_delegated_tokens.to_string() + " delegated tokens";
 
-    action(
-      permission_level{st.issuer,"active"_n},
-      get_self(),
-      "issue"_n,
-      std::make_tuple(stake_account, self_payout, memo)
-    ).send();
+    if (self_payout != zerotokens) {
+      action(
+        permission_level{st.issuer,"active"_n},
+        get_self(),
+        "issue"_n,
+        std::make_tuple(stake_account, self_payout, memo)
+      ).send();
+    }
 
     int64_t self_stake_payout_amount = 
       (int64_t)(percentage_to_stake/100)*self_payout.amount;
@@ -701,12 +698,6 @@ boidtoken::claim(
         std::make_tuple(c_itr->worker_proposal_fund_proxy, wpf_payout, memo)
       ).send();
     }
-
-    /*
-    c_t.modify(c_itr, same_payer, [&](auto& a) {
-      a.worker_proposal_fund += wpf_payout;
-    });
-    */
   }
 }
 
@@ -1255,6 +1246,94 @@ void boidtoken::resetpowtm(const name account, bool current)
   }
 }
 
+/*
+void boidtoken::emplacestake(
+  name            from,
+  name            to,
+  asset           quantity,
+  asset           my_bonus,
+  uint64_t        expiration,
+  uint64_t        prev_claim_time,
+  asset           trans_quantity,
+  uint64_t        trans_expiration,
+  uint64_t        trans_prev_claim_time
+)
+{
+  require_auth(get_self());
+  stake_t s_t(get_self(), to.value);
+  auto to_itr = s_t.find(from.value);
+  check(to_itr == s_t.end(), "stake exists");
+
+  s_t.emplace(get_self(), [&](auto& a) {
+    a.from = from;
+    a.to = to;
+    a.quantity = quantity;
+    a.my_bonus = my_bonus;
+    a.expiration = microseconds(expiration);
+    a.prev_claim_time = microseconds(prev_claim_time);
+    a.trans_quantity = trans_quantity;
+    a.trans_expiration = microseconds(trans_expiration);  
+    a.trans_prev_claim_time = microseconds(trans_prev_claim_time);
+  });
+}
+
+void boidtoken::emplacedeleg(
+  name          from,
+  name          to,
+  asset         quantity,
+  uint64_t      expiration,
+  asset         trans_quantity,
+  uint64_t      trans_expiration
+)
+{
+  require_auth(get_self());
+  delegation_t deleg_t(get_self(), from.value);
+  auto deleg = deleg_t.find(to.value);
+  check(deleg == deleg_t.end(), "delegation exists");
+
+  deleg_t.emplace(get_self(), [&](auto& a) {
+    a.from = from;
+    a.to = to;
+    a.quantity = quantity;
+    a.expiration = microseconds(expiration);
+    a.trans_quantity = trans_quantity;
+    a.trans_expiration = microseconds(trans_expiration);
+  });
+}
+
+void boidtoken::emplacepow(
+  name          acct,
+  float         quantity,
+  asset         total_power_bonus,
+  uint64_t      prev_claim_time,
+  uint64_t      prev_bp_update_time,
+  asset         total_delegated
+)
+{
+  require_auth(get_self());
+  power_t p_t(_self, acct.value);
+  auto p_itr = p_t.find(acct.value);
+  check(p_itr == p_t.end(), "power exists");
+
+  p_t.emplace(get_self(), [&](auto& a) {
+    a.acct = acct;
+    a.quantity = quantity;
+    a.total_power_bonus = total_power_bonus;
+    a.prev_claim_time = microseconds(prev_claim_time);
+    a.prev_bp_update_time = microseconds(prev_bp_update_time);
+    a.total_delegated = total_delegated;
+  });
+}
+
+void boidtoken::erasepow(name acct) {
+  require_auth(get_self());
+  power_t p_t(get_self(), acct.value);
+  auto p_i = p_t.find(acct.value);
+  check(p_i != p_t.end(), "power does not exist");
+  p_t.erase(p_i);
+}
+*/
+
 /* Subtract value from specified account
  */
 void boidtoken::sub_balance(name owner, asset value, name ram_payer)
@@ -1388,7 +1467,8 @@ void boidtoken::add_stake(
   );
   
   time_point t = current_time_point();
-  microseconds curr_time = t.time_since_epoch();
+  microseconds curr_time = t.time_since_epoch(),
+    zero_time = microseconds(0);
  
   if (deleg == deleg_t.end()) {
     deleg_t.emplace(ram_payer, [&](auto& a) {
@@ -1409,17 +1489,20 @@ void boidtoken::add_stake(
       s.to = to;
       s.my_bonus = zerotokens;
       if (transfer) {
+        s.quantity = zerotokens;
+        s.prev_claim_time = zero_time;
+        s.expiration = zero_time;
         s.trans_quantity = quantity;
         s.trans_expiration = expiration;
-        s.trans_prev_claim_time = microseconds(0);
-        s.quantity = zerotokens;
+        s.trans_prev_claim_time = curr_time;
       } else {
         s.quantity = quantity;
         s.expiration = expiration;
-        s.prev_claim_time = microseconds(0);
+        s.prev_claim_time = curr_time;
         s.trans_quantity = zerotokens;
+        s.trans_expiration = zero_time;
+        s.trans_prev_claim_time = zero_time;
       }
-      s.prev_claim_time = curr_time;
     });
     c_t.modify(c_itr, get_self(), [&](auto& c) {
       c.active_accounts += 1;
@@ -1443,9 +1526,15 @@ void boidtoken::add_stake(
       if (transfer) {
         s.trans_quantity += quantity;
         s.trans_expiration = expiration;
+        if (s.trans_prev_claim_time == zero_time) {
+          s.trans_prev_claim_time = curr_time;
+        }
       } else {
         s.quantity += quantity;
         s.expiration = expiration;
+        if (s.prev_claim_time == zero_time) {
+          s.prev_claim_time = curr_time;
+        }
       }
     });
   }
@@ -1458,6 +1547,44 @@ void boidtoken::add_stake(
   } else {
     add_total_delegated(from, quantity, ram_payer);
   }
+}
+
+void boidtoken::modify_stake_expiration(
+  name from,
+  name to,
+  microseconds expiration,
+  bool transfer
+)
+{
+  stake_t s_t(get_self(), to.value);
+  auto to_itr = s_t.find(from.value);
+
+  delegation_t deleg_t(get_self(), from.value);
+  auto deleg = deleg_t.find(to.value);
+
+  check(to_itr != s_t.end(), "no entry in stake table");
+  check(deleg != deleg_t.end(), "no entry in delegation table");
+
+  deleg_t.modify(deleg, same_payer, [&](auto& a) {
+    if (transfer) a.trans_expiration = expiration;
+    else a.expiration = expiration;
+  });      
+  s_t.modify(to_itr, same_payer, [&](auto& s) {
+    if (transfer) s.trans_expiration = expiration;
+    else s.expiration = expiration;
+  });
+}
+
+void boidtoken::modify_claim_time(name from, name to, microseconds claim_time, bool transfer)
+{
+  stake_t s_t(get_self(), to.value);
+  auto to_itr = s_t.find(from.value);
+  check(to_itr != s_t.end(), "no entry in stake table");
+
+  s_t.modify(to_itr, same_payer, [&](auto& s) {
+    if (transfer) s.trans_prev_claim_time = claim_time;
+    else s.prev_claim_time = claim_time;
+  });
 }
 
 void boidtoken::claim_for_stake(
@@ -1482,29 +1609,31 @@ void boidtoken::claim_for_stake(
   time_point t = current_time_point();
   microseconds curr_time = t.time_since_epoch(),
                start_time,
-               claim_time;
+               claim_time,
+               zero_time = microseconds(0);
 
   if (prev_claim_time > curr_time) {
     *stake_payout = zerotokens;
     *wpf_payout = zerotokens;
   };
-  start_time = prev_claim_time == microseconds(0) ?
-    curr_time : prev_claim_time;
-  
-  if (expiration == microseconds(0)) {
+
+  if (expiration == zero_time) {
     claim_time = curr_time;
-  } else if (expiration < curr_time) {
+  } else if (expiration < curr_time && prev_claim_time != zero_time) {
+    // Skip this case if no previous stake claim so that claim time is greater than
+    // or equal to start time
     claim_time = expiration;
   } else {
     claim_time = curr_time;
   }
+
+  start_time = prev_claim_time == zero_time ?
+    curr_time : prev_claim_time;
+  
+  start_time = start_time > claim_time ?
+    claim_time : start_time;
   
   check(claim_time <= curr_time, "invalid payout date");
-  
-  /*
-  if (start_time < c_itr->season_start)
-    start_time = c_itr->season_start;
-  */
     
   get_stake_bonus(
     start_time, claim_time, staked, powered_staked,

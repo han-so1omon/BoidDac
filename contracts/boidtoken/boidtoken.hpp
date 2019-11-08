@@ -230,21 +230,32 @@ CONTRACT boidtoken : public contract
       name            to,
       asset           quantity,
       asset           my_bonus,
-      uint32_t        expiration,
-      uint32_t        prev_claim_time,
+      uint64_t        expiration,
+      uint64_t        prev_claim_time,
       asset           trans_quantity,
-      uint32_t        trans_expiration,
-      uint32_t        trans_prev_claim_time
+      uint64_t        trans_expiration,
+      uint64_t        trans_prev_claim_time
     );
 
     ACTION emplacedeleg(
       name          from,
       name          to,
       asset         quantity,
-      uint32_t      expiration,
+      uint64_t      expiration,
       asset         trans_quantity,
-      uint32_t      trans_expiration
+      uint64_t      trans_expiration
     );
+
+    ACTION emplacepow(
+      name          acct,
+      float         quantity,
+      asset         total_power_bonus,
+      uint64_t      prev_claim_time,
+      uint64_t      prev_bp_update_time,
+      asset         total_delegated
+    );
+
+    ACTION erasepow( name acct );
     */
 
     /**
@@ -478,6 +489,15 @@ CONTRACT boidtoken : public contract
       bool transfer
     );
 
+    void modify_stake_expiration(
+      name from,
+      name to,
+      microseconds expiration,
+      bool transfer
+    );
+
+    void modify_claim_time(name from, name to, microseconds claim_time, bool transfer);
+
     void claim_for_stake(
       asset staked,
       asset powered_staked,
@@ -568,6 +588,12 @@ EOSIO_DISPATCH(boidtoken,
     (setbpconst)
     (resetbonus)
     (resetpowtm)
+    /*
+    (emplacestake)
+    (emplacedeleg)
+    (emplacepow)
+    (erasepow)
+    */
 )
 
 float boidtoken::update_boidpower(
