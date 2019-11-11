@@ -92,7 +92,7 @@ void boidpower::delvalidator(name validator)
 
 void boidpower::updaterating(
   name validator,
-  uint64_t device_key,
+  string device_name,
   uint64_t round_start,
   uint64_t round_end,
   float rating,
@@ -116,11 +116,15 @@ void boidpower::updaterating(
   auto protoc_i = protoc_t.find(type);
   check(protoc_i != protoc_t.end(), "Protocol does not exist");  
 
-  device_t dev_t(get_self(), type);
+  check(device_exists(device_name), "Device does not exist");
+  bool exists;
+  uint64_t device_key;
+  get_device_key(device_name, &exists, &device_key);
+  uint64_t protocol_type = get_protocol_type(device_name);
+  device_t dev_t(get_self(), protocol_type); 
   auto dev_i = dev_t.find(device_key);
-  check(dev_i != dev_t.end(), "Protocol not registered for device");
 
-  accounts acct_t(cfg.boidtoken_c, dev_i -> owner.value);
+  accounts acct_t(cfg.boidtoken_c, dev_i->owner.value);
   auto dev_owner = acct_t.find(symbol("BOID",4).code().raw());
   check(dev_owner != acct_t.end(), "Account must exist in boidtoken contract");
 
@@ -140,15 +144,6 @@ void boidpower::updaterating(
   microseconds closest_round_end_us = microseconds(closest_round_end);
 
   if (p_i != p_t.end()) {
-    /*
-    check(
-      rtg.ratings.find(validator.value) == rtg.ratings.end() ||
-      !same_round(
-        round_start,round_end,
-        rtg.round_start.count(),rtg.round_end.count()),
-      "Validator attempting to rewrite validation for this round"
-    );
-    */
     check(
       closest_round_start >= rtg.round_start.count(),
       "Validator attempting to validate for a prior round"
@@ -186,7 +181,7 @@ void boidpower::updaterating(
       permission_level{cfg.boidtoken_c,"poweroracle"_n},
       cfg.boidtoken_c,
       "updatepower"_n,
-      std::make_tuple(dev_i -> owner, median_value)
+      std::make_tuple(dev_i->owner, median_value)
     ).send();
     dev_t.modify(dev_i, same_payer, [&](auto& a) {
       a.units += median_units;
@@ -298,19 +293,21 @@ void boidpower::regdevice(name owner, string device_name, uint64_t protocol_type
   device_t dev_t(get_self(), protocol_type);
   string prefixed_name = std::to_string(protocol_type) + "_" + device_name;//protoc_i->meta["prefix"] + device_name;
   checksum256 device_hash = sha256(prefixed_name.c_str(),prefixed_name.length());
-  auto devname_t = dev_t.get_index<"devicename"_n>();
-  auto devname_i = devname_t.find(device_hash);
-  bool valid_name = true;
-  uint64_t collision_modifier = 0;
-  while (devname_i != devname_t.end()) {
-    if (devname_i->device_name == device_name) valid_name = false;
-    collision_modifier++;
-  }
-  check(valid_name, "Device already registered");
-
   auto arr = device_hash.extract_as_byte_array().data();
   uint64_t device_key = hash2key(device_hash);
-  device_key += collision_modifier;
+  auto dev_i = dev_t.find(device_key);
+  bool valid_name = true;
+  uint64_t collision_modifier = 0;
+  while (dev_i != dev_t.end()) {
+    if (dev_i->device_name.compare(prefixed_name) == 0) {
+      valid_name = false;
+      break;
+    }
+    collision_modifier++;
+    device_key++;
+    dev_i = dev_t.find(device_key);
+  }
+  check(valid_name, "Device already registered");
 
   dev_t.emplace(payer, [&](auto& a) {
     a.device_key = device_key;
@@ -419,7 +416,7 @@ void boidpower::delprotocol(uint64_t protocol_type){
   protoc_t.erase(protoc_i);
 }
 
-void boidpower::deldevice(uint64_t protocol_type, uint64_t devnum)
+void boidpower::deldevice(uint64_t protocol_type, string device_name)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -428,22 +425,27 @@ void boidpower::deldevice(uint64_t protocol_type, uint64_t devnum)
   require_auth(cfg.registrar);
   
   device_t dev_t(get_self(), protocol_type);
-  auto dev_i = dev_t.find(devnum);
-  check(dev_i != dev_t.end(), "Protocol does not exist");
+  checksum256 device_hash = sha256(device_name.c_str(),device_name.length());
+  auto arr = device_hash.extract_as_byte_array().data();
+  uint64_t device_key = hash2key(device_hash);
+  auto dev_i = dev_t.find(device_key);
+
+  bool device_exists = false;
+  while (dev_i != dev_t.end()) {
+    if (dev_i->device_name.compare(device_name) == 0) {
+      device_exists = true;
+      break;
+    }
+    device_key++;
+    dev_i = dev_t.find(device_key);
+  }
+
+  check(device_exists, "Device does not exist");
   
   dev_t.erase(dev_i);
 }
 
-void boidpower::delaccount(name account, uint64_t devnum)
-{
-  config_t cfg_t(get_self(), get_self().value);
-  auto cfg_i = cfg_t.find(0);
-  check(cfg_i != cfg_t.end(),"Must first add configuration");
-  const auto& cfg = *cfg_i;
-  require_auth(cfg.registrar);
-}
-
-void boidpower::delrating(name validator, uint64_t device_key, uint64_t protocol_type)
+void boidpower::delrating(name validator, string device_name)
 {
   config_t cfg_t(get_self(), get_self().value);
   auto cfg_i = cfg_t.find(0);
@@ -454,7 +456,13 @@ void boidpower::delrating(name validator, uint64_t device_key, uint64_t protocol
   auto val_i = val_t.find(validator.value);
   check(val_i != val_t.end(), "Account not registered as validator");
 
-  require_auth(validator);
+  require_auth(cfg.registrar);
+
+  check(device_exists(device_name), "Device does not exist");
+  bool exists;
+  uint64_t device_key;
+  get_device_key(device_name, &exists, &device_key);
+  uint64_t protocol_type = get_protocol_type(device_name);
 
   power_t p_t(get_self(), device_key);
   auto p_i = p_t.find(protocol_type);
@@ -462,6 +470,16 @@ void boidpower::delrating(name validator, uint64_t device_key, uint64_t protocol
   check(p_i != p_t.end(), "Power rating for device:protocol does not exist");
   
   p_t.erase(p_i);
+}
+
+void boidpower::delconfig()
+{
+  config_t cfg_t(get_self(), get_self().value);
+  auto cfg_i = cfg_t.find(0);
+  check(cfg_i != cfg_t.end(),"Configuration does not exist");
+  require_auth(cfg_i->registrar);
+
+  cfg_t.erase(cfg_i);
 }
 
 // ------------------------ Non-action methods
@@ -571,6 +589,52 @@ float boidpower::get_median_rating(uint64_t device_key, uint64_t type, uint64_t*
   }
   
   return med;
+}
+
+bool boidpower::device_exists(string device_name)
+{
+  device_t dev_t(get_self(), get_protocol_type(device_name));
+  checksum256 device_hash = sha256(device_name.c_str(),device_name.length());
+  auto arr = device_hash.extract_as_byte_array().data();
+  uint64_t device_key = hash2key(device_hash);
+  auto dev_i = dev_t.find(device_key);
+
+  bool device_exists = false;
+  while (dev_i != dev_t.end()) {
+    if (dev_i->device_name.compare(device_name) == 0) {
+      device_exists = true;
+      break;
+    }
+    device_key++;
+    dev_i = dev_t.find(device_key);
+  }
+  return device_exists;
+}
+
+void boidpower::get_device_key(string device_name, bool* exists, uint64_t* device_key)
+{
+  device_t dev_t(get_self(), get_protocol_type(device_name));
+  checksum256 device_hash = sha256(device_name.c_str(),device_name.length());
+  auto arr = device_hash.extract_as_byte_array().data();
+  *device_key = hash2key(device_hash);
+  auto dev_i = dev_t.find(*device_key);
+
+  bool dev_exists = false;
+  while (dev_i != dev_t.end()) {
+    if (dev_i->device_name.compare(device_name) == 0) {
+      dev_exists = true;
+      break;
+    }
+    (*device_key)++;
+    dev_i = dev_t.find(*device_key);
+  }
+  *exists = dev_exists;
+}
+
+uint64_t boidpower::get_protocol_type(string device_name)
+{
+  size_t prefix_end = device_name.find_first_of('_');
+  return stoi(device_name.substr(0,prefix_end));
 }
 
 uint64_t boidpower::get_closest_round(uint64_t t)
