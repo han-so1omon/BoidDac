@@ -36,7 +36,7 @@
     "eosjs": "^20.0.0",
     "jasmine": "^3.4.0",
     "json": "^9.0.6",
-    "node-fetch": "^2.5.0",
+    "node-fetch": "^2.6.1",
     "vuepress": "^1.0.0-alpha.48"
   },
   "dependencies": {
